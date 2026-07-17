@@ -64,6 +64,7 @@ export async function POST(
           frameDataUrls,
         });
 
+        const { inspectionInclude } = await import('@/lib/videoInspection/access');
         const row = await getRlsDb().videoInspection.update({
           where: { id: existing.id },
           data: {
@@ -72,10 +73,7 @@ export async function POST(
             reportPromptVersion: CUSTOMER_VIDEO_REPORT_PROMPT_VERSION,
             errorMessage: null,
           },
-          include: {
-            technician: { select: { name: true } },
-            dealership: { select: { name: true } },
-          },
+          include: inspectionInclude,
         });
 
         await writeAuditedAccess({
