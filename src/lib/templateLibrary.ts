@@ -20,16 +20,9 @@ import type { RepairLine, RepairOrder, StoryTemplate, TemplateCategory } from '@
 
 export const GLOBAL_DEALERSHIP_ID = '__global__';
 
-export async function seedTemplateLibraryIfEmpty(): Promise<{ templates: number; knowledgeBase: number }> {
-  const [templateCount, kbCount] = await Promise.all([
-    prisma.template.count(),
-    prisma.knowledgeBase.count(),
-  ]);
-
-  if (templateCount > 0 && kbCount > 0) {
-    return { templates: templateCount, knowledgeBase: kbCount };
-  }
-
+async function upsertCustomerPayCatalogTemplates(): Promise<number> {
+  // Always upsert Customer Pay catalog so restored titles (B Service, A Service, LOF, …)
+  // appear even when the template table is already non-empty from a prior seed.
   for (const cp of CUSTOMER_PAY_TEMPLATES) {
     await prisma.template.upsert({
       where: {
@@ -54,6 +47,21 @@ export async function seedTemplateLibraryIfEmpty(): Promise<{ templates: number;
         dealershipId: GLOBAL_DEALERSHIP_ID,
       },
     });
+  }
+  return CUSTOMER_PAY_TEMPLATES.length;
+}
+
+export async function seedTemplateLibraryIfEmpty(): Promise<{ templates: number; knowledgeBase: number }> {
+  const [templateCount, kbCount] = await Promise.all([
+    prisma.template.count(),
+    prisma.knowledgeBase.count(),
+  ]);
+
+  // Customer Pay catalog is always reconciled (idempotent).
+  await upsertCustomerPayCatalogTemplates();
+
+  if (templateCount > 0 && kbCount > 0) {
+    return { templates: templateCount, knowledgeBase: kbCount };
   }
 
   for (const seed of STORY_TEMPLATE_SEEDS) {

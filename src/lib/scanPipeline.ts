@@ -125,20 +125,35 @@ export function filterScannedComplaintsForProcessing(
   };
 }
 
-function scoreCustomerPayTemplateMatch(scanText: string, templateTitle: string): number {
+function scoreCustomerPayTemplateMatch(
+  scanText: string,
+  templateTitle: string,
+  matchAliases: string[] = []
+): number {
   const normalized = normalizeScanMatchText(scanText);
-  if (normalized.length < 6) return 0;
+  // Allow short menu labels like "B Service" (9 chars) while still rejecting noise
+  if (normalized.length < 4) return 0;
 
   const titleNorm = normalizeScanMatchText(templateTitle);
-  if (normalized.includes(titleNorm)) return 1000 + titleNorm.length;
+  if (titleNorm && normalized.includes(titleNorm)) return 1000 + titleNorm.length;
 
-  const titleTokens = titleNorm.split(' ').filter((token) => token.length > 2);
+  // Exact alias hits (e.g. "service b", "lof", "oil change") — high priority
+  for (const alias of matchAliases) {
+    const aliasNorm = normalizeScanMatchText(alias);
+    if (aliasNorm.length >= 2 && normalized.includes(aliasNorm)) {
+      return 900 + aliasNorm.length;
+    }
+  }
+
+  const titleTokens = titleNorm.split(' ').filter((token) => token.length > 1);
   if (titleTokens.length === 0) return 0;
 
   const matchedTokens = titleTokens.filter((token) => normalized.includes(token));
   if (matchedTokens.length === 0) return 0;
 
   const coverage = matchedTokens.length / titleTokens.length;
+  // Short titles like "A Service" need full token coverage
+  if (titleTokens.length <= 2 && coverage < 1) return 0;
   if (coverage < 0.66) return 0;
 
   // Guardrail: disambiguate front vs rear brake templates on partial matches.
@@ -226,7 +241,11 @@ export function matchCustomerPayTemplateFromScanText(scanText: string): Customer
   let bestScore = 0;
 
   for (const template of CUSTOMER_PAY_TEMPLATES) {
-    const score = scoreCustomerPayTemplateMatch(trimmed, template.title);
+    const score = scoreCustomerPayTemplateMatch(
+      trimmed,
+      template.title,
+      template.matchAliases ?? []
+    );
     if (score > bestScore) {
       bestScore = score;
       best = { templateTitle: template.title, preWrittenStory: template.preWrittenStory };

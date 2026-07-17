@@ -1,10 +1,19 @@
 /**
- * Customer Pay story templates — base narratives for non-warranty work.
+ * Customer Pay story templates — base narratives for non-warranty / menu work.
  *
  * Compliance: Customer Pay repairs do not require MI 2.0 quality scoring or
  * warranty-grade audit promptVersion tracking. Manual template apply uses these
  * stories directly. Scan enrichment may apply light Grok variation via
  * generateDynamicCustomerPayNarrative while preserving template facts and tone.
+ *
+ * History: B Service / A Service / LOF originally lived in storyTemplateSeed
+ * (category: customer) in merlinus-v1. Commit 244b30f moved Customer Pay to this
+ * file but only shipped the expanded brake/battery/etc. set — the three scheduled-
+ * service seeds were dropped. Restored from merlinus-v1 git parent of 244b30f
+ * (2026-06-23) and adapted to preWrittenStory format.
+ *
+ * Auction / Offline dedicated templates were never present in recoverable git
+ * history (merlinus-platform or merlinus-v1).
  */
 
 export type TemplateTypeLabel = 'Warranty' | 'CustomerPay';
@@ -13,9 +22,66 @@ export interface CustomerPayTemplate {
   title: string;
   description: string;
   preWrittenStory: string;
+  /**
+   * Extra phrases that map RO scan text to this template (in addition to title).
+   * Used by matchCustomerPayTemplateFromScanText.
+   */
+  matchAliases?: string[];
 }
 
 export const CUSTOMER_PAY_TEMPLATES: CustomerPayTemplate[] = [
+  // ─── Scheduled services (restored from merlinus-v1 storyTemplateSeed) ───────
+  {
+    title: 'B Service',
+    description:
+      'Mercedes-Benz Service B interval: oil/filter, multipoint inspection, fluid checks, service indicator reset.',
+    matchAliases: [
+      'b service',
+      'service b',
+      'service-b',
+      'svc b',
+      'b svc',
+      'scheduled service b',
+      'maintenance b',
+      'mb service b',
+    ],
+    preWrittenStory:
+      'Performed Service B per Mercedes-Benz maintenance booklet. Replaced engine oil and oil filter, reset the service indicator, and completed the maintenance inspection per the workshop manual. Checked and topped fluids as required, inspected brakes, tires, belts, hoses, lights, and wipers, verified tire pressures, and road tested the vehicle. Returned the vehicle to the customer with service documentation and next service due recommendation.',
+  },
+  {
+    title: 'A Service',
+    description:
+      'Mercedes-Benz Service A interval: oil/filter, inspection, fluid and tire checks, service indicator reset.',
+    matchAliases: [
+      'a service',
+      'service a',
+      'service-a',
+      'svc a',
+      'a svc',
+      'scheduled service a',
+      'maintenance a',
+      'mb service a',
+    ],
+    preWrittenStory:
+      'Performed Service A per Mercedes-Benz maintenance booklet. Replaced engine oil and oil filter, reset the service indicator, and completed the maintenance inspection. Checked fluids and tire pressures, inspected brakes and tires, and verified proper operation on a road test. Vehicle returned to the customer.',
+  },
+  {
+    title: 'Lube, Oil & Filter Service',
+    description: 'Standard lube, oil, and filter service with leak check.',
+    matchAliases: [
+      'lube oil filter',
+      'lof',
+      'oil change',
+      'oil and filter',
+      'oil filter service',
+      'engine oil service',
+      'lof service',
+    ],
+    preWrittenStory:
+      'Performed lube, oil, and filter service. Drained engine oil, replaced the oil filter, and installed approved engine oil to specification. Checked and topped fluids as needed, reset the service reminder if applicable, and verified no leaks. Road tested — no issues noted.',
+  },
+
+  // ─── Common Customer Pay menu / a-la-carte work ─────────────────────────────
   {
     title: 'Front Brake Job',
     description: 'Complete front brake rotor and pad replacement with hardware service.',

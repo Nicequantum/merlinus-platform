@@ -78,6 +78,19 @@ describe('scan pipeline service lines', () => {
     assert.equal(filtered.complaints[2], 'A Service');
   });
 
+  it('matches restored B Service / A Service / LOF templates from scan text', () => {
+    const b = matchCustomerPayTemplateFromScanText('B. B SERVICE');
+    assert.equal(b?.templateTitle, 'B Service');
+    assert.match(b?.preWrittenStory ?? '', /Service B per Mercedes-Benz/i);
+
+    const a = matchCustomerPayTemplateFromScanText('# C A SERVICE');
+    assert.equal(a?.templateTitle, 'A Service');
+    assert.match(a?.preWrittenStory ?? '', /Service A per Mercedes-Benz/i);
+
+    const lof = matchCustomerPayTemplateFromScanText('D. Oil change / LOF service');
+    assert.equal(lof?.templateTitle, 'Lube, Oil & Filter Service');
+  });
+
   it('matches customer pay templates from scanned line text', () => {
     const match = matchCustomerPayTemplateFromScanText('B. Front brake job — rotors and pads');
     assert.equal(match?.templateTitle, 'Front Brake Job');

@@ -16,6 +16,10 @@ describe('Customer Pay templates', () => {
   it('includes at least 12 professionally written templates', () => {
     assert.ok(CUSTOMER_PAY_TEMPLATES.length >= 12);
     const titles = CUSTOMER_PAY_TEMPLATES.map((t) => t.title);
+    // Restored from merlinus-v1 storyTemplateSeed (pre 244b30f migration)
+    assert.ok(titles.includes('B Service'));
+    assert.ok(titles.includes('A Service'));
+    assert.ok(titles.includes('Lube, Oil & Filter Service'));
     assert.equal(new Set(titles).size, titles.length);
     for (const t of CUSTOMER_PAY_TEMPLATES) {
       assert.ok(t.description.trim().length > 10);
