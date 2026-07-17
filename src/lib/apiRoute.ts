@@ -83,6 +83,12 @@ interface RouteOptions {
    * Phase 7.3 (H14) — block service_advisor role from Grok/story mutation routes.
    */
   blockServiceAdvisorAi?: boolean;
+  /**
+   * PR-M0 — require product module entitlement(s) for this rooftop.
+   * Implies dealership context. core_story is never a ModuleId (always on).
+   * Disabled module → 403 MODULE_DISABLED.
+   */
+  requireModule?: import('@/lib/modules/catalog').ProductModuleId | import('@/lib/modules/catalog').ProductModuleId[];
 }
 
 export async function withAuth<T>(
@@ -153,6 +159,7 @@ async function withAuthInner<T>(
   const needsDealershipContext =
     options.requireDealershipContext === true ||
     options.requireAuditedAccess === true ||
+    options.requireModule != null ||
     (options.requireManager === true && options.requireDealershipContext !== false) ||
     (options.requireAdmin === true &&
       options.requireDealershipContext !== false &&
@@ -262,9 +269,33 @@ async function withAuthInner<T>(
   const startedAt = Date.now();
   const method = request.method;
   try {
+    const runHandler = async () => {
+      if (options.requireModule != null) {
+        const { assertModuleEnabled, ModuleDisabledError } = await import('@/lib/modules/entitlements');
+        const { dealershipId } = requireDealershipScope(session);
+        const required = Array.isArray(options.requireModule)
+          ? options.requireModule
+          : [options.requireModule];
+        try {
+          for (const moduleId of required) {
+            await assertModuleEnabled(dealershipId, moduleId);
+          }
+        } catch (error) {
+          if (error instanceof ModuleDisabledError) {
+            return NextResponse.json(
+              { error: error.message, code: error.code, moduleId: error.moduleId },
+              { status: 403 }
+            );
+          }
+          throw error;
+        }
+      }
+      return handler(session);
+    };
+
     const result = useRls
-      ? await withSessionRls(session, async () => handler(session))
-      : await handler(session);
+      ? await withSessionRls(session, runHandler)
+      : await runHandler();
     const status = result instanceof NextResponse || result instanceof Response ? result.status : 200;
     const isSuccessResponse = status >= 200 && status < 300;
     if (options.trackUsage && isSuccessResponse) {

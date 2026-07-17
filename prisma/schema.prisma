@@ -64,6 +64,7 @@ model DealerGroup {
 
   dealers     Dealer[]
   memberships DealerGroupMembership[]
+  modules     DealerGroupModule[]
 
   @@index([status])
   @@map("DealerGroup")
@@ -144,8 +145,62 @@ model Dealership {
   advisorObservations AdvisorComplaintObservation[]
   technicianMemberships TechnicianDealership[]
   videoInspections      VideoInspection[]
+  modules               DealershipModule[]
 
   @@index([dealerId])
+}
+
+// ─── PRODUCT MODULE ENTITLEMENTS (PR-M0) ─────────────────────────────────────
+// Toggleable rooftop/group modules. core_story is intentionally NOT an enum
+// value — the RO story pipeline is always-on and never stored as disabled.
+
+enum ModuleId {
+  video_mpi
+  maintenance
+  voice_agent
+  loaner
+  parts
+  cdk_sync
+}
+
+/** Per-rooftop module enablement (source of truth when a row exists). */
+model DealershipModule {
+  id           String     @id @default(cuid())
+  dealershipId String
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  moduleId     ModuleId
+  enabled      Boolean    @default(false)
+  /** Opaque JSON config (DIDs, CDK site codes, etc.) — no secrets preferred. */
+  configJson   String     @default("{}")
+  enabledAt    DateTime?
+  enabledById  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([dealershipId, moduleId])
+  @@index([dealershipId, enabled])
+  @@index([moduleId, enabled])
+  @@map("DealershipModule")
+}
+
+/**
+ * Default module enablement for rooftops in a DealerGroup.
+ * Used only when no DealershipModule row exists for that module.
+ */
+model DealerGroupModule {
+  id            String      @id @default(cuid())
+  dealerGroupId String      @map("dealer_group_id")
+  dealerGroup   DealerGroup @relation(fields: [dealerGroupId], references: [id], onDelete: Cascade)
+  moduleId      ModuleId    @map("module_id")
+  enabled       Boolean     @default(false)
+  configJson    String      @default("{}") @map("config_json")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@unique([dealerGroupId, moduleId])
+  @@index([dealerGroupId, enabled])
+  @@index([moduleId, enabled])
+  @@map("DealerGroupModule")
 }
 
 // MERLINUS SINGLE-DEALER — Technician is the authenticated user model (no separate User table).

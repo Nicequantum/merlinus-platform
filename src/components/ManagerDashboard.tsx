@@ -5,6 +5,7 @@ import {
   Activity,
   BarChart3,
   ClipboardList,
+  Puzzle,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -20,6 +21,14 @@ import type { PendingImage } from '@/types';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { DashboardSummary, RepairOrder, TechnicianSession } from '@/types';
+
+type ModuleStatusRow = {
+  moduleId: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  source: 'force_env' | 'dealership' | 'dealer_group' | 'default';
+};
 
 interface ManagerDashboardProps {
   session: TechnicianSession;
@@ -94,6 +103,9 @@ export function ManagerDashboard({
 }: ManagerDashboardProps) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modules, setModules] = useState<ModuleStatusRow[] | null>(null);
+  const [modulesLoading, setModulesLoading] = useState(true);
+  const [modulesError, setModulesError] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -107,12 +119,43 @@ export function ManagerDashboard({
     }
   }, []);
 
+  const loadModules = useCallback(async () => {
+    setModulesLoading(true);
+    setModulesError(null);
+    try {
+      const data = await api.getModuleStatuses();
+      setModules(data.modules);
+    } catch (e) {
+      setModules(null);
+      setModulesError(e instanceof Error ? e.message : 'Failed to load modules');
+    } finally {
+      setModulesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
 
+  useEffect(() => {
+    loadModules();
+  }, [loadModules]);
+
   const chain = summary?.audit?.chain;
   const isAdmin = session.isAdmin;
+
+  const sourceLabel = (source: ModuleStatusRow['source']) => {
+    switch (source) {
+      case 'dealership':
+        return 'Rooftop';
+      case 'dealer_group':
+        return 'Group default';
+      case 'force_env':
+        return 'Forced (env)';
+      default:
+        return 'Default (off)';
+    }
+  };
 
   return (
     <div className="benz-dashboard-layout benz-page-compact">
@@ -209,6 +252,59 @@ export function ManagerDashboard({
                   <ScrollText size={14} /> Audit log
                 </button>
               </div>
+            </div>
+
+            <div className="benz-card p-5">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="benz-avatar text-benz-blue">
+                    <Puzzle size={18} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm tracking-tight">Modules</div>
+                    <div className="benz-hint mt-0.5">
+                      Rooftop product modules · read-only · core story always on
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {modulesLoading ? (
+                <p className="text-xs text-benz-secondary">Loading module status…</p>
+              ) : modulesError ? (
+                <p className="text-xs text-benz-amber">{modulesError}</p>
+              ) : modules && modules.length > 0 ? (
+                <ul className="space-y-2" aria-label="Product module entitlements">
+                  {modules.map((mod) => (
+                    <li
+                      key={mod.moduleId}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-benz-border/60 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold tracking-tight">{mod.name}</div>
+                        <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
+                          {mod.description}
+                        </div>
+                        <div className="text-[11px] text-benz-secondary/80 mt-1">
+                          Source: {sourceLabel(mod.source)}
+                        </div>
+                      </div>
+                      <span
+                        className={`status-pill shrink-0 ${
+                          mod.enabled ? 'status-pill-valid' : 'status-pill-warn'
+                        }`}
+                      >
+                        {mod.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-benz-secondary">No modules configured.</p>
+              )}
+              <p className="text-[11px] text-benz-secondary mt-3 leading-relaxed">
+                Warranty RO story generation stays always available and is not listed as a toggleable
+                module.
+              </p>
             </div>
 
             {summary.recentRepairOrders.length > 0 && (

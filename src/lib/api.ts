@@ -647,6 +647,20 @@ export const api = {
 
   getDashboardSummary: () => apiFetch<DashboardSummary>('/api/dashboard/summary'),
 
+  /** PR-M0 — manager read-only product module entitlements for active rooftop. */
+  getModuleStatuses: () =>
+    apiFetch<{
+      dealershipId: string;
+      coreStoryAlwaysOn: true;
+      modules: Array<{
+        moduleId: string;
+        name: string;
+        description: string;
+        enabled: boolean;
+        source: 'force_env' | 'dealership' | 'dealer_group' | 'default';
+      }>;
+    }>('/api/modules'),
+
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 
   exportAuditLogsCsv: (params: {
