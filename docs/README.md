@@ -10,8 +10,8 @@
 
 | Role | Read first | Then use |
 |------|------------|----------|
-| **General Manager / Fixed Ops Director** | [Master Rollout Document](./Master-Rollout-Document.md) | [Go-Live Summary](./Go-Live-Summary.md) |
-| **Service Manager** | [Master Rollout Document](./Master-Rollout-Document.md) | [Rollout Checklist](./Rollout-Checklist.md) · [Go-Live Email](./Go-Live-Email-Template.md) |
+| **General Manager / Fixed Ops Director** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Go-Live Summary](./Go-Live-Summary.md) |
+| **Service Manager** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Rollout Checklist](./Rollout-Checklist.md) · [Go-Live Email](./Go-Live-Email-Template.md) |
 | **Dealership IT** | [Admin Setup Guide](./Admin-Setup-Guide.md) | [Go-Live Checklist](./Go-Live-Checklist.md) · [Support Playbook](./Support-Playbook.md) |
 | **Trainer / Lead Technician** | [Training Outline](./Training-Outline.md) | [Technician Quick Start](./Technician-Quick-Start.md) |
 | **Service Technician** | [Bay Reference Card](./Bay-Reference-Card.md) | [Technician Quick Start](./Technician-Quick-Start.md) |
@@ -23,6 +23,7 @@
 ### Leadership & strategy
 | Document | Purpose |
 |----------|---------|
+| [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
 | [Master-Rollout-Document.md](./Master-Rollout-Document.md) | Single authoritative rollout overview (< 10 min) |
 | [Go-Live-Summary.md](./Go-Live-Summary.md) | One-page executive approval brief |
 
