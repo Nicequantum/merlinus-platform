@@ -231,7 +231,7 @@ export const resolveAdvisorSchema = z.object({
 export type ServiceAdvisorLinkMode = 'existing' | 'create';
 
 export function resolveServiceAdvisorLinkMode(input: {
-  role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance';
+  role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance' | 'loaner';
   serviceAdvisorLinkMode?: ServiceAdvisorLinkMode;
   serviceAdvisorId?: string;
 }): ServiceAdvisorLinkMode | null {
@@ -246,7 +246,7 @@ export const createUserSchema = z
     name: safeText(100),
     password: z.string().min(8).max(128),
     role: z
-      .enum(['technician', 'manager', 'service_advisor', 'parts', 'maintenance'])
+      .enum(['technician', 'manager', 'service_advisor', 'parts', 'maintenance', 'loaner'])
       .default('technician'),
     serviceAdvisorLinkMode: z.enum(['existing', 'create']).optional(),
     serviceAdvisorId: safeIdOptional(64),

@@ -43,6 +43,8 @@ enum TechnicianRole {
   parts
   /** PR-M3 — facilities / maintenance staff (ticket kanban). */
   maintenance
+  /** PR-M4 — loaner fleet desk staff. */
+  loaner
 }
 
 /**
@@ -153,6 +155,8 @@ model Dealership {
   modules               DealershipModule[]
   departmentRequests    DepartmentRequest[]
   maintenanceTickets    MaintenanceTicket[]
+  loanerVehicles        LoanerVehicle[]
+  loanerAssignments     LoanerAssignment[]
 
   @@index([dealerId])
 }
@@ -272,6 +276,7 @@ model Technician {
   maintenanceTicketsCreated  MaintenanceTicket[] @relation("MaintenanceTicketCreatedBy")
   maintenanceTicketsAssigned MaintenanceTicket[] @relation("MaintenanceTicketAssignedTo")
   maintenanceTicketEvents    MaintenanceTicketEvent[]
+  loanerAssignmentsCreated   LoanerAssignment[] @relation("LoanerAssignmentCreatedBy")
 
   @@index([dealerId])
   @@index([dealershipId])
@@ -538,6 +543,93 @@ model MaintenanceTicketEvent {
   @@index([ticketId, createdAt])
   @@index([actorId])
   @@map("MaintenanceTicketEvent")
+}
+
+// ─── PR-M4 LOANER FLEET ──────────────────────────────────────────────────────
+enum LoanerVehicleStatus {
+  available
+  reserved
+  out
+  maintenance
+  out_of_service
+}
+
+enum LoanerAssignmentStatus {
+  reserved
+  active
+  returned
+  cancelled
+}
+
+/**
+ * Loaner fleet unit at a rooftop (independent of RO story / Parts / Maintenance).
+ */
+model LoanerVehicle {
+  id             String   @id @default(cuid())
+  dealershipId   String
+  dealership     Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  dealerId       String?  @map("dealer_id")
+  unitNumber     String
+  vinEncrypted   String   @default("")
+  vinLast8       String?
+  year           Int?
+  make           String?
+  model          String?
+  plateEncrypted String   @default("")
+  color          String?
+  odometer       Int      @default(0)
+  status         LoanerVehicleStatus @default(available)
+  notesEncrypted String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  assignments    LoanerAssignment[]
+
+  @@unique([dealershipId, unitNumber])
+  @@index([dealershipId, status])
+  @@index([dealershipId, vinLast8])
+  @@index([dealerId])
+  @@map("LoanerVehicle")
+}
+
+/**
+ * Reservation / checkout / return lifecycle for a loaner unit.
+ * Agent tools (PR-M5+) should call service helpers, not invent tenancy.
+ */
+model LoanerAssignment {
+  id                     String   @id @default(cuid())
+  dealershipId           String
+  dealership             Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  dealerId               String?  @map("dealer_id")
+  loanerVehicleId        String
+  loanerVehicle          LoanerVehicle @relation(fields: [loanerVehicleId], references: [id], onDelete: Cascade)
+  customerNameEncrypted  String   @default("")
+  customerPhoneEncrypted String   @default("")
+  customerPhoneLast4     String   @default("")
+  repairOrderId          String?
+  departmentRequestId    String?
+  checkoutAt             DateTime?
+  dueBackAt              DateTime?
+  returnedAt             DateTime?
+  outOdometer            Int?
+  inOdometer             Int?
+  fuelOut                String?
+  fuelIn                 String?
+  /** JSON array of { area, note, severity? } damage marks at checkout */
+  damageOutJson          String   @default("[]")
+  /** JSON array of damage marks at return */
+  damageInJson           String   @default("[]")
+  status                 LoanerAssignmentStatus @default(reserved)
+  createdById            String?
+  createdBy              Technician? @relation("LoanerAssignmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  notesEncrypted         String   @default("")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([dealershipId, status, createdAt(sort: Desc)])
+  @@index([loanerVehicleId, status])
+  @@index([dealershipId, customerPhoneLast4])
+  @@index([dealerId])
+  @@map("LoanerAssignment")
 }
 
 /**

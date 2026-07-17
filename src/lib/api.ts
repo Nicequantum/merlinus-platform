@@ -633,7 +633,7 @@ export const api = {
     d7Number: string;
     name: string;
     password: string;
-    role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance';
+    role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance' | 'loaner';
     serviceAdvisorLinkMode?: 'existing' | 'create';
     serviceAdvisorId?: string;
     newAdvisorDisplayName?: string;
@@ -850,6 +850,93 @@ export const api = {
       form,
       60_000
     ),
+
+  /** PR-M4 — loaner fleet */
+  listLoanerVehicles: (params?: { status?: string; available?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.available) query.set('available', '1');
+    const qs = query.toString();
+    return apiFetch<{ vehicles: Array<Record<string, unknown>> }>(
+      `/api/loaner/vehicles${qs ? `?${qs}` : ''}`,
+      { cache: 'no-store' }
+    );
+  },
+
+  createLoanerVehicle: (body: {
+    unitNumber: string;
+    vin?: string;
+    year?: number | null;
+    make?: string | null;
+    model?: string | null;
+    plate?: string;
+    color?: string | null;
+    odometer?: number;
+    status?: string;
+    notes?: string;
+  }) =>
+    apiFetch<{ vehicle: Record<string, unknown> }>('/api/loaner/vehicles', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchLoanerVehicle: (id: string, body: Record<string, unknown>) =>
+    apiFetch<{ vehicle: Record<string, unknown> }>(`/api/loaner/vehicles/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  listLoanerAssignments: (params?: { status?: string; open?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.open) query.set('open', '1');
+    const qs = query.toString();
+    return apiFetch<{ assignments: Array<Record<string, unknown>> }>(
+      `/api/loaner/assignments${qs ? `?${qs}` : ''}`,
+      { cache: 'no-store' }
+    );
+  },
+
+  getLoanerAssignment: (id: string) =>
+    apiFetch<{ assignment: Record<string, unknown> }>(`/api/loaner/assignments/${id}`, {
+      cache: 'no-store',
+    }),
+
+  createLoanerAssignment: (body: {
+    loanerVehicleId: string;
+    customerName?: string;
+    customerPhone?: string;
+    dueBackAt?: string | null;
+    repairOrderId?: string | null;
+    departmentRequestId?: string | null;
+    notes?: string;
+    mode?: 'reserve' | 'checkout';
+    outOdometer?: number | null;
+    fuelOut?: string | null;
+    damageOut?: Array<{ area: string; note?: string; severity?: string }>;
+  }) =>
+    apiFetch<{ assignment: Record<string, unknown> }>('/api/loaner/assignments', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchLoanerAssignment: (
+    id: string,
+    body: {
+      action: 'checkout' | 'return' | 'cancel';
+      outOdometer?: number | null;
+      inOdometer?: number | null;
+      fuelOut?: string | null;
+      fuelIn?: string | null;
+      damageOut?: Array<{ area: string; note?: string; severity?: string }>;
+      damageIn?: Array<{ area: string; note?: string; severity?: string }>;
+      markVehicleStatus?: 'available' | 'maintenance' | 'out_of_service';
+    }
+  ) =>
+    apiFetch<{ assignment: Record<string, unknown> }>(`/api/loaner/assignments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 
