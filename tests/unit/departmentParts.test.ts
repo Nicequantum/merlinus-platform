@@ -58,7 +58,7 @@ describe('PR-M2 department request + Parts', () => {
     assert.ok(!sql.includes('ALTER TABLE "RepairLine"'));
   });
 
-  test('API routes gate on parts module', () => {
+  test('API routes gate via department module helper (not static parts-only)', () => {
     for (const file of [
       'src/app/api/department-requests/route.ts',
       'src/app/api/department-requests/[id]/route.ts',
@@ -66,7 +66,12 @@ describe('PR-M2 department request + Parts', () => {
       'src/app/api/department-requests/[id]/lookups/route.ts',
     ]) {
       const src = readFileSync(resolve(process.cwd(), file), 'utf8');
-      assert.ok(src.includes("requireModule: 'parts'") || src.includes('requireModule: moduleId'), file);
+      assert.ok(
+        src.includes('assertDepartmentModuleEnabled') ||
+          src.includes("requireModule: 'parts'") ||
+          src.includes('requireModule: moduleId'),
+        file
+      );
     }
   });
 
@@ -81,6 +86,6 @@ describe('PR-M2 department request + Parts', () => {
       'utf8'
     );
     assert.ok(dash.includes('PartsDashboard'));
-    assert.ok(dash.includes('createDepartmentRequest'));
+    assert.ok(dash.includes('DepartmentRequestDashboard') || dash.includes('createDepartmentRequest'));
   });
 });

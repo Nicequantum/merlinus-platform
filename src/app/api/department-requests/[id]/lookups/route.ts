@@ -5,6 +5,7 @@ import {
   assertDepartmentInboxAccess,
   findDepartmentRequestForSession,
 } from '@/lib/department/access';
+import { assertDepartmentModuleEnabled } from '@/lib/department/moduleGate';
 import { mapPartsLookup } from '@/lib/department/mappers';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody, parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
@@ -32,6 +33,8 @@ export async function POST(
     async (session) => {
       const existing = await findDepartmentRequestForSession(session, routeParams.data.id, 'parts');
       if (!existing) return apiError(NOT_FOUND_ERROR, 404);
+      const mod = await assertDepartmentModuleEnabled(session.dealershipId, 'parts');
+      if (!mod.ok) return apiError(mod.message, 403);
       const access = assertDepartmentInboxAccess(session, 'parts');
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
 
@@ -55,7 +58,6 @@ export async function POST(
     {
       rateLimitKey: 'department.lookups.post',
       requireDealershipContext: true,
-      requireModule: 'parts',
     }
   );
 }

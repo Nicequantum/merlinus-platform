@@ -66,6 +66,8 @@ export function SettingsView({
       | 'manager'
       | 'service_advisor'
       | 'parts'
+      | 'sales'
+      | 'service'
       | 'maintenance'
       | 'loaner',
     serviceAdvisorLinkMode: 'create' as 'existing' | 'create',
@@ -475,6 +477,8 @@ export function SettingsView({
                       | 'manager'
                       | 'service_advisor'
                       | 'parts'
+                      | 'sales'
+                      | 'service'
                       | 'maintenance'
                       | 'loaner',
                     serviceAdvisorId: e.target.value === 'service_advisor' ? u.serviceAdvisorId : '',
@@ -491,6 +495,8 @@ export function SettingsView({
                 <option value="manager">Manager</option>
                 <option value="service_advisor">Service Advisor</option>
                 <option value="parts">Parts</option>
+                <option value="sales">Sales</option>
+                <option value="service">Service</option>
                 <option value="maintenance">Maintenance</option>
                 <option value="loaner">Loaner</option>
               </select>

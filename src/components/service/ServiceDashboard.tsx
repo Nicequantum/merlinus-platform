@@ -7,7 +7,7 @@ import {
 
 type Props = Omit<DepartmentRequestDashboardProps, 'department'>;
 
-/** PR-M2/M8 — Parts inbox (shared DepartmentRequest shell). */
-export function PartsDashboard(props: Props) {
-  return <DepartmentRequestDashboard department="parts" {...props} />;
+/** PR-M8 — Service inbox (shared DepartmentRequest shell). */
+export function ServiceDashboard(props: Props) {
+  return <DepartmentRequestDashboard department="service" {...props} />;
 }

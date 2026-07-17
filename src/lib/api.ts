@@ -633,7 +633,15 @@ export const api = {
     d7Number: string;
     name: string;
     password: string;
-    role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance' | 'loaner';
+    role:
+      | 'technician'
+      | 'manager'
+      | 'service_advisor'
+      | 'parts'
+      | 'sales'
+      | 'service'
+      | 'maintenance'
+      | 'loaner';
     serviceAdvisorLinkMode?: 'existing' | 'create';
     serviceAdvisorId?: string;
     newAdvisorDisplayName?: string;

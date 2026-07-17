@@ -45,6 +45,10 @@ enum TechnicianRole {
   maintenance
   /** PR-M4 — loaner fleet desk staff. */
   loaner
+  /** PR-M8 — sales department inbox. */
+  sales
+  /** PR-M8 — service department inbox. */
+  service
 }
 
 /**
@@ -174,6 +178,8 @@ enum ModuleId {
   voice_agent
   loaner
   parts
+  sales
+  service
   cdk_sync
 }
 

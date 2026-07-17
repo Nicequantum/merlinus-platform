@@ -11,8 +11,10 @@ import {
   DEPARTMENT_REQUEST_PRIORITIES,
   DEPARTMENT_REQUEST_STATUSES,
   isDepartmentId,
+  isInboxDepartmentId,
   type DepartmentId,
 } from '@/lib/department/constants';
+import { assertDepartmentModuleEnabled } from '@/lib/department/moduleGate';
 import {
   last8OfVin,
   mapDepartmentRequestDetail,
@@ -37,11 +39,6 @@ const patchSchema = z.object({
   assignedToId: z.string().max(64).nullable().optional(),
 });
 
-function moduleForDepartment(department: string): 'parts' | null {
-  if (department === 'parts') return 'parts';
-  return null;
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -54,7 +51,11 @@ export async function GET(
     async (session) => {
       const row = await findDepartmentRequestForSession(session, routeParams.data.id);
       if (!row) return apiError(NOT_FOUND_ERROR, 404);
-      if (!isDepartmentId(row.department)) return apiError(NOT_FOUND_ERROR, 404);
+      if (!isDepartmentId(row.department) || !isInboxDepartmentId(row.department)) {
+        return apiError(NOT_FOUND_ERROR, 404);
+      }
+      const mod = await assertDepartmentModuleEnabled(session.dealershipId, row.department);
+      if (!mod.ok) return apiError(mod.message, 403);
       const access = assertDepartmentInboxAccess(session, row.department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
       return { request: mapDepartmentRequestDetail(row) };
@@ -62,7 +63,6 @@ export async function GET(
     {
       rateLimitKey: 'department.get',
       requireDealershipContext: true,
-      requireModule: 'parts',
     }
   );
 }
@@ -79,12 +79,14 @@ export async function PATCH(
     async (session) => {
       const existing = await findDepartmentRequestForSession(session, routeParams.data.id);
       if (!existing) return apiError(NOT_FOUND_ERROR, 404);
-      if (!isDepartmentId(existing.department)) return apiError(NOT_FOUND_ERROR, 404);
-      const access = assertDepartmentInboxAccess(session, existing.department as DepartmentId);
+      if (!isDepartmentId(existing.department) || !isInboxDepartmentId(existing.department)) {
+        return apiError(NOT_FOUND_ERROR, 404);
+      }
+      const department = existing.department as DepartmentId;
+      const mod = await assertDepartmentModuleEnabled(session.dealershipId, department);
+      if (!mod.ok) return apiError(mod.message, 403);
+      const access = assertDepartmentInboxAccess(session, department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
-
-      const moduleId = moduleForDepartment(existing.department);
-      if (!moduleId) return apiError('Department module not available yet', 400);
 
       const parsed = await parseRequestBody(request, patchSchema, AUTH_JSON_BODY_LIMIT_BYTES);
       if ('error' in parsed) return parsed.error;
@@ -127,7 +129,6 @@ export async function PATCH(
     {
       rateLimitKey: 'department.patch',
       requireDealershipContext: true,
-      requireModule: 'parts',
     }
   );
 }

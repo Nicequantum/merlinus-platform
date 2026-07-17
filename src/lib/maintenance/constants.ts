@@ -70,6 +70,9 @@ export function canSubmitMaintenance(role: string): boolean {
     role === 'manager' ||
     role === 'service_advisor' ||
     role === 'parts' ||
+    role === 'sales' ||
+    role === 'service' ||
+    role === 'loaner' ||
     role === 'maintenance' ||
     role === 'owner'
   );

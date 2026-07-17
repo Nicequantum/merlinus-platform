@@ -17,6 +17,8 @@ import {
   Wrench,
   Car,
   Phone,
+  Briefcase,
+  Headset,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -46,6 +48,8 @@ interface ManagerDashboardProps {
   onOpenTechnicians: () => void;
   onOpenVideoInspection?: () => void;
   onOpenParts?: () => void;
+  onOpenSales?: () => void;
+  onOpenService?: () => void;
   onOpenMaintenance?: () => void;
   onOpenLoaner?: () => void;
   onOpenVoice?: () => void;
@@ -97,6 +101,8 @@ export function ManagerDashboard({
   onOpenTechnicians,
   onOpenVideoInspection,
   onOpenParts,
+  onOpenSales,
+  onOpenService,
   onOpenMaintenance,
   onOpenLoaner,
   onOpenVoice,
@@ -252,6 +258,24 @@ export function ManagerDashboard({
                     className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     <Package size={14} /> Parts inbox
+                  </button>
+                ) : null}
+                {onOpenSales ? (
+                  <button
+                    type="button"
+                    onClick={onOpenSales}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Briefcase size={14} /> Sales inbox
+                  </button>
+                ) : null}
+                {onOpenService ? (
+                  <button
+                    type="button"
+                    onClick={onOpenService}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Headset size={14} /> Service inbox
                   </button>
                 ) : null}
                 {onOpenMaintenance ? (

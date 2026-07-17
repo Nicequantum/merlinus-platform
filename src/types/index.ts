@@ -154,6 +154,8 @@ export type AppView =
   | 'technicians'
   | 'videoInspection'
   | 'parts'
+  | 'sales'
+  | 'service'
   | 'maintenance'
   | 'loaner'
   | 'voice';

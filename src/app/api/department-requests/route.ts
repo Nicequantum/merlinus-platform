@@ -12,8 +12,11 @@ import {
   DEPARTMENT_REQUEST_SOURCES,
   DEPARTMENT_REQUEST_STATUSES,
   isDepartmentId,
+  isInboxDepartmentId,
+  moduleForDepartment,
   type DepartmentId,
 } from '@/lib/department/constants';
+import { assertDepartmentModuleEnabled } from '@/lib/department/moduleGate';
 import {
   last8OfVin,
   mapDepartmentRequestDetail,
@@ -56,14 +59,9 @@ const createSchema = z.object({
     .optional(),
 });
 
-function moduleForDepartment(department: DepartmentId): 'parts' | null {
-  if (department === 'parts') return 'parts';
-  // Future departments map to their module ids here
-  return null;
-}
-
 /**
- * PR-M2 — list department requests for a rooftop inbox.
+ * List department requests for a rooftop inbox (parts / sales / service).
+ * Module gate is applied after department is known (not a single static requireModule).
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -78,14 +76,16 @@ export async function GET(request: Request) {
     return apiError('Invalid department', 400);
   }
   const department = parsedQuery.data.department;
-  const moduleId = moduleForDepartment(department);
-  if (!moduleId) {
+  if (!isInboxDepartmentId(department) || !moduleForDepartment(department)) {
     return apiError('Department module not available yet', 400);
   }
 
   return withAuth(
     request,
     async (session) => {
+      const mod = await assertDepartmentModuleEnabled(session.dealershipId, department);
+      if (!mod.ok) return apiError(mod.message, 403);
+
       const access = assertDepartmentInboxAccess(session, department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
 
@@ -132,13 +132,12 @@ export async function GET(request: Request) {
     {
       rateLimitKey: 'department.list',
       requireDealershipContext: true,
-      requireModule: moduleId,
     }
   );
 }
 
 /**
- * PR-M2 — create a department request (manual Parts entry first).
+ * Create a department request (manual staff entry or internal tools).
  */
 export async function POST(request: Request) {
   return withAuth(
@@ -149,11 +148,14 @@ export async function POST(request: Request) {
       if (!isDepartmentId(parsed.data.department)) {
         return apiError('Invalid department', 400);
       }
-      const department = parsed.data.department;
-      const moduleId = moduleForDepartment(department);
-      if (!moduleId) return apiError('Department module not available yet', 400);
+      const department = parsed.data.department as DepartmentId;
+      if (!isInboxDepartmentId(department)) {
+        return apiError('Department module not available yet', 400);
+      }
 
-      // Module check is also on withAuth below — double-check access role here
+      const mod = await assertDepartmentModuleEnabled(session.dealershipId, department);
+      if (!mod.ok) return apiError(mod.message, 403);
+
       const access = assertDepartmentInboxAccess(session, department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
 
@@ -205,10 +207,6 @@ export async function POST(request: Request) {
     {
       rateLimitKey: 'department.create',
       requireDealershipContext: true,
-      // Module enforced after body parse via dynamic module — use parts for now when body has parts.
-      // withAuth requireModule is static; we enforce module in-handler for create after parse,
-      // but still set parts as default gate for first department.
-      requireModule: 'parts',
     }
   );
 }

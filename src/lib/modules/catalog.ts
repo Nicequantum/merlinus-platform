@@ -1,8 +1,8 @@
 /**
- * Product module catalog (PR-M0).
+ * Product module catalog (PR-M0+).
  *
  * core_story is intentionally excluded — the RO → evidence → AI narrative
- * pipeline is always-on and must never appear as a disableable module.
+ * pipeline is always-on and never appears as a disableable module.
  */
 
 import type { ModuleId } from '@prisma/client';
@@ -15,6 +15,8 @@ export const PRODUCT_MODULE_IDS: readonly ProductModuleId[] = [
   'voice_agent',
   'loaner',
   'parts',
+  'sales',
+  'service',
   'cdk_sync',
 ] as const;
 
@@ -52,6 +54,16 @@ export const MODULE_CATALOG: readonly ModuleCatalogEntry[] = [
     description: 'Parts inbox for customer requests, VIN context, and request status.',
   },
   {
+    id: 'sales',
+    name: 'Sales Department',
+    description: 'Sales inbox for leads and voice-routed customer requests.',
+  },
+  {
+    id: 'service',
+    name: 'Service Department',
+    description: 'Service inbox for appointment and repair follow-ups from staff or voice.',
+  },
+  {
     id: 'cdk_sync',
     name: 'CDK Global Sync',
     description: 'Live CDK Global API sync (clipboard CDK paste remains always available).',
@@ -75,7 +87,7 @@ export function isProductModuleId(value: string): value is ProductModuleId {
 }
 
 /**
- * Dev/ops break-glass: MODULES_FORCE_ENABLE=video_mpi,parts
+ * Dev/ops break-glass: MODULES_FORCE_ENABLE=video_mpi,parts,sales,service
  * Never use for core_story (not a product module).
  */
 export function parseForcedModules(envValue = process.env.MODULES_FORCE_ENABLE): Set<ProductModuleId> {

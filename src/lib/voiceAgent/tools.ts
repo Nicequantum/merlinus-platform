@@ -249,20 +249,17 @@ async function createDepartmentTicket(
   department: 'parts' | 'sales' | 'service',
   args: Record<string, unknown>
 ): Promise<ToolExecutionOutput> {
+  // PR-M8 — sales/service are first-class modules (same spine as parts).
   const moduleId =
-    department === 'parts' ? 'parts' : department === 'sales' ? null : null;
-  // Sales/service use DepartmentRequest spine without separate modules in M5b —
-  // only parts is module-gated for ticket creation; sales/service tickets always allowed when voice is on.
-  if (moduleId) {
-    const on = await isModuleEnabled(ctx.dealershipId, moduleId);
-    if (!on) {
-      return {
-        result: { ok: false, message: `${department} module is not enabled` },
-        state,
-        activeAgent: ctx.activeAgent,
-        endCall: false,
-      };
-    }
+    department === 'parts' ? 'parts' : department === 'sales' ? 'sales' : 'service';
+  const on = await isModuleEnabled(ctx.dealershipId, moduleId);
+  if (!on) {
+    return {
+      result: { ok: false, message: `${department} module is not enabled` },
+      state,
+      activeAgent: ctx.activeAgent,
+      endCall: false,
+    };
   }
 
   const str = (key: string) =>

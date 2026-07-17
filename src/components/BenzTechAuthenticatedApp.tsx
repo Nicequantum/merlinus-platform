@@ -83,6 +83,16 @@ const PartsDashboard = dynamic(
   { loading: () => <LoadingScreen label="Loading parts inbox" /> }
 );
 
+const SalesDashboard = dynamic(
+  () => import('@/components/sales/SalesDashboard').then((m) => m.SalesDashboard),
+  { loading: () => <LoadingScreen label="Loading sales inbox" /> }
+);
+
+const ServiceDashboard = dynamic(
+  () => import('@/components/service/ServiceDashboard').then((m) => m.ServiceDashboard),
+  { loading: () => <LoadingScreen label="Loading service inbox" /> }
+);
+
 const MaintenanceDashboard = dynamic(
   () =>
     import('@/components/maintenance/MaintenanceDashboard').then((m) => m.MaintenanceDashboard),
@@ -136,8 +146,11 @@ export function BenzTechAuthenticatedApp({
   const isServiceAdvisor = roleForUi === 'service_advisor';
   const isManager = roleForUi === 'manager';
   const isParts = roleForUi === 'parts';
+  const isSales = roleForUi === 'sales';
+  const isService = roleForUi === 'service';
   const isMaintenance = roleForUi === 'maintenance';
   const isLoaner = roleForUi === 'loaner';
+  const isDepartmentStaff = isParts || isSales || isService;
   const isDesktop = useDesktopCompanion();
   const companionSyncRole = deriveCompanionSyncRole(isDesktop);
   // Child UI that branches on role/isAdmin should see the View As lens.
@@ -205,7 +218,7 @@ export function BenzTechAuthenticatedApp({
   if (
     !isServiceAdvisor &&
     !isManager &&
-    !isParts &&
+    !isDepartmentStaff &&
     !isMaintenance &&
     !isLoaner &&
     ro.loading &&
@@ -216,7 +229,7 @@ export function BenzTechAuthenticatedApp({
 
   if (
     !isServiceAdvisor &&
-    !isParts &&
+    !isDepartmentStaff &&
     !isMaintenance &&
     !isLoaner &&
     ro.listError &&
@@ -234,8 +247,23 @@ export function BenzTechAuthenticatedApp({
 
   const goToSettings = () => ro.setView('settings');
 
-  // PR-M2 — Parts staff shell (no RO story pipeline)
-  if (isParts) {
+  // PR-M2/M8 — Department inbox staff shells (Parts / Sales / Service; no RO story pipeline)
+  if (isDepartmentStaff) {
+    const homeDashboard =
+      isParts ? (
+        <ViewErrorBoundary viewName="the parts inbox">
+          <PartsDashboard session={uiSession} onOpenSettings={goToSettings} onLogout={onLogout} />
+        </ViewErrorBoundary>
+      ) : isSales ? (
+        <ViewErrorBoundary viewName="the sales inbox">
+          <SalesDashboard session={uiSession} onOpenSettings={goToSettings} onLogout={onLogout} />
+        </ViewErrorBoundary>
+      ) : (
+        <ViewErrorBoundary viewName="the service inbox">
+          <ServiceDashboard session={uiSession} onOpenSettings={goToSettings} onLogout={onLogout} />
+        </ViewErrorBoundary>
+      );
+
     return (
       <div className="app-container">
         <MaintenanceBanner />
@@ -256,13 +284,7 @@ export function BenzTechAuthenticatedApp({
             />
           </ViewErrorBoundary>
         ) : (
-          <ViewErrorBoundary viewName="the parts inbox">
-            <PartsDashboard
-              session={uiSession}
-              onOpenSettings={goToSettings}
-              onLogout={onLogout}
-            />
-          </ViewErrorBoundary>
+          homeDashboard
         )}
         <AppFooter />
       </div>
@@ -430,6 +452,8 @@ export function BenzTechAuthenticatedApp({
         ro.view !== 'technicians' &&
         ro.view !== 'videoInspection' &&
         ro.view !== 'parts' &&
+        ro.view !== 'sales' &&
+        ro.view !== 'service' &&
         ro.view !== 'maintenance' &&
         ro.view !== 'loaner' &&
         ro.view !== 'voice' && (
@@ -446,11 +470,34 @@ export function BenzTechAuthenticatedApp({
             session={uiSession}
             onOpenSettings={goToSettings}
             onLogout={onLogout}
+            onBack={() => ro.setView('home')}
           />
         </ViewErrorBoundary>
       )}
 
-      {ro.view === 'maintenance' && !isParts && !isMaintenance && !isLoaner && (
+      {ro.view === 'sales' && (
+        <ViewErrorBoundary viewName="the sales inbox">
+          <SalesDashboard
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+            onBack={() => ro.setView('home')}
+          />
+        </ViewErrorBoundary>
+      )}
+
+      {ro.view === 'service' && (
+        <ViewErrorBoundary viewName="the service inbox">
+          <ServiceDashboard
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+            onBack={() => ro.setView('home')}
+          />
+        </ViewErrorBoundary>
+      )}
+
+      {ro.view === 'maintenance' && !isDepartmentStaff && !isMaintenance && !isLoaner && (
         <ViewErrorBoundary viewName="the maintenance board">
           <MaintenanceDashboard
             session={uiSession}
@@ -493,6 +540,8 @@ export function BenzTechAuthenticatedApp({
             onOpenRO={ro.openRO}
             onOpenVideoInspection={() => ro.setView('videoInspection')}
             onOpenParts={() => ro.setView('parts')}
+            onOpenSales={() => ro.setView('sales')}
+            onOpenService={() => ro.setView('service')}
             onOpenMaintenance={() => ro.setView('maintenance')}
             onOpenLoaner={() => ro.setView('loaner')}
             onOpenVoice={() => ro.setView('voice')}
