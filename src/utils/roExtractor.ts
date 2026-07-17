@@ -12,8 +12,13 @@ const COMPLAINT_SECTION_HEADERS = [
 /** Only used when no hashtag labels or structural headers are present. */
 const COMPLAINT_SECTION_FALLBACK_MARKERS = [/CUST(?:OMER)?\s+(?:STATES?|COMPLAINT|CONCERN)/i];
 
+/**
+ * Whole-token form-field noise when it is the entire first word of a line.
+ * Note: do NOT include bare "service" — that would drop menu lines like
+ * "Service Package" / "Service B" that are real RO line items (Customer Pay).
+ */
 const JUNK_COMPLAINT_PREFIX =
-  /^(vin|mile|km|ro\s*#|date|tech|name|model|customer|service|advisor|authorized|total|tax|parts|shop|dealer|labor|signature|opcode|line|hours|type|passed|cdef|risi)$/i;
+  /^(vin|mile|km|ro\s*#|date|tech|name|model|customer|advisor|authorized|total|tax|parts|shop|dealer|labor|signature|opcode|line|hours|type|passed|cdef|risi)$/i;
 
 /** Continuation / inspection detail lines — not standalone complaints. */
 const INSPECTION_DETAIL_LINE =
@@ -147,18 +152,54 @@ export function isObviousOcrGarbage(text: string): boolean {
   return false;
 }
 
+/**
+ * Short shop codes / menu-priced packages that are real RO lines but fail the
+ * "plausible customer complaint" heuristic (too short / few long words).
+ * Includes A/B/C Service and similar Customer Pay menu items.
+ */
 function isShortServiceLine(text: string): boolean {
   const trimmed = normalizeComplaintText(text);
+  if (!trimmed) return false;
   if (trimmed.length <= 4 && /^[A-Z]{2,4}$/.test(trimmed)) return true;
-  return /^(?:QC|QUALITY\s+CONTROL|INSPECTION|STATE\s+INSPECTION)$/i.test(trimmed);
+  if (/^(?:QC|QUALITY\s+CONTROL|INSPECTION|STATE\s+INSPECTION)$/i.test(trimmed)) return true;
+  // Menu-priced / scheduled services (not warranty-only)
+  if (/^[A-C]\s*[-.]?\s*service\b/i.test(trimmed)) return true;
+  if (/\b[A-C]\s*[-.]?\s*service\b/i.test(trimmed) && trimmed.length <= 120) return true;
+  if (/^(?:oil\s+change|multipoint|multi\s*point|brake\s+fluid|wiper|cabin\s+air|engine\s+air|battery\s+test)\b/i.test(trimmed)) {
+    return true;
+  }
+  if (/^[A-C]\s+svc\b/i.test(trimmed)) return true;
+  return false;
 }
 
-/** Junk for stacked # A/# B column pairing — keep QC/short real lines. */
+/**
+ * Whether text is a keepable RO line item (warranty concern, menu service, QC, etc.).
+ * Used so Customer Pay / B Service lines are not dropped during scan extraction.
+ * Still rejects OCR garbage / form junk so stacked-label pairing stays accurate.
+ */
+export function isAcceptableRoLineText(text: string): boolean {
+  const cleaned = normalizeComplaintForDisplay(text);
+  if (!cleaned) return false;
+  if (isObviousOcrGarbage(cleaned)) return false;
+  if (isInspectionDetailLine(cleaned)) return false;
+  if (FORM_JUNK_LINE.test(cleaned)) return false;
+  if (isShortServiceLine(cleaned)) return true;
+  if (isPlausibleComplaintText(cleaned)) return true;
+  // Short multi-word menu lines that fail the long-word heuristic (e.g. "B SVC")
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length >= 2 && isValidComplaintText(cleaned) && /[A-Za-z]{3,}/.test(cleaned)) {
+    return true;
+  }
+  return false;
+}
+
+/** Junk for stacked # A/# B column pairing — keep QC/short real lines and menu packages. */
 function isStackedPairingJunk(text: string): boolean {
   if (!text?.trim()) return true;
   if (isObviousOcrGarbage(text)) return true;
   if (isInspectionDetailLine(text)) return true;
   if (isShortServiceLine(text)) return false;
+  if (isAcceptableRoLineText(text)) return false;
   return !isPlausibleComplaintText(text);
 }
 
@@ -556,7 +597,7 @@ function buildComplaintTimeline(lines: string[]): ComplaintTimelineEntry[] {
     if (isInspectionDetailLine(line)) continue;
     if (FORM_JUNK_LINE.test(line)) continue;
     const content = normalizeComplaintContent(line);
-    if (isValidComplaintText(content) || isShortServiceLine(content)) {
+    if (isValidComplaintText(content) || isShortServiceLine(content) || isAcceptableRoLineText(content)) {
       timeline.push({ kind: 'text', text: content });
     }
   }
@@ -583,7 +624,7 @@ function appendContinuationText(results: LabeledComplaint[], continuation: strin
   if (!extra || results.length === 0) return;
   const last = results[results.length - 1];
   const merged = normalizeComplaintForDisplay(`${last.text} ${extra}`.trim());
-  if (merged && (isPlausibleComplaintText(merged) || isShortServiceLine(merged))) {
+  if (merged && isAcceptableRoLineText(merged)) {
     last.text = merged;
   }
 }
@@ -591,8 +632,7 @@ function appendContinuationText(results: LabeledComplaint[], continuation: strin
 function pickPairedComplaintText(raw: string): string {
   const cleaned = normalizeComplaintForDisplay(raw);
   if (!cleaned) return '';
-  if (isPlausibleComplaintText(cleaned)) return cleaned;
-  if (isShortServiceLine(cleaned)) return cleaned;
+  if (isAcceptableRoLineText(cleaned)) return cleaned;
   return '';
 }
 
@@ -741,7 +781,7 @@ export function extractOrderedHashtagComplaints(text: string): LabeledComplaint[
           prevPage[prevPage.length - 1];
         if (target) {
           const merged = normalizeComplaintForDisplay(`${target.text} ${leadingOrphan}`.trim());
-          if (merged && (isPlausibleComplaintText(merged) || isShortServiceLine(merged))) {
+          if (merged && isAcceptableRoLineText(merged)) {
             target.text = merged;
           }
         }
@@ -767,10 +807,11 @@ export function extractOrderedHashtagComplaints(text: string): LabeledComplaint[
 function extractHashtagLabeledBlocks(section: string): Map<string, string> {
   const byLetter = new Map<string, string>();
   for (const { letter, text } of extractOrderedHashtagComplaints(section)) {
-    if (text && (isPlausibleComplaintText(text) || isShortServiceLine(text))) {
+    if (text && isAcceptableRoLineText(text)) {
       addLetterComplaint(byLetter, letter, text);
     } else if (!byLetter.has(letter)) {
-      byLetter.set(letter, '');
+      // Preserve the letter slot even when text is empty/unparsed — tech can edit
+      byLetter.set(letter, text && acceptLabeledComplaintText(text) ? acceptLabeledComplaintText(text) : '');
     }
   }
   return byLetter;
@@ -920,7 +961,8 @@ function filterComplaintList(complaints: string[]): string[] {
   const out: string[] = [];
   for (const raw of complaints) {
     const c = normalizeComplaintContent(raw);
-    if (!isValidComplaintText(c)) continue;
+    // Keep all real RO line items (warranty concerns + menu/Customer Pay packages)
+    if (!isAcceptableRoLineText(c) && !isValidComplaintText(c)) continue;
     if (isInspectionDetailLine(c)) continue;
     const key = c.toLowerCase();
     if (!seen.has(key)) {
@@ -954,7 +996,7 @@ function isComplaintLetter(letter: string, text: string): boolean {
   if (!isComplaintSlotLetter(letter)) return false;
   if (!text?.trim()) return true;
   const cleaned = normalizeComplaintForDisplay(text);
-  return isPlausibleComplaintText(cleaned) || isShortServiceLine(cleaned);
+  return isAcceptableRoLineText(cleaned);
 }
 
 function getComplaintSection(text: string): string {
@@ -1826,7 +1868,7 @@ export function extractRoNumberFromText(text: string): string {
 export function sanitizeComplaints(complaints: string[]): string[] {
   return complaints
     .map((c) => normalizeComplaintForDisplay(c))
-    .filter((c) => isPlausibleComplaintText(c))
+    .filter((c) => isAcceptableRoLineText(c))
     .slice(0, 15);
 }
 

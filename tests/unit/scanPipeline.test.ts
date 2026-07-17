@@ -67,13 +67,15 @@ describe('scan pipeline errors', () => {
 });
 
 describe('scan pipeline service lines', () => {
-  it('retains B-service lines for warranty narrative support', () => {
+  it('retains B-service and menu package lines (no warranty-only drop)', () => {
     const filtered = filterScannedComplaintsForProcessing(
-      ['Check engine light on', 'Front brake job customer pay'],
-      ['A', 'B']
+      ['Check engine light on', 'B Service', 'A Service', 'Front brake job customer pay'],
+      ['A', 'B', 'C', 'D']
     );
-    assert.deepEqual(filtered.complaintLabels, ['A', 'B']);
-    assert.equal(filtered.complaints.length, 2);
+    assert.deepEqual(filtered.complaintLabels, ['A', 'B', 'C', 'D']);
+    assert.equal(filtered.complaints.length, 4);
+    assert.equal(filtered.complaints[1], 'B Service');
+    assert.equal(filtered.complaints[2], 'A Service');
   });
 
   it('matches customer pay templates from scanned line text', () => {

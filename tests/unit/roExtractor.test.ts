@@ -5,6 +5,7 @@ import {
   extractLetterLabeledComplaints,
   extractLetterLabeledComplaintsWithLabels,
   extractServiceAdvisorFromText,
+  isAcceptableRoLineText,
   isPlausibleComplaintText,
   mergeMultiPassOcrExtractions,
   mergeROExtractions,
@@ -12,6 +13,7 @@ import {
   normalizeComplaintForDisplay,
   parseStructuredROText,
   recoverComplaintsWithLabelsFromText,
+  sanitizeComplaints,
 } from '../../src/utils/roExtractor';
 
 const REAL_RO_SNIPPET = `RO Number: 482910
@@ -249,6 +251,57 @@ N. SPECTION`;
     assert.equal(isPlausibleComplaintText('=EA,-MO'), false);
     assert.equal(isPlausibleComplaintText('Thai ENIIA Ts Rees'), false); // short gibberish tokens
     assert.equal(isPlausibleComplaintText('RHODE ISLAND STATE INSPECTION'), true);
+  });
+
+  test('keeps B Service / A Service menu packages as RO line items', () => {
+    assert.equal(isAcceptableRoLineText('B Service'), true);
+    assert.equal(isAcceptableRoLineText('A Service'), true);
+    assert.equal(isAcceptableRoLineText('C Service'), true);
+    assert.equal(isAcceptableRoLineText('B-Service'), true);
+    assert.equal(isAcceptableRoLineText('B SVC'), true);
+    assert.equal(isAcceptableRoLineText('Oil Change'), true);
+    assert.equal(isAcceptableRoLineText('Service Package'), true);
+    // Still reject pure OCR garbage
+    assert.equal(isAcceptableRoLineText('_LI23P5491318'), false);
+    assert.equal(isAcceptableRoLineText('619 CDEF'), false);
+
+    const sanitized = sanitizeComplaints([
+      'Check engine light on',
+      'B Service',
+      'A Service',
+      '_LI23P5491318',
+    ]);
+    assert.ok(sanitized.includes('Check engine light on'));
+    assert.ok(sanitized.includes('B Service'));
+    assert.ok(sanitized.includes('A Service'));
+    assert.ok(!sanitized.some((c) => c.includes('_LI')));
+  });
+
+  test('extracts lettered B Service and A Service lines from RO OCR text', () => {
+    const text = `LINE OPCODE TECH TYPE HOURS
+# A
+CHECK ENGINE LIGHT ON
+# B
+B SERVICE
+# C
+A SERVICE
+# D
+OIL CHANGE`;
+    const labeled = extractLetterLabeledComplaintsWithLabels(text);
+    assert.deepEqual(
+      labeled.map((item) => item.letter),
+      ['A', 'B', 'C', 'D']
+    );
+    assert.match(labeled[0].text, /CHECK ENGINE/i);
+    assert.match(labeled[1].text, /B\s*SERVICE/i);
+    assert.match(labeled[2].text, /A\s*SERVICE/i);
+    assert.match(labeled[3].text, /OIL\s*CHANGE/i);
+
+    const recovered = recoverComplaintsWithLabelsFromText(text);
+    assert.deepEqual(recovered.labels, ['A', 'B', 'C', 'D']);
+    assert.equal(recovered.complaints.length, 4);
+    assert.ok(recovered.complaints.some((c) => /B\s*SERVICE/i.test(c)));
+    assert.ok(recovered.complaints.some((c) => /A\s*SERVICE/i.test(c)));
   });
 
   test('pairs stacked label column with complaint text skipping form junk lines', () => {
