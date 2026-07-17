@@ -12,8 +12,9 @@
  * service seeds were dropped. Restored from merlinus-v1 git parent of 244b30f
  * (2026-06-23) and adapted to preWrittenStory format.
  *
- * Auction / Offline dedicated templates were never present in recoverable git
- * history (merlinus-platform or merlinus-v1).
+ * Auction / Offline templates were never in merlinus-platform or merlinus-v1 git.
+ * Narratives + aliases rebuilt to the same Customer Pay pattern (also present in
+ * local viti-ai-clone catalog) for wholesale recon and offline/cash-pay RO lines.
  */
 
 export type TemplateTypeLabel = 'Warranty' | 'CustomerPay';
@@ -79,6 +80,72 @@ export const CUSTOMER_PAY_TEMPLATES: CustomerPayTemplate[] = [
     ],
     preWrittenStory:
       'Performed lube, oil, and filter service. Drained engine oil, replaced the oil filter, and installed approved engine oil to specification. Checked and topped fluids as needed, reset the service reminder if applicable, and verified no leaks. Road tested — no issues noted.',
+  },
+
+  // ─── Auction / Offline recon (rebuilt — no original narratives in git history) ─
+  {
+    title: 'Auction Inspection',
+    description:
+      'Pre-purchase or post-auction multi-point inspection for wholesale/auction vehicles.',
+    matchAliases: [
+      'auction inspection',
+      'auction recon',
+      'auction mpi',
+      'wholesale inspection',
+      'manheim',
+      'adesa',
+      'auction prep',
+      'auction',
+    ],
+    preWrittenStory:
+      'Performed auction / wholesale multi-point inspection on the subject vehicle. Completed exterior body and glass inspection, interior condition review, underbody and fluid visual checks, tire tread/pressure documentation, battery and charging system quick test, lighting and accessory function checks, and a controlled road test where safe to do so. Documented findings, photographed concern areas as required by dealership recon process, and prepared inspection notes for the used-car / recon team. No warranty diagnosis was performed under this customer-pay / recon line.',
+  },
+  {
+    title: 'Auction Reconditioning',
+    description: 'Mechanical or detail reconditioning work for auction or wholesale inventory.',
+    matchAliases: [
+      'auction reconditioning',
+      'auction recon work',
+      'wholesale recon',
+      'recon package',
+      'auction detail',
+      'auction mechanical',
+    ],
+    preWrittenStory:
+      'Performed auction reconditioning work as directed on the work order. Completed the requested mechanical, electrical, or appearance items, verified repairs against the recon checklist, road tested the vehicle when applicable, and confirmed no active warning lamps related to the completed work. Documented parts and labor for the recon package and released the vehicle to inventory with updated condition notes.',
+  },
+  {
+    title: 'Offline Customer Pay Repair',
+    description:
+      'Cash / offline (non-warranty) customer-pay repair completed outside factory warranty coverage.',
+    matchAliases: [
+      'offline repair',
+      'offline work',
+      'offline customer pay',
+      'customer pay offline',
+      'cp offline',
+      'cash pay',
+      'non warranty repair',
+      'out of warranty',
+      'offline',
+    ],
+    preWrittenStory:
+      'Performed offline customer-pay repair as authorized by the customer. Confirmed the concern on intake, completed diagnosis and repair using approved parts and procedures for the vehicle, verified the repair with a functional check and road test as applicable, and confirmed related systems operated normally. No factory warranty claim was submitted for this line — work completed as customer-pay / offline. Reviewed findings and completed work with the customer or advisor.',
+  },
+  {
+    title: 'Offline Multi-Point Inspection',
+    description: 'Paid multi-point inspection (MPI) sold as offline / customer-pay service.',
+    matchAliases: [
+      'offline mpi',
+      'offline inspection',
+      'paid inspection',
+      'customer pay inspection',
+      'multi point inspection',
+      'multipoint inspection',
+      'mpi service',
+    ],
+    preWrittenStory:
+      'Performed offline multi-point inspection as sold on the repair order. Completed inspection of brakes, tires, suspension, underhood fluids and belts, battery/charging indicators, exterior lighting, and cabin controls per dealership MPI form. Documented measured values and recommendations, reviewed priority items with the advisor/customer, and recorded inspection results for the RO file. No warranty diagnosis was billed under this inspection line.',
   },
 
   // ─── Common Customer Pay menu / a-la-carte work ─────────────────────────────

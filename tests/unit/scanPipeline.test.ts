@@ -91,6 +91,24 @@ describe('scan pipeline service lines', () => {
     assert.equal(lof?.templateTitle, 'Lube, Oil & Filter Service');
   });
 
+  it('matches Auction and Offline templates from scan text', () => {
+    const auction = matchCustomerPayTemplateFromScanText('C. Auction inspection / Manheim recon');
+    assert.equal(auction?.templateTitle, 'Auction Inspection');
+    assert.match(auction?.preWrittenStory ?? '', /auction \/ wholesale multi-point inspection/i);
+
+    const recon = matchCustomerPayTemplateFromScanText('D. Auction reconditioning package');
+    assert.equal(recon?.templateTitle, 'Auction Reconditioning');
+    assert.match(recon?.preWrittenStory ?? '', /auction reconditioning work/i);
+
+    const offline = matchCustomerPayTemplateFromScanText('E. Offline customer pay repair');
+    assert.equal(offline?.templateTitle, 'Offline Customer Pay Repair');
+    assert.match(offline?.preWrittenStory ?? '', /offline customer-pay repair/i);
+
+    const mpi = matchCustomerPayTemplateFromScanText('F. Paid multipoint inspection / offline MPI');
+    assert.equal(mpi?.templateTitle, 'Offline Multi-Point Inspection');
+    assert.match(mpi?.preWrittenStory ?? '', /offline multi-point inspection/i);
+  });
+
   it('matches customer pay templates from scanned line text', () => {
     const match = matchCustomerPayTemplateFromScanText('B. Front brake job — rotors and pads');
     assert.equal(match?.templateTitle, 'Front Brake Job');

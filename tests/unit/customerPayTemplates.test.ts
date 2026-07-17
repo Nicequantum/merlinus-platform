@@ -20,6 +20,11 @@ describe('Customer Pay templates', () => {
     assert.ok(titles.includes('B Service'));
     assert.ok(titles.includes('A Service'));
     assert.ok(titles.includes('Lube, Oil & Filter Service'));
+    // Rebuilt Auction / Offline set (not recoverable from git history)
+    assert.ok(titles.includes('Auction Inspection'));
+    assert.ok(titles.includes('Auction Reconditioning'));
+    assert.ok(titles.includes('Offline Customer Pay Repair'));
+    assert.ok(titles.includes('Offline Multi-Point Inspection'));
     assert.equal(new Set(titles).size, titles.length);
     for (const t of CUSTOMER_PAY_TEMPLATES) {
       assert.ok(t.description.trim().length > 10);
