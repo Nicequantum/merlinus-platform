@@ -34,6 +34,10 @@ export async function GET(request: Request) {
           routingPath: safeJsonArray(c.routingPathJson),
           lineLabel: c.line?.label ?? null,
           segmentCount: c._count.segments,
+          contained: c.contained,
+          outcome: c.outcome,
+          recordingStatus: c.recordingStatus,
+          hasRecording: Boolean(c.recordingPathname),
           createdAt: c.createdAt.toISOString(),
         })),
       };

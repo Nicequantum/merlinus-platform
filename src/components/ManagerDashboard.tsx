@@ -16,6 +16,7 @@ import {
   Video,
   Wrench,
   Car,
+  Phone,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -47,6 +48,7 @@ interface ManagerDashboardProps {
   onOpenParts?: () => void;
   onOpenMaintenance?: () => void;
   onOpenLoaner?: () => void;
+  onOpenVoice?: () => void;
   pendingROImages: PendingImage[];
   onScanRO: () => void;
   onAddFromGallery: () => void;
@@ -97,6 +99,7 @@ export function ManagerDashboard({
   onOpenParts,
   onOpenMaintenance,
   onOpenLoaner,
+  onOpenVoice,
   pendingROImages,
   onScanRO,
   onAddFromGallery,
@@ -267,6 +270,15 @@ export function ManagerDashboard({
                     className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     <Car size={14} /> Loaner fleet
+                  </button>
+                ) : null}
+                {onOpenVoice ? (
+                  <button
+                    type="button"
+                    onClick={onOpenVoice}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Phone size={14} /> Voice agent
                   </button>
                 ) : null}
                 <button

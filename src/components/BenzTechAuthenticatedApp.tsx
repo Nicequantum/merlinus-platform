@@ -94,6 +94,11 @@ const LoanerDashboard = dynamic(
   { loading: () => <LoadingScreen label="Loading loaner fleet" /> }
 );
 
+const VoiceOpsDashboard = dynamic(
+  () => import('@/components/voice/VoiceOpsDashboard').then((m) => m.VoiceOpsDashboard),
+  { loading: () => <LoadingScreen label="Loading voice ops" /> }
+);
+
 function runAction(label: string, action: () => void | Promise<void>): void {
   void Promise.resolve(action()).catch((error: unknown) => {
     clientLog.error('ui.action_failed', { label, error });
@@ -426,7 +431,8 @@ export function BenzTechAuthenticatedApp({
         ro.view !== 'videoInspection' &&
         ro.view !== 'parts' &&
         ro.view !== 'maintenance' &&
-        ro.view !== 'loaner' && (
+        ro.view !== 'loaner' &&
+        ro.view !== 'voice' && (
           <AppHeader
             technicianName={session.name}
             dealershipName={session.dealershipName}
@@ -466,6 +472,17 @@ export function BenzTechAuthenticatedApp({
         </ViewErrorBoundary>
       )}
 
+      {ro.view === 'voice' && (
+        <ViewErrorBoundary viewName="voice ops">
+          <VoiceOpsDashboard
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+            onBack={() => ro.setView('home')}
+          />
+        </ViewErrorBoundary>
+      )}
+
       {ro.view === 'home' && isManager && (
         <ViewErrorBoundary viewName="the manager dashboard">
           <ManagerDashboard
@@ -478,6 +495,7 @@ export function BenzTechAuthenticatedApp({
             onOpenParts={() => ro.setView('parts')}
             onOpenMaintenance={() => ro.setView('maintenance')}
             onOpenLoaner={() => ro.setView('loaner')}
+            onOpenVoice={() => ro.setView('voice')}
             onOpenSettings={goToSettings}
             onOpenAuditLogs={() => ro.setView('audit')}
             onOpenServiceAdvisors={() => ro.setView('advisors')}

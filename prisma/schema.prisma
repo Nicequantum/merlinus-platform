@@ -676,8 +676,20 @@ model VoiceCall {
   endedAt           DateTime?
   durationSec       Int?
   recordingPathname String?
+  /** Twilio RecordingSid when available */
+  recordingSid      String?
+  /** Provider recording URL before private blob copy */
+  recordingUrl      String?
+  /** queued | stored | failed | none */
+  recordingStatus   String   @default("none")
   transcriptEncrypted String @default("")
   routingPathJson   String   @default("[]")
+  /** PR-M5b — containment/quality snapshot JSON */
+  metricsJson       String   @default("{}")
+  /** Heuristic: resolved without human transfer */
+  contained         Boolean?
+  /** resolved_by_agent | staff_followup | transferred_human | abandoned | incomplete */
+  outcome           String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   conversation      VoiceConversation?
@@ -685,6 +697,8 @@ model VoiceCall {
 
   @@index([dealershipId, createdAt(sort: Desc)])
   @@index([dealershipId, status])
+  @@index([dealershipId, contained])
+  @@index([dealershipId, outcome])
   @@index([lineId])
   @@map("VoiceCall")
 }

@@ -155,7 +155,8 @@ export type AppView =
   | 'videoInspection'
   | 'parts'
   | 'maintenance'
-  | 'loaner';
+  | 'loaner'
+  | 'voice';
 
 export type MaintenanceSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type MaintenanceTicketStatus =

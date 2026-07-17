@@ -1,8 +1,21 @@
 /**
- * PR-M5a — voice agent domain types.
+ * PR-M5a/b — voice agent domain types.
  */
 
-export type VoiceAgentName = 'receptionist' | 'parts' | 'loaner';
+export type VoiceAgentName =
+  | 'receptionist'
+  | 'parts'
+  | 'sales'
+  | 'service'
+  | 'loaner';
+
+export const VOICE_AGENT_NAMES: readonly VoiceAgentName[] = [
+  'receptionist',
+  'parts',
+  'sales',
+  'service',
+  'loaner',
+] as const;
 
 export type ConversationSlots = {
   customerName?: string;
@@ -14,6 +27,32 @@ export type ConversationSlots = {
   summary?: string;
   departmentRequestId?: string;
   loanerAssignmentId?: string;
+  /** Brief for the next specialist after handoff */
+  handoffBrief?: string;
+  preferredDepartment?: string;
+};
+
+export type HandoffEvent = {
+  from: string;
+  to: string;
+  at: string;
+  reason?: string;
+  brief?: string;
+};
+
+/** Containment / quality counters accumulated during the call. */
+export type CallMetrics = {
+  toolSuccessCount: number;
+  toolFailureCount: number;
+  handoffCount: number;
+  specialistTurns: number;
+  receptionistTurns: number;
+  /** True if a staff work item was created (parts/sales/service/loaner) */
+  createdWorkItem: boolean;
+  /** resolved_by_agent | staff_followup | transferred_human | abandoned | incomplete */
+  outcome?: string;
+  /** Agent resolved without needing human (heuristic) */
+  contained?: boolean;
 };
 
 export type ConversationState = {
@@ -21,6 +60,8 @@ export type ConversationState = {
   routingPath: string[];
   turnCount: number;
   lastToolResults?: string[];
+  handoffs?: HandoffEvent[];
+  metrics?: CallMetrics;
 };
 
 export type VoiceToolResult = {
@@ -35,3 +76,28 @@ export type AgentTurnResult = {
   endCall: boolean;
   state: ConversationState;
 };
+
+export function emptyCallMetrics(): CallMetrics {
+  return {
+    toolSuccessCount: 0,
+    toolFailureCount: 0,
+    handoffCount: 0,
+    specialistTurns: 0,
+    receptionistTurns: 0,
+    createdWorkItem: false,
+  };
+}
+
+export function emptyConversationState(): ConversationState {
+  return {
+    slots: {},
+    routingPath: ['receptionist'],
+    turnCount: 0,
+    handoffs: [],
+    metrics: emptyCallMetrics(),
+  };
+}
+
+export function isVoiceAgentName(value: string): value is VoiceAgentName {
+  return (VOICE_AGENT_NAMES as readonly string[]).includes(value);
+}

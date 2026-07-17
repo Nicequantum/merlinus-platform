@@ -962,6 +962,17 @@ export const api = {
       cache: 'no-store',
     }),
 
+  getVoiceCall: (id: string) =>
+    apiFetch<{ call: Record<string, unknown> }>(`/api/voice/calls/${id}`, {
+      cache: 'no-store',
+    }),
+
+  getVoiceMetrics: (days?: number) =>
+    apiFetch<Record<string, unknown>>(
+      `/api/voice/metrics${days ? `?days=${days}` : ''}`,
+      { cache: 'no-store' }
+    ),
+
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 
   exportAuditLogsCsv: (params: {

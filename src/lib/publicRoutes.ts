@@ -15,6 +15,7 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
   '/api/voice/inbound',
   '/api/voice/gather(.*)',
   '/api/voice/status',
+  '/api/voice/recording',
 ] as const;
 
 const PUBLIC_PATHS = new Set([
@@ -38,6 +39,7 @@ export function isMerlinPublicPath(pathname: string): boolean {
   if (
     pathname === '/api/voice/inbound' ||
     pathname === '/api/voice/status' ||
+    pathname === '/api/voice/recording' ||
     pathname.startsWith('/api/voice/gather')
   ) {
     return true;

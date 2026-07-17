@@ -8,8 +8,9 @@ import { encryptSensitiveText } from '@/lib/encryption';
 import { withRlsBypass, withRlsContext } from '@/lib/apex/rlsContext';
 import { isModuleEnabled } from '@/lib/modules/entitlements';
 import { fromLast4FromPhone, normalizeToE164 } from '@/lib/voiceAgent/twilio';
-import { parseConversationState } from '@/lib/voiceAgent/runtime';
+import { normalizeAgentName, parseConversationState } from '@/lib/voiceAgent/runtime';
 import type { ConversationState, VoiceAgentName } from '@/lib/voiceAgent/types';
+import { emptyConversationState } from '@/lib/voiceAgent/types';
 
 export type BoundLine = {
   lineId: string;
@@ -83,13 +84,16 @@ export async function getOrCreateInboundCall(input: {
       return {
         callId: existing.id,
         conversationId: existing.conversation.id,
-        activeAgent: (existing.conversation.activeAgent || 'receptionist') as VoiceAgentName,
+        activeAgent: normalizeAgentName(existing.conversation.activeAgent),
         state: parseConversationState(existing.conversation.stateJson),
         isNew: false,
       };
     }
 
     const fromNorm = normalizeToE164(input.from);
+    const initialState = emptyConversationState();
+    initialState.slots.customerPhone = fromNorm;
+
     const call = await db.voiceCall.create({
       data: {
         dealershipId: input.line.dealershipId,
@@ -102,15 +106,13 @@ export async function getOrCreateInboundCall(input: {
         status: 'in_progress',
         startedAt: new Date(),
         routingPathJson: JSON.stringify(['receptionist']),
+        metricsJson: JSON.stringify(initialState.metrics),
+        recordingStatus: 'none',
         conversation: {
           create: {
             dealershipId: input.line.dealershipId,
             activeAgent: 'receptionist',
-            stateJson: JSON.stringify({
-              slots: { customerPhone: fromNorm },
-              routingPath: ['receptionist'],
-              turnCount: 0,
-            }),
+            stateJson: JSON.stringify(initialState),
           },
         },
       },
@@ -120,7 +122,7 @@ export async function getOrCreateInboundCall(input: {
     return {
       callId: call.id,
       conversationId: call.conversation!.id,
-      activeAgent: 'receptionist',
+      activeAgent: 'receptionist' as VoiceAgentName,
       state: parseConversationState(call.conversation!.stateJson),
       isNew: true,
     };
@@ -146,7 +148,7 @@ export async function loadCallContext(callId: string): Promise<{
     return {
       dealershipId: call.dealershipId,
       dealershipName: call.dealership.name,
-      activeAgent: (call.conversation.activeAgent || 'receptionist') as VoiceAgentName,
+      activeAgent: normalizeAgentName(call.conversation.activeAgent),
       state: parseConversationState(call.conversation.stateJson),
       status: call.status,
     };

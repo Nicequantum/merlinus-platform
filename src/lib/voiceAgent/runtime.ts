@@ -1,5 +1,5 @@
 /**
- * PR-M5a — multi-turn agent loop (receptionist → parts/loaner).
+ * PR-M5a/b — multi-turn agent loop (receptionist → specialists).
  */
 
 import 'server-only';
@@ -7,6 +7,10 @@ import 'server-only';
 import { encryptSensitiveText } from '@/lib/encryption';
 import { getRlsDb } from '@/lib/apex/rlsContext';
 import { grokVoiceChat, type VoiceChatMessage } from '@/lib/voiceAgent/grokClient';
+import {
+  finalizeCallMetrics,
+  recordTurnAgent,
+} from '@/lib/voiceAgent/metrics';
 import { systemPromptForAgent } from '@/lib/voiceAgent/personas';
 import { executeVoiceTool, VOICE_TOOL_DEFINITIONS } from '@/lib/voiceAgent/tools';
 import type {
@@ -14,8 +18,13 @@ import type {
   ConversationState,
   VoiceAgentName,
 } from '@/lib/voiceAgent/types';
+import {
+  emptyCallMetrics,
+  emptyConversationState,
+  isVoiceAgentName,
+} from '@/lib/voiceAgent/types';
 
-const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_ROUNDS = 5;
 
 export function parseConversationState(raw: string | null | undefined): ConversationState {
   try {
@@ -25,9 +34,11 @@ export function parseConversationState(raw: string | null | undefined): Conversa
       routingPath: Array.isArray(parsed.routingPath) ? parsed.routingPath : ['receptionist'],
       turnCount: typeof parsed.turnCount === 'number' ? parsed.turnCount : 0,
       lastToolResults: Array.isArray(parsed.lastToolResults) ? parsed.lastToolResults : [],
+      handoffs: Array.isArray(parsed.handoffs) ? parsed.handoffs : [],
+      metrics: parsed.metrics && typeof parsed.metrics === 'object' ? parsed.metrics : emptyCallMetrics(),
     };
   } catch {
-    return { slots: {}, routingPath: ['receptionist'], turnCount: 0 };
+    return emptyConversationState();
   }
 }
 
@@ -50,6 +61,22 @@ export async function appendTranscriptSegment(input: {
   });
 }
 
+function buildSystemContent(
+  agent: VoiceAgentName,
+  dealershipName: string,
+  state: ConversationState
+): string {
+  const handoff = state.slots.handoffBrief
+    ? `\nHandoff brief from previous agent: ${state.slots.handoffBrief}`
+    : '';
+  return `${systemPromptForAgent(agent, dealershipName)}
+
+Current slots (JSON): ${JSON.stringify(state.slots)}
+Routing path: ${state.routingPath.join(' → ')}
+Handoffs: ${(state.handoffs || []).length}
+Turn: ${state.turnCount}${handoff}`;
+}
+
 export async function processAgentTurn(input: {
   dealershipId: string;
   dealershipName: string;
@@ -59,12 +86,9 @@ export async function processAgentTurn(input: {
   state: ConversationState;
 }): Promise<AgentTurnResult> {
   let activeAgent = input.activeAgent;
-  let state: ConversationState = {
-    ...input.state,
-    slots: { ...input.state.slots },
-    routingPath: [...(input.state.routingPath || [])],
-    turnCount: (input.state.turnCount || 0) + 1,
-  };
+  let state: ConversationState = parseConversationState(JSON.stringify(input.state));
+  state.turnCount = (state.turnCount || 0) + 1;
+  recordTurnAgent(state, activeAgent);
 
   if (!state.routingPath.length) state.routingPath = ['receptionist'];
 
@@ -77,11 +101,7 @@ export async function processAgentTurn(input: {
   const messages: VoiceChatMessage[] = [
     {
       role: 'system',
-      content: `${systemPromptForAgent(activeAgent, input.dealershipName)}
-
-Current slots (JSON): ${JSON.stringify(state.slots)}
-Routing path: ${state.routingPath.join(' → ')}
-Turn: ${state.turnCount}`,
+      content: buildSystemContent(activeAgent, input.dealershipName, state),
     },
     {
       role: 'user',
@@ -92,13 +112,14 @@ Turn: ${state.turnCount}`,
   let endCall = false;
   let speech = '';
   let lastFarewell: string | undefined;
+  let transferredHuman = false;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const reply = await grokVoiceChat({
       messages,
       tools: VOICE_TOOL_DEFINITIONS,
-      temperature: 0.35,
-      maxTokens: 400,
+      temperature: 0.3,
+      maxTokens: 450,
     });
 
     if (reply.toolCalls.length === 0) {
@@ -120,11 +141,15 @@ Turn: ${state.turnCount}`,
         activeAgent,
       });
       state = executed.state;
-      activeAgent = executed.activeAgent;
+      if (executed.activeAgent !== activeAgent) {
+        activeAgent = executed.activeAgent;
+        recordTurnAgent(state, activeAgent);
+      }
       if (executed.endCall) {
         endCall = true;
         lastFarewell = executed.farewell;
       }
+      if (executed.transferredHuman) transferredHuman = true;
       messages.push({
         role: 'tool',
         tool_call_id: tc.id,
@@ -132,15 +157,10 @@ Turn: ${state.turnCount}`,
       });
     }
 
-    // Agent may have changed — refresh system context on next round
     if (round < MAX_TOOL_ROUNDS - 1) {
       messages[0] = {
         role: 'system',
-        content: `${systemPromptForAgent(activeAgent, input.dealershipName)}
-
-Current slots (JSON): ${JSON.stringify(state.slots)}
-Routing path: ${state.routingPath.join(' → ')}
-Turn: ${state.turnCount}`,
+        content: buildSystemContent(activeAgent, input.dealershipName, state),
       };
     }
 
@@ -163,7 +183,14 @@ Turn: ${state.turnCount}`,
     agentName: activeAgent,
   });
 
-  // Persist conversation + routing path on call
+  const metrics = endCall
+    ? finalizeCallMetrics(state, { endCall: true, transferredHuman })
+    : state.metrics || emptyCallMetrics();
+  state.metrics = metrics;
+
+  // Full-text rollup for search (encrypted)
+  const rollup = await buildEncryptedTranscriptRollup(input.callId);
+
   await getRlsDb().voiceConversation.updateMany({
     where: { callId: input.callId },
     data: {
@@ -175,14 +202,45 @@ Turn: ${state.turnCount}`,
     where: { id: input.callId },
     data: {
       routingPathJson: JSON.stringify(state.routingPath),
+      metricsJson: JSON.stringify(metrics),
       status: endCall ? 'completed' : 'in_progress',
-      ...(endCall ? { endedAt: new Date() } : {}),
+      ...(endCall
+        ? {
+            endedAt: new Date(),
+            contained: metrics.contained ?? null,
+            outcome: metrics.outcome ?? null,
+          }
+        : {}),
+      ...(rollup ? { transcriptEncrypted: rollup } : {}),
     },
   });
 
   return { speech, activeAgent, endCall, state };
 }
 
+async function buildEncryptedTranscriptRollup(callId: string): Promise<string | null> {
+  const { decryptSensitiveText } = await import('@/lib/encryption');
+  const segments = await getRlsDb().voiceTranscriptSegment.findMany({
+    where: { callId },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  });
+  if (segments.length === 0) return null;
+  const text = segments
+    .map((s) => {
+      const body = decryptSensitiveText(s.textEncrypted || '');
+      const who = s.speaker === 'agent' ? `agent:${s.agentName || 'unknown'}` : s.speaker;
+      return `[${who}] ${body}`;
+    })
+    .join('\n');
+  return encryptSensitiveText(text);
+}
+
 export async function buildOpeningGreeting(dealershipName: string): Promise<string> {
-  return `Thank you for calling ${dealershipName}. This is the virtual receptionist. How can I help you today?`;
+  return `Thank you for calling ${dealershipName}. This is the virtual receptionist. Are you calling about parts, service, sales, or a loaner vehicle?`;
+}
+
+export function normalizeAgentName(value: string | null | undefined): VoiceAgentName {
+  if (value && isVoiceAgentName(value)) return value;
+  return 'receptionist';
 }
