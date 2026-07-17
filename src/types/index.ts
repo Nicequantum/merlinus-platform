@@ -152,7 +152,73 @@ export type AppView =
   | 'audit'
   | 'advisors'
   | 'technicians'
-  | 'videoInspection';
+  | 'videoInspection'
+  | 'parts';
+
+export type DepartmentId = 'sales' | 'service' | 'parts' | 'loaner' | 'maintenance';
+
+export type DepartmentRequestStatus =
+  | 'new'
+  | 'in_progress'
+  | 'waiting_customer'
+  | 'resolved'
+  | 'closed';
+
+export interface PartsRequestLineDto {
+  id: string;
+  partNumber: string | null;
+  description: string;
+  qty: number;
+  status: string;
+  quotedPriceCents: number | null;
+  vendor: string | null;
+  notes: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartsLookupEventDto {
+  id: string;
+  query: string;
+  result: unknown;
+  source: string;
+  createdById: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface DepartmentRequestSummary {
+  id: string;
+  department: string;
+  source: string;
+  status: string;
+  priority: string;
+  subject: string;
+  vehicleLabel: string | null;
+  vinLast8: string | null;
+  customerPhoneLast4: string | null;
+  stockOrRoHint: string | null;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  createdByName: string | null;
+  partsLineCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepartmentRequestDetail extends DepartmentRequestSummary {
+  summary: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  vin: string;
+  voiceCallId: string | null;
+  createdById: string | null;
+  metadataJson: string;
+  partsLines: PartsRequestLineDto[];
+  partsLookups: PartsLookupEventDto[];
+}
 
 export type VideoMpiSeverity = 'ok' | 'recommend' | 'urgent';
 

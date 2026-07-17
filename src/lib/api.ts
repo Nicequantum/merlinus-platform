@@ -633,7 +633,7 @@ export const api = {
     d7Number: string;
     name: string;
     password: string;
-    role: 'technician' | 'manager' | 'service_advisor';
+    role: 'technician' | 'manager' | 'service_advisor' | 'parts';
     serviceAdvisorLinkMode?: 'existing' | 'create';
     serviceAdvisorId?: string;
     newAdvisorDisplayName?: string;
@@ -693,6 +693,100 @@ export const api = {
         source: 'force_env' | 'dealership' | 'dealer_group' | 'default';
       }>;
     }>('/api/modules'),
+
+  /** PR-M2 — department inbox (Parts first). */
+  listDepartmentRequests: (params: { department: string; status?: string }) => {
+    const query = new URLSearchParams();
+    query.set('department', params.department);
+    if (params.status) query.set('status', params.status);
+    return apiFetch<{
+      department: string;
+      requests: import('@/types').DepartmentRequestSummary[];
+    }>(`/api/department-requests?${query.toString()}`, { cache: 'no-store' });
+  },
+
+  getDepartmentRequest: (id: string) =>
+    apiFetch<{ request: import('@/types').DepartmentRequestDetail }>(
+      `/api/department-requests/${id}`,
+      { cache: 'no-store' }
+    ),
+
+  createDepartmentRequest: (body: {
+    department: string;
+    subject: string;
+    summary?: string;
+    priority?: string;
+    source?: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    vin?: string;
+    vehicleLabel?: string;
+    stockOrRoHint?: string;
+    assignedToId?: string;
+    partsLines?: Array<{
+      partNumber?: string;
+      description: string;
+      qty?: number;
+      status?: string;
+      vendor?: string;
+      notes?: string;
+    }>;
+  }) =>
+    apiFetch<{ request: import('@/types').DepartmentRequestDetail }>('/api/department-requests', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchDepartmentRequest: (
+    id: string,
+    body: {
+      subject?: string;
+      summary?: string;
+      status?: string;
+      priority?: string;
+      customerName?: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      vin?: string;
+      vehicleLabel?: string | null;
+      stockOrRoHint?: string | null;
+      assignedToId?: string | null;
+    }
+  ) =>
+    apiFetch<{ request: import('@/types').DepartmentRequestDetail }>(
+      `/api/department-requests/${id}`,
+      { method: 'PATCH', body: JSON.stringify(body) }
+    ),
+
+  putPartsRequestLines: (
+    id: string,
+    lines: Array<{
+      partNumber?: string | null;
+      description: string;
+      qty?: number;
+      status?: string;
+      quotedPriceCents?: number | null;
+      vendor?: string | null;
+      notes?: string;
+    }>
+  ) =>
+    apiFetch<{
+      lines: import('@/types').PartsRequestLineDto[];
+      request: import('@/types').DepartmentRequestDetail;
+    }>(`/api/department-requests/${id}/parts-lines`, {
+      method: 'PUT',
+      body: JSON.stringify({ lines }),
+    }),
+
+  addPartsLookup: (
+    id: string,
+    body: { query: string; result?: Record<string, unknown>; source?: 'staff' | 'voice' | 'cdk' }
+  ) =>
+    apiFetch<{ lookup: import('@/types').PartsLookupEventDto }>(
+      `/api/department-requests/${id}/lookups`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
 
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 

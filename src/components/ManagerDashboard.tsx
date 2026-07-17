@@ -12,6 +12,7 @@ import {
   Sparkles,
   Users,
   UserRound,
+  Package,
   Video,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -41,6 +42,7 @@ interface ManagerDashboardProps {
   onOpenServiceAdvisors: () => void;
   onOpenTechnicians: () => void;
   onOpenVideoInspection?: () => void;
+  onOpenParts?: () => void;
   pendingROImages: PendingImage[];
   onScanRO: () => void;
   onAddFromGallery: () => void;
@@ -88,6 +90,7 @@ export function ManagerDashboard({
   onOpenServiceAdvisors,
   onOpenTechnicians,
   onOpenVideoInspection,
+  onOpenParts,
   pendingROImages,
   onScanRO,
   onAddFromGallery,
@@ -231,6 +234,15 @@ export function ManagerDashboard({
                     className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     <Video size={14} /> Video Inspection
+                  </button>
+                ) : null}
+                {onOpenParts ? (
+                  <button
+                    type="button"
+                    onClick={onOpenParts}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Package size={14} /> Parts inbox
                   </button>
                 ) : null}
                 <button

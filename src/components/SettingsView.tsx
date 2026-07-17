@@ -61,7 +61,7 @@ export function SettingsView({
     d7Number: '',
     name: '',
     password: '',
-    role: 'technician' as 'technician' | 'manager' | 'service_advisor',
+    role: 'technician' as 'technician' | 'manager' | 'service_advisor' | 'parts',
     serviceAdvisorLinkMode: 'create' as 'existing' | 'create',
     serviceAdvisorId: '',
     newAdvisorDisplayName: '',
@@ -464,7 +464,7 @@ export function SettingsView({
                 onChange={(e) =>
                   setNewUser((u) => ({
                     ...u,
-                    role: e.target.value as 'technician' | 'manager' | 'service_advisor',
+                    role: e.target.value as 'technician' | 'manager' | 'service_advisor' | 'parts',
                     serviceAdvisorId: e.target.value === 'service_advisor' ? u.serviceAdvisorId : '',
                     serviceAdvisorLinkMode:
                       e.target.value === 'service_advisor' ? u.serviceAdvisorLinkMode : 'create',
@@ -478,6 +478,7 @@ export function SettingsView({
                 <option value="technician">Technician</option>
                 <option value="manager">Manager</option>
                 <option value="service_advisor">Service Advisor</option>
+                <option value="parts">Parts</option>
               </select>
               {newUser.role === 'service_advisor' ? (
                 <div className="space-y-3">

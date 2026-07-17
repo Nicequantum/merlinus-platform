@@ -78,6 +78,11 @@ const VideoInspectionView = dynamic(
   { loading: () => <LoadingScreen label="Loading video inspection" /> }
 );
 
+const PartsDashboard = dynamic(
+  () => import('@/components/parts/PartsDashboard').then((m) => m.PartsDashboard),
+  { loading: () => <LoadingScreen label="Loading parts inbox" /> }
+);
+
 function runAction(label: string, action: () => void | Promise<void>): void {
   void Promise.resolve(action()).catch((error: unknown) => {
     clientLog.error('ui.action_failed', { label, error });
@@ -114,6 +119,7 @@ export function BenzTechAuthenticatedApp({
   const roleForUi = effectiveRole(session);
   const isServiceAdvisor = roleForUi === 'service_advisor';
   const isManager = roleForUi === 'manager';
+  const isParts = roleForUi === 'parts';
   const isDesktop = useDesktopCompanion();
   const companionSyncRole = deriveCompanionSyncRole(isDesktop);
   // Child UI that branches on role/isAdmin should see the View As lens.
@@ -178,11 +184,11 @@ export function BenzTechAuthenticatedApp({
     roleForUi,
   ]);
 
-  if (!isServiceAdvisor && !isManager && ro.loading && !ro.listError) {
+  if (!isServiceAdvisor && !isManager && !isParts && ro.loading && !ro.listError) {
     return <LoadingScreen label={tHome('loadingRos')} sublabel={tHome('loadingSublabel')} />;
   }
 
-  if (!isServiceAdvisor && ro.listError && !isManager) {
+  if (!isServiceAdvisor && !isParts && ro.listError && !isManager) {
     return (
       <LoadErrorScreen
         title={tHome('loadErrorTitle')}
@@ -194,6 +200,32 @@ export function BenzTechAuthenticatedApp({
   }
 
   const goToSettings = () => ro.setView('settings');
+
+  // PR-M2 — Parts staff shell (no RO story pipeline)
+  if (isParts) {
+    return (
+      <div className="app-container">
+        <MaintenanceBanner />
+        {ro.view === 'settings' ? (
+          <SettingsView
+            session={uiSession}
+            onBack={() => ro.setView('home')}
+            onLogout={onLogout}
+            onSessionRefresh={onSessionRefresh}
+          />
+        ) : (
+          <ViewErrorBoundary viewName="the parts inbox">
+            <PartsDashboard
+              session={uiSession}
+              onOpenSettings={goToSettings}
+              onLogout={onLogout}
+            />
+          </ViewErrorBoundary>
+        )}
+        <AppFooter />
+      </div>
+    );
+  }
 
   if (isServiceAdvisor) {
     return (
@@ -292,13 +324,24 @@ export function BenzTechAuthenticatedApp({
         ro.view !== 'audit' &&
         ro.view !== 'advisors' &&
         ro.view !== 'technicians' &&
-        ro.view !== 'videoInspection' && (
+        ro.view !== 'videoInspection' &&
+        ro.view !== 'parts' && (
           <AppHeader
             technicianName={session.name}
             dealershipName={session.dealershipName}
             onOpenSettings={goToSettings}
           />
         )}
+
+      {ro.view === 'parts' && (
+        <ViewErrorBoundary viewName="the parts inbox">
+          <PartsDashboard
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+          />
+        </ViewErrorBoundary>
+      )}
 
       {ro.view === 'home' && isManager && (
         <ViewErrorBoundary viewName="the manager dashboard">
@@ -309,6 +352,7 @@ export function BenzTechAuthenticatedApp({
             openingROId={ro.openingROId}
             onOpenRO={ro.openRO}
             onOpenVideoInspection={() => ro.setView('videoInspection')}
+            onOpenParts={() => ro.setView('parts')}
             onOpenSettings={goToSettings}
             onOpenAuditLogs={() => ro.setView('audit')}
             onOpenServiceAdvisors={() => ro.setView('advisors')}

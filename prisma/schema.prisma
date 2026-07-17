@@ -39,6 +39,8 @@ enum TechnicianRole {
   service_advisor
   /** APEX NATIONAL PLATFORM — national operators; least-privilege, audited dealership context. */
   owner
+  /** PR-M2 — parts department staff (inbox + request workflow). */
+  parts
 }
 
 /**
@@ -113,6 +115,7 @@ model Dealer {
   technicianActivityLogs    TechnicianActivityLog[]
   templates                 Template[]
   knowledgeBaseEntries      KnowledgeBase[]
+  departmentRequests        DepartmentRequest[]
 
   @@index([status])
   @@index([dealerGroupId])
@@ -146,6 +149,7 @@ model Dealership {
   technicianMemberships TechnicianDealership[]
   videoInspections      VideoInspection[]
   modules               DealershipModule[]
+  departmentRequests    DepartmentRequest[]
 
   @@index([dealerId])
 }
@@ -259,6 +263,9 @@ model Technician {
   videoInspections       VideoInspection[]
   videoInspectionShares  VideoInspectionShare[]
   videoInspectionSmsLogs VideoInspectionSmsLog[]
+  departmentRequestsCreated  DepartmentRequest[] @relation("DepartmentRequestCreatedBy")
+  departmentRequestsAssigned DepartmentRequest[] @relation("DepartmentRequestAssignedTo")
+  partsLookupEvents      PartsLookupEvent[]
 
   @@index([dealerId])
   @@index([dealershipId])
@@ -359,6 +366,93 @@ model VideoUploadSession {
   @@index([dealershipId, technicianId, status])
   @@index([expiresAt])
   @@map("VideoUploadSession")
+}
+
+// ─── PR-M2 DEPARTMENT INBOX (Parts first; Sales/Service/Loaner reuse spine) ───
+/**
+ * Unified department work item produced by staff, voice agents, or integrations.
+ * Core RO story pipeline does not depend on this model.
+ */
+model DepartmentRequest {
+  id                       String   @id @default(cuid())
+  dealershipId             String
+  dealership               Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  dealerId                 String?  @map("dealer_id")
+  dealer                   Dealer?  @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  /** sales | service | parts | loaner | maintenance */
+  department               String
+  /** voice_agent | manual | cdk | web */
+  source                   String   @default("manual")
+  /** new | in_progress | waiting_customer | resolved | closed */
+  status                   String   @default("new")
+  /** low | normal | high | urgent */
+  priority                 String   @default("normal")
+  subject                  String
+  summaryEncrypted         String   @default("")
+  customerNameEncrypted    String   @default("")
+  customerPhoneEncrypted   String   @default("")
+  customerPhoneLast4       String   @default("")
+  customerEmailEncrypted   String   @default("")
+  vinEncrypted             String   @default("")
+  vinLast8                 String?
+  vehicleLabel             String?
+  stockOrRoHint            String?
+  voiceCallId              String?
+  createdById              String?
+  createdBy                Technician? @relation("DepartmentRequestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedToId             String?
+  assignedTo               Technician? @relation("DepartmentRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  metadataJson             String   @default("{}")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  partsLines               PartsRequestLine[]
+  partsLookups             PartsLookupEvent[]
+
+  @@index([dealershipId, department, status, createdAt(sort: Desc)])
+  @@index([dealershipId, vinLast8])
+  @@index([dealershipId, customerPhoneLast4])
+  @@index([assignedToId, status])
+  @@index([dealerId])
+  @@map("DepartmentRequest")
+}
+
+model PartsRequestLine {
+  id                  String   @id @default(cuid())
+  departmentRequestId String
+  departmentRequest   DepartmentRequest @relation(fields: [departmentRequestId], references: [id], onDelete: Cascade)
+  partNumber          String?
+  description         String
+  qty                 Int      @default(1)
+  /** requested | quoted | ordered | eta | ready | closed */
+  status              String   @default("requested")
+  quotedPriceCents    Int?
+  vendor              String?
+  notesEncrypted      String   @default("")
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([departmentRequestId, sortOrder])
+  @@index([departmentRequestId, status])
+  @@map("PartsRequestLine")
+}
+
+model PartsLookupEvent {
+  id                  String   @id @default(cuid())
+  dealershipId        String
+  departmentRequestId String?
+  departmentRequest   DepartmentRequest? @relation(fields: [departmentRequestId], references: [id], onDelete: SetNull)
+  query               String
+  resultJson          String   @default("{}")
+  /** voice | staff | cdk */
+  source              String   @default("staff")
+  createdById         String?
+  createdBy           Technician? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt           DateTime @default(now())
+
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([departmentRequestId, createdAt(sort: Desc)])
+  @@map("PartsLookupEvent")
 }
 
 /**
