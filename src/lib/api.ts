@@ -633,7 +633,7 @@ export const api = {
     d7Number: string;
     name: string;
     password: string;
-    role: 'technician' | 'manager' | 'service_advisor' | 'parts';
+    role: 'technician' | 'manager' | 'service_advisor' | 'parts' | 'maintenance';
     serviceAdvisorLinkMode?: 'existing' | 'create';
     serviceAdvisorId?: string;
     newAdvisorDisplayName?: string;
@@ -786,6 +786,69 @@ export const api = {
     apiFetch<{ lookup: import('@/types').PartsLookupEventDto }>(
       `/api/department-requests/${id}/lookups`,
       { method: 'POST', body: JSON.stringify(body) }
+    ),
+
+  /** PR-M3 — facility / shop maintenance tickets. */
+  listMaintenanceTickets: (params?: {
+    status?: string;
+    severity?: string;
+    department?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.severity) query.set('severity', params.severity);
+    if (params?.department) query.set('department', params.department);
+    const qs = query.toString();
+    return apiFetch<{ tickets: import('@/types').MaintenanceTicketSummary[] }>(
+      `/api/maintenance/tickets${qs ? `?${qs}` : ''}`,
+      { cache: 'no-store' }
+    );
+  },
+
+  getMaintenanceTicket: (id: string) =>
+    apiFetch<{ ticket: import('@/types').MaintenanceTicketDetail }>(
+      `/api/maintenance/tickets/${id}`,
+      { cache: 'no-store' }
+    ),
+
+  createMaintenanceTicket: (body: {
+    title: string;
+    description?: string;
+    severity?: string;
+    department?: string;
+    locationLabel?: string;
+    dueAt?: string | null;
+    assignedToId?: string | null;
+  }) =>
+    apiFetch<{ ticket: import('@/types').MaintenanceTicketDetail }>('/api/maintenance/tickets', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchMaintenanceTicket: (
+    id: string,
+    body: {
+      title?: string;
+      description?: string;
+      severity?: string;
+      status?: string;
+      department?: string;
+      locationLabel?: string | null;
+      dueAt?: string | null;
+      assignedToId?: string | null;
+      comment?: string;
+    }
+  ) =>
+    apiFetch<{ ticket: import('@/types').MaintenanceTicketDetail }>(
+      `/api/maintenance/tickets/${id}`,
+      { method: 'PATCH', body: JSON.stringify(body) }
+    ),
+
+  uploadMaintenancePhotos: (id: string, form: FormData) =>
+    apiUpload<{ ticket: import('@/types').MaintenanceTicketDetail; photosAdded: number }>(
+      `/api/maintenance/tickets/${id}/photos`,
+      form,
+      60_000
     ),
 
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),

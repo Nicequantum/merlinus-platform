@@ -14,6 +14,7 @@ import {
   UserRound,
   Package,
   Video,
+  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -43,6 +44,7 @@ interface ManagerDashboardProps {
   onOpenTechnicians: () => void;
   onOpenVideoInspection?: () => void;
   onOpenParts?: () => void;
+  onOpenMaintenance?: () => void;
   pendingROImages: PendingImage[];
   onScanRO: () => void;
   onAddFromGallery: () => void;
@@ -91,6 +93,7 @@ export function ManagerDashboard({
   onOpenTechnicians,
   onOpenVideoInspection,
   onOpenParts,
+  onOpenMaintenance,
   pendingROImages,
   onScanRO,
   onAddFromGallery,
@@ -243,6 +246,15 @@ export function ManagerDashboard({
                     className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     <Package size={14} /> Parts inbox
+                  </button>
+                ) : null}
+                {onOpenMaintenance ? (
+                  <button
+                    type="button"
+                    onClick={onOpenMaintenance}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Wrench size={14} /> Maintenance
                   </button>
                 ) : null}
                 <button

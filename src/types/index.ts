@@ -153,7 +153,59 @@ export type AppView =
   | 'advisors'
   | 'technicians'
   | 'videoInspection'
-  | 'parts';
+  | 'parts'
+  | 'maintenance';
+
+export type MaintenanceSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type MaintenanceTicketStatus =
+  | 'submitted'
+  | 'triage'
+  | 'scheduled'
+  | 'in_progress'
+  | 'blocked'
+  | 'done'
+  | 'cancelled';
+
+export interface MaintenancePhotoDto {
+  id: string;
+  pathname: string;
+  contentType: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface MaintenanceTicketEventDto {
+  id: string;
+  type: string;
+  payload: string;
+  actorId: string | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface MaintenanceTicketSummary {
+  id: string;
+  department: string;
+  title: string;
+  severity: string;
+  status: string;
+  locationLabel: string | null;
+  dueAt: string | null;
+  completedAt: string | null;
+  createdById: string;
+  createdByName: string | null;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  photoCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaintenanceTicketDetail extends MaintenanceTicketSummary {
+  description: string;
+  photos: MaintenancePhotoDto[];
+  events: MaintenanceTicketEventDto[];
+}
 
 export type DepartmentId = 'sales' | 'service' | 'parts' | 'loaner' | 'maintenance';
 

@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   Video,
+  Wrench,
 } from 'lucide-react';
 import { BenzEmptyState } from '@/components/BenzEmptyState';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ interface AdvisorDashboardProps {
   session: TechnicianSession;
   onOpenSettings: () => void;
   onOpenVideoInspection?: () => void;
+  onOpenMaintenance?: () => void;
   onLogout: () => Promise<void>;
 }
 
@@ -200,6 +202,7 @@ export function AdvisorDashboard({
   session,
   onOpenSettings,
   onOpenVideoInspection,
+  onOpenMaintenance,
   onLogout,
 }: AdvisorDashboardProps) {
   const [repairOrders, setRepairOrders] = useState<RepairOrderSummary[]>([]);
@@ -284,6 +287,17 @@ export function AdvisorDashboard({
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {onOpenMaintenance ? (
+            <button
+              type="button"
+              onClick={onOpenMaintenance}
+              className="benz-icon-btn touch-target text-benz-blue"
+              aria-label="Maintenance"
+              title="Maintenance"
+            >
+              <Wrench size={20} />
+            </button>
+          ) : null}
           {onOpenVideoInspection ? (
             <button
               type="button"

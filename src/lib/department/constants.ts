@@ -67,6 +67,7 @@ export function isPartsLineStatus(value: string): value is PartsLineStatus {
 export function canAccessDepartmentInbox(role: string, department: DepartmentId): boolean {
   if (role === 'manager' || role === 'owner') return true;
   if (department === 'parts' && role === 'parts') return true;
-  // Future: sales, loaner, maintenance roles
+  // Facility tickets use MaintenanceTicket module (PR-M3), not DepartmentRequest inbox.
+  // Future: sales, loaner roles
   return false;
 }

@@ -41,6 +41,8 @@ enum TechnicianRole {
   owner
   /** PR-M2 — parts department staff (inbox + request workflow). */
   parts
+  /** PR-M3 — facilities / maintenance staff (ticket kanban). */
+  maintenance
 }
 
 /**
@@ -150,6 +152,7 @@ model Dealership {
   videoInspections      VideoInspection[]
   modules               DealershipModule[]
   departmentRequests    DepartmentRequest[]
+  maintenanceTickets    MaintenanceTicket[]
 
   @@index([dealerId])
 }
@@ -266,6 +269,9 @@ model Technician {
   departmentRequestsCreated  DepartmentRequest[] @relation("DepartmentRequestCreatedBy")
   departmentRequestsAssigned DepartmentRequest[] @relation("DepartmentRequestAssignedTo")
   partsLookupEvents      PartsLookupEvent[]
+  maintenanceTicketsCreated  MaintenanceTicket[] @relation("MaintenanceTicketCreatedBy")
+  maintenanceTicketsAssigned MaintenanceTicket[] @relation("MaintenanceTicketAssignedTo")
+  maintenanceTicketEvents    MaintenanceTicketEvent[]
 
   @@index([dealerId])
   @@index([dealershipId])
@@ -453,6 +459,85 @@ model PartsLookupEvent {
   @@index([dealershipId, createdAt(sort: Desc)])
   @@index([departmentRequestId, createdAt(sort: Desc)])
   @@map("PartsLookupEvent")
+}
+
+// ─── PR-M3 MAINTENANCE MANAGEMENT ────────────────────────────────────────────
+enum MaintenanceSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum MaintenanceTicketStatus {
+  submitted
+  triage
+  scheduled
+  in_progress
+  blocked
+  done
+  cancelled
+}
+
+/**
+ * Facility / shop maintenance ticket (independent of RO story + department voice inbox).
+ */
+model MaintenanceTicket {
+  id                   String   @id @default(cuid())
+  dealershipId         String
+  dealership           Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  dealerId             String?  @map("dealer_id")
+  createdById          String
+  createdBy            Technician @relation("MaintenanceTicketCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedToId         String?
+  assignedTo           Technician? @relation("MaintenanceTicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  /** service | sales | parts | facilities | all */
+  department           String   @default("facilities")
+  title                String
+  descriptionEncrypted String   @default("")
+  severity             MaintenanceSeverity @default(medium)
+  status               MaintenanceTicketStatus @default(submitted)
+  locationLabel        String?
+  dueAt                DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  photos               MaintenancePhoto[]
+  events               MaintenanceTicketEvent[]
+
+  @@index([dealershipId, status, severity])
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([assignedToId, status])
+  @@index([dealerId])
+  @@map("MaintenanceTicket")
+}
+
+model MaintenancePhoto {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  pathname    String
+  contentType String   @default("image/jpeg")
+  createdAt   DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("MaintenancePhoto")
+}
+
+model MaintenanceTicketEvent {
+  id               String   @id @default(cuid())
+  ticketId         String
+  ticket           MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId          String?
+  actor            Technician? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /** created | assigned | status_changed | comment | severity_changed */
+  type             String
+  payloadEncrypted String   @default("")
+  createdAt        DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([actorId])
+  @@map("MaintenanceTicketEvent")
 }
 
 /**

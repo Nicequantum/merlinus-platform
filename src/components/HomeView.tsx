@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings, Video } from 'lucide-react';
+import { Settings, Video, Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -40,6 +40,7 @@ interface HomeViewProps {
   onDeleteRO: (id: string) => void;
   onOpenSettings: () => void;
   onOpenVideoInspection?: () => void;
+  onOpenMaintenance?: () => void;
 }
 
 export function HomeView({
@@ -73,6 +74,7 @@ export function HomeView({
   onDeleteRO,
   onOpenSettings,
   onOpenVideoInspection,
+  onOpenMaintenance,
 }: HomeViewProps) {
   const { t } = useTranslation('home');
   const { t: tVideo } = useTranslation('video');
@@ -80,6 +82,17 @@ export function HomeView({
   return (
     <div className="relative min-h-dvh benz-page-compact">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+        {onOpenMaintenance ? (
+          <button
+            type="button"
+            onClick={onOpenMaintenance}
+            className="benz-icon-btn touch-target"
+            aria-label="Maintenance"
+            title="Maintenance"
+          >
+            <Wrench size={22} />
+          </button>
+        ) : null}
         {onOpenVideoInspection ? (
           <button
             type="button"
@@ -109,16 +122,28 @@ export function HomeView({
           <p className="text-benz-secondary text-sm font-medium">
             {technicianName || t('technicianFallback')}
           </p>
-          {onOpenVideoInspection ? (
-            <button
-              type="button"
-              className="secondary-btn mt-4 h-11 px-4 touch-target"
-              onClick={onOpenVideoInspection}
-            >
-              <Video size={16} className="inline mr-2" />
-              {tVideo('navLabel')}
-            </button>
-          ) : null}
+          <div className="flex flex-wrap gap-2 mt-4 justify-center">
+            {onOpenVideoInspection ? (
+              <button
+                type="button"
+                className="secondary-btn h-11 px-4 touch-target"
+                onClick={onOpenVideoInspection}
+              >
+                <Video size={16} className="inline mr-2" />
+                {tVideo('navLabel')}
+              </button>
+            ) : null}
+            {onOpenMaintenance ? (
+              <button
+                type="button"
+                className="secondary-btn h-11 px-4 touch-target"
+                onClick={onOpenMaintenance}
+              >
+                <Wrench size={16} className="inline mr-2" />
+                Maintenance
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <ScanROSection
