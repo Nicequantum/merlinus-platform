@@ -1505,12 +1505,18 @@ async function checkSecurityAndConfig(): Promise<void> {
       content.includes('passcodeHash') &&
       content.includes('verifyPasscodeHash') &&
       content.includes('checkRateLimit');
+    // Twilio Programmable Voice / recording webhooks — signature verified (not session auth).
+    const hasTwilioWebhookAuth =
+      rel.startsWith('voice/') &&
+      content.includes('validateTwilioSignature') &&
+      (content.includes('x-twilio-signature') || content.includes('X-Twilio-Signature'));
     if (
       !isPublic &&
       !hasWithAuth &&
       !hasSvixWebhookVerification &&
       !hasApexPreAuth &&
-      !hasPublicVideoShareHardening
+      !hasPublicVideoShareHardening &&
+      !hasTwilioWebhookAuth
     ) {
       unauthenticated.push(rel);
     }

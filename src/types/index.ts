@@ -723,4 +723,5 @@ export const AUDIT_ACTIONS = [
   'customerPayStory.edit',
   'customerPayStory.pdf_export',
   'dealer.provision',
+  'module.set',
 ] as const;
