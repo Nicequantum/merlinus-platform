@@ -157,6 +157,9 @@ model Dealership {
   maintenanceTickets    MaintenanceTicket[]
   loanerVehicles        LoanerVehicle[]
   loanerAssignments     LoanerAssignment[]
+  voiceAgentLines       VoiceAgentLine[]
+  voiceCalls            VoiceCall[]
+  voiceConversations    VoiceConversation[]
 
   @@index([dealerId])
 }
@@ -630,6 +633,93 @@ model LoanerAssignment {
   @@index([dealershipId, customerPhoneLast4])
   @@index([dealerId])
   @@map("LoanerAssignment")
+}
+
+// ─── PR-M5a AI VOICE AGENT ───────────────────────────────────────────────────
+/**
+ * Inbound DID bound to a rooftop. Telephony webhooks resolve tenancy from this line
+ * — never from model-supplied dealershipId.
+ */
+model VoiceAgentLine {
+  id           String   @id @default(cuid())
+  dealershipId String
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** E.164 number, unique globally among active lines. */
+  e164Number   String
+  label        String   @default("Main")
+  provider     String   @default("twilio")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  calls        VoiceCall[]
+
+  @@unique([e164Number])
+  @@index([dealershipId, isActive])
+  @@map("VoiceAgentLine")
+}
+
+model VoiceCall {
+  id                String   @id @default(cuid())
+  dealershipId      String
+  dealership        Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  lineId            String?
+  line              VoiceAgentLine? @relation(fields: [lineId], references: [id], onDelete: SetNull)
+  /** Provider call id (e.g. Twilio CallSid) */
+  externalCallId    String   @unique
+  direction         String   @default("inbound")
+  fromEncrypted     String   @default("")
+  fromLast4         String   @default("")
+  toE164            String   @default("")
+  /** ringing | in_progress | completed | failed | busy | no-answer */
+  status            String   @default("ringing")
+  startedAt         DateTime?
+  endedAt           DateTime?
+  durationSec       Int?
+  recordingPathname String?
+  transcriptEncrypted String @default("")
+  routingPathJson   String   @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  conversation      VoiceConversation?
+  segments          VoiceTranscriptSegment[]
+
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([dealershipId, status])
+  @@index([lineId])
+  @@map("VoiceCall")
+}
+
+model VoiceConversation {
+  id           String   @id @default(cuid())
+  callId       String   @unique
+  call         VoiceCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  dealershipId String
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** receptionist | parts | sales | service | loaner */
+  activeAgent  String   @default("receptionist")
+  /** Slot filling + departmentRequestId + handoff state */
+  stateJson    String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([dealershipId, activeAgent])
+  @@map("VoiceConversation")
+}
+
+model VoiceTranscriptSegment {
+  id            String   @id @default(cuid())
+  callId        String
+  call          VoiceCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  tsMs          Int      @default(0)
+  /** agent | caller | system */
+  speaker       String
+  textEncrypted String   @default("")
+  agentName     String?
+  createdAt     DateTime @default(now())
+
+  @@index([callId, createdAt])
+  @@index([callId, tsMs])
+  @@map("VoiceTranscriptSegment")
 }
 
 /**

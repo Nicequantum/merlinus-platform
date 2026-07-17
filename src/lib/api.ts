@@ -938,6 +938,30 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** PR-M5a — voice agent ops */
+  listVoiceAgentLines: () =>
+    apiFetch<{
+      lines: Array<{
+        id: string;
+        e164Number: string;
+        label: string;
+        provider: string;
+        isActive: boolean;
+        createdAt: string;
+      }>;
+    }>('/api/voice/lines', { cache: 'no-store' }),
+
+  createVoiceAgentLine: (body: { e164Number: string; label?: string }) =>
+    apiFetch<{ line: Record<string, unknown> }>('/api/voice/lines', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  listVoiceCalls: () =>
+    apiFetch<{ calls: Array<Record<string, unknown>> }>('/api/voice/calls', {
+      cache: 'no-store',
+    }),
+
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 
   exportAuditLogsCsv: (params: {
