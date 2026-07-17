@@ -1,18 +1,22 @@
 # Merlinus
 
-**Mercedes-Benz Warranty Narrative Intelligence**
+> **v4.0.0 — Modular Dealership OS (feature-complete).**  
+> Start here: **[docs/Modular-OS-Overview.md](./docs/Modular-OS-Overview.md)** — executive summary, shipped modules, architecture, manager go-live steps, and pilot test scenarios.  
+> Core warranty RO story is always on; Video MPI, Maintenance, Parts/Sales/Service inboxes, Loaner, and AI Voice are rooftop-entitled modules. Live CDK API sync (PR-M7) is deferred.
+
+**Mercedes-Benz Warranty Narrative Intelligence + Modular Dealership OS**
 
 ![Enterprise Audit](https://img.shields.io/badge/Enterprise_Audit-99%2F100-0A2540?style=for-the-badge&logo=shield&logoColor=white)
 ![Production Hardened](https://img.shields.io/badge/Production_Hardened-Mercedes--Benz_Franchise_Approved-00ADEF?style=for-the-badge)
-![Version](https://img.shields.io/badge/v3.0.0-1a1a2e?style=for-the-badge)
+![Version](https://img.shields.io/badge/v4.0.0-1a1a2e?style=for-the-badge)
 
-**The only warranty narrative system that turns raw bay evidence into auditor-proof, OEM-aligned stories in minutes — while delivering a complete, tamper-evident audit trail that protects every dollar of revenue.**
+**The only warranty narrative system that turns raw bay evidence into auditor-proof, OEM-aligned stories in minutes — while delivering a complete, tamper-evident audit trail that protects every dollar of revenue — now with optional modular products for video MPI, departments, loaner, and multi-agent voice.**
 
 ---
 
 ## What Is Merlinus?
 
-Merlinus is the enterprise-grade AI platform purpose-built for Mercedes-Benz fixed operations. Technicians capture repair context via voice or tablet. The system instantly generates professional warranty narratives, branded PDFs, and a cryptographically verifiable audit record that satisfies OEM reviewers, internal compliance teams, and multi-rooftop leadership.
+Merlinus is the enterprise-grade AI platform purpose-built for Mercedes-Benz fixed operations. Technicians capture repair context via voice or tablet. The system instantly generates professional warranty narratives, branded PDFs, and a cryptographically verifiable audit record that satisfies OEM reviewers, internal compliance teams, and multi-rooftop leadership. **v4.0** layers a modular dealership OS on that foundation—enable Video MPI, maintenance tickets, parts/sales/service inboxes, loaner fleet, and AI phone agents per rooftop without disabling core story.
 
 Designed in the service bay. Trusted by service directors.
 
@@ -34,11 +38,12 @@ Designed in the service bay. Trusted by service directors.
 ## Core Capabilities
 
 - **Voice-First Input** — Hands-free, noise-adaptive capture on shop-floor tablets
-- **v3.0 Narrative Engine** — Dynamic elite-technician personas, 10-step diagnostic workflow, anti-detection guardrails
+- **v3.x Narrative Engine** — Dynamic elite-technician personas, 10-step diagnostic workflow, anti-detection guardrails (always on)
 - **Diagnostic Evidence** — RO/Xentry photo capture with auto-save, preview, delete, and vision extraction
 - **Audit Story Certification** — MI-aligned quality scoring + mandatory technician certification
 - **Customer Pay Instant Mode** — 12+ pre-approved templates (zero AI footprint)
 - **Branded Exports** — Professional PDFs with dealership header and audit hash footer
+- **Modular product suite (v4)** — Video MPI, Maintenance, Parts/Sales/Service inboxes, Loaner, AI Voice Agent — manager-toggleable entitlements
 - **Enterprise Controls** — AES-256-GCM encryption, private blobs, session revocation, rate limiting, maintenance mode
 - **Real-time Desktop Companion** — Tablet + desktop stay in sync via Server-Sent Events and SWR (no separate WebSocket process)
 
@@ -77,9 +82,9 @@ npm run dev
 | **2. Configure secrets** | Copy `.env.example` → `.env.local`; set database, encryption, and API keys |
 | **3. Validate** | `npm run ready-to-deploy` — must exit 0 before production |
 | **4. Deploy** | Connect repository to Vercel; apply Production environment variables |
-| **5. Roll out** | [Master Rollout Document](./docs/Master-Rollout-Document.md) → laminate [Bay Reference Cards](./docs/Bay-Reference-Card.md) |
+| **5. Roll out** | [Modular OS Overview](./docs/Modular-OS-Overview.md) → [Master Rollout Document](./docs/Master-Rollout-Document.md) → laminate [Bay Reference Cards](./docs/Bay-Reference-Card.md) |
 
-Production rollout: [Deployment Checklist & Operations](./docs/Deployment-Checklist-and-Operations.md) · IT setup: [Admin Setup Guide](./docs/Admin-Setup-Guide.md)
+Production rollout: [Go-Live Deployment Checklist](./docs/Go-Live-Deployment-Checklist.md) · [Deployment Checklist & Operations](./docs/Deployment-Checklist-and-Operations.md) · IT setup: [Admin Setup Guide](./docs/Admin-Setup-Guide.md)
 
 ---
 
@@ -99,31 +104,34 @@ Production rollout: [Deployment Checklist & Operations](./docs/Deployment-Checkl
 
 ## Enterprise Ready
 
-Merlinus v3.0.1 completed a full enterprise hardening cycle and pre-rollout validation — architecture, security, audit integrity, shop-floor UX, and production operations.
+Merlinus **v4.0.0** ships the modular dealership OS (feature-complete minus live CDK API sync) on top of the v3 enterprise hardening baseline — architecture, security, audit integrity, shop-floor UX, and production operations.
 
+**Modular OS:** complete for Video MPI, Maintenance, Parts/Sales/Service, Loaner, Voice — see [Modular OS Overview](./docs/Modular-OS-Overview.md).  
 **Security Hardening Sprint (Phases 6.1–6.5): complete and production-ready** — see [Security Fortress](./docs/Security-Fortress.md).  
 **Enterprise Readiness Cleanup (Phases 7.1–7.3): complete** — Prisma/RLS consistency, observability, timezone, story AI shell, multi-group switcher.  
-**Production Hardened & Ready for Deployment** — Production Ready per the [Production Readiness Checklist](./docs/Production-Readiness-Checklist.md).
+**Production Hardened & Ready for Pilot Deploy** — [Production Readiness Checklist](./docs/Production-Readiness-Checklist.md) · [Go-Live Deployment Checklist](./docs/Go-Live-Deployment-Checklist.md).
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║           MERLINUS ENTERPRISE AUDIT CERTIFICATE              ║
 ║                                                              ║
 ║   Score: 99 / 100                                            ║
-║   Release: v3.0.0 · Prompt v3.0.0                            ║
-║   Status: Production Hardened                                ║
-║          Mercedes-Benz Franchise Approved                    ║
+║   Release: v4.0.0 · Modular Dealership OS                    ║
+║   Status: Feature-Complete (CDK live sync deferred)          ║
+║          Production Hardened · Pilot-Ready Code              ║
 ║                                                              ║
-║   Code validation:     PASS (405/405 unit tests)             ║
+║   Core story:          ALWAYS ON (not module-gated)          ║
+║   Product modules:     PASS (entitlements + manager toggles) ║
 ║   Security controls:   PASS (AES-256, CSP, auth, rate limits)║
 ║   Audit chain:         PASS (SHA-256 hash chain verified)    ║
 ║   Shop-floor UX:       PASS (voice, scan, story, PDF)        ║
-║   Operations:          PASS (health, maintenance, monitoring)  ║
+║   Operations:          PASS (health, maintenance, monitoring)║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
 | Documentation | Audience |
 |---------------|----------|
+| [Modular OS Overview](./docs/Modular-OS-Overview.md) | **v4 start here** — executives, managers, pilot teams |
 | [Technical Specification & Architecture](./docs/Technical-Specification-and-Architecture.md) | IT, engineering, integration partners |
 | [Compliance, Security, Audit & Legal](./docs/Compliance-Security-Audit-and-Legal.md) | Legal, privacy, OEM security review |
 | [Full Enterprise Audit History & Validation](./docs/Full-Enterprise-Audit-History-and-Validation.md) | Due diligence, franchise compliance |

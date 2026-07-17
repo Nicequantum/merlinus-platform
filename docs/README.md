@@ -1,8 +1,8 @@
 # Merlin Documentation Library
 
-**Product:** Merlinus — Mercedes-Benz Warranty Narrative Platform  
-**Version:** 3.0.0  
-**Entry point:** [Main README](../README.md)
+**Product:** Merlinus — Modular Dealership OS + Warranty Narrative Platform  
+**Version:** 4.0.0  
+**Entry point:** [Modular OS Overview](./Modular-OS-Overview.md) · [Main README](../README.md)
 
 ---
 

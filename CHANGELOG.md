@@ -2,6 +2,30 @@
 
 All notable changes to Merlinus are documented here.
 
+## [4.0.0] — 2026-07-17
+
+### Modular Dealership OS — feature-complete (CDK live sync deferred)
+
+Major product release: Merlinus expands from warranty narrative into a **modular dealership operating system**. Core RO → evidence → AI story remains **always on** and is never a toggleable product module.
+
+**Handover / start here:** [docs/Modular-OS-Overview.md](docs/Modular-OS-Overview.md)
+
+| Track | Summary |
+|-------|---------|
+| **PR-M0** | Product module entitlements (`ModuleId`, `DealershipModule` / `DealerGroupModule`, catalog, force-env break-glass) |
+| **PR-M1a/M1b** | Video MPI findings, checklist, status board, chunked upload, offline queue |
+| **PR-M2** | `DepartmentRequest` spine + Parts inbox, parts role |
+| **PR-M3** | Maintenance tickets, kanban, maintenance role |
+| **PR-M4** | Loaner fleet, assignments, loaner role |
+| **PR-M5a/M5b** | AI Voice Agent (Twilio webhooks, multi-agent sales/service, transcripts, containment metrics) |
+| **PR-M8** | Unified Sales/Service inboxes (shared DepartmentRequest UI), sales/service roles + modules, voice ticket module gates |
+| **Polish** | Seed module defaults, manager enable/disable UI (`module.set` audit), shared disabled notices |
+| **Hardening** | Module env validation, Twilio signature fail-closed in production, Sentry release/env tags, production + go-live deployment checklists |
+
+**Deferred:** `cdk_sync` (PR-M7) — catalog reserved; live CDK Global API client needs credentials. Clipboard CDK paste for RO context remains available without this module.
+
+**Ops:** Prefer Manager Dashboard → Modules over `MODULES_FORCE_ENABLE` in production. Deploy current `main`, migrate, seed/provision, then pilot smoke scenarios in Modular-OS-Overview §6.
+
 ## [3.0.2] — 2026-07-15
 
 ### Production reliability hardening series — **complete on `main` (`dc8f62e`)**
