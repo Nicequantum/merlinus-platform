@@ -1,0 +1,27 @@
+import * as Sentry from '@sentry/nextjs';
+import { clientLog } from '@/lib/clientLog';
+// Client-safe scrub module only (server init uses Node ALS request ids separately).
+import { getSentryDsn, scrubSentryEventForClient } from '@/lib/sentryScrub';
+
+const dsn = getSentryDsn();
+
+if (dsn) {
+  try {
+    Sentry.init({
+      dsn,
+      tracesSampleRate: 0.1,
+      replaysSessionSampleRate: 0,
+      replaysOnErrorSampleRate: 0,
+      debug: false,
+      // Phase 7.2 H8 — client scrubber parity with server
+      beforeSend(event) {
+        scrubSentryEventForClient(event);
+        return event;
+      },
+    });
+  } catch (error) {
+    clientLog.error('telemetry.sentry_init_failed', error);
+  }
+}
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

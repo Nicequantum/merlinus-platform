@@ -1,0 +1,17 @@
+{
+  "micLabel": "Entrada de voz",
+  "startMic": "Iniciar entrada de voz",
+  "stopMic": "Detener entrada de voz",
+  "listening": "Escuchando…",
+  "disabled": "La entrada de voz está desactivada en este concesionario. Escriba sus notas.",
+  "notSupported": "La entrada de voz no es compatible con este navegador. Use Chrome o Edge en la tableta.",
+  "permissionDenied": "Micrófono bloqueado. Permita el acceso al micrófono en la configuración del sitio y recargue.",
+  "noSpeech": "No se detectó voz. Toque el micrófono o mantenga pulsado e hable más cerca de la tableta.",
+  "languageNotSupported": "Idioma no compatible en este dispositivo. Escriba sus notas.",
+  "network": "El reconocimiento de voz necesita red. Revise el Wi‑Fi del taller.",
+  "aborted": "Entrada de voz detenida.",
+  "audioCapture": "Micrófono no disponible. Verifique que ninguna otra app lo esté usando.",
+  "notAllowed": "Micrófono bloqueado. Permita el micrófono para este sitio en Chrome o Edge.",
+  "serviceNotAllowed": "El reconocimiento de voz está bloqueado por la política del navegador. Escriba manualmente.",
+  "genericError": "Error de entrada de voz. Puede seguir escribiendo manualmente."
+}

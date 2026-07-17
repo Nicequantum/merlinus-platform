@@ -1,0 +1,23 @@
+{
+  "appName": "Merlinus",
+  "back": "Atrás",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "saving": "Guardando…",
+  "retry": "Reintentar",
+  "retrying": "Reintentando…",
+  "loading": "Cargando…",
+  "signOut": "Cerrar sesión",
+  "settings": "Configuración",
+  "search": "Buscar",
+  "delete": "Eliminar",
+  "confirm": "Confirmar",
+  "close": "Cerrar",
+  "yes": "Sí",
+  "no": "No",
+  "error": "Algo salió mal",
+  "networkError": "Error de red — revise la conexión e intente de nuevo",
+  "updating": "Actualizando…",
+  "technician": "Técnico"
+}
+

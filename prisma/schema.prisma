@@ -1,0 +1,683 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // MERLINUS SINGLE-DEALER: Neon/Prisma Postgres via DATABASE_URL (+ DIRECT_URL for migrations).
+  // APEX NATIONAL PLATFORM (Phase 1.5): Supabase pooler on DATABASE_URL, DIRECT_URL for migrations.
+  // Set SUPABASE_DATABASE_URL or SUPABASE_DB_PASSWORD — resolved in src/lib/apex/databaseConfig.ts.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── PII ENCRYPTION AT REST (Merlinus v2.0 — Phase 5 complete) ───────────────
+// Dual-storage plaintext columns (roNumber, description, displayName) were dropped
+// in migration 20250630140000_drop_pii_plaintext_columns. Encrypted columns are the
+// sole source of truth for reads and writes.
+//
+// RepairOrder.roNumberEncrypted + roNumberSearchTokens (blind-index search)
+// RepairLine.descriptionEncrypted
+// ServiceAdvisor.displayNameEncrypted
+// RepairOrder.serviceAdvisorNameEncrypted
+//
+// ── Plaintext-only fields (future encryption candidates) ──────────────────────
+// ServiceAdvisorAlias.aliasText
+// AdvisorWritingProfile.profileData
+// Technician.name / email (auth identity)
+// TechnicianCertifiedStory.roNumber (operational denormalized index, not customer PII)
+// AuditLog.metadata.roNumber (hash-chain operational identifier)
+// Template.title / description (non-customer catalog metadata)
+//
+// Rollback: restore pre-Phase-5 database backup. Do not rotate ENCRYPTION_KEY without
+// a planned key-migration procedure. See docs/Reencryption-Runbook.md.
+
+/** M11: enforce technician/manager/owner at the database layer. */
+enum TechnicianRole {
+  technician
+  manager
+  service_advisor
+  /** APEX NATIONAL PLATFORM — national operators; least-privilege, audited dealership context. */
+  owner
+}
+
+/**
+ * APEX — franchise / ownership portfolio above brand Dealers.
+ * Example: Viti Automotive Group owns VITIMB + VITIVOLVO.
+ */
+model DealerGroup {
+  id          String   @id @default(cuid())
+  /** Ops slug, unique (e.g. VITI-AUTO). */
+  code        String   @unique
+  /** UI name (e.g. Viti Automotive Group). */
+  name        String
+  /** Legal entity (e.g. Viti, Inc.). */
+  legalName   String?  @map("legal_name")
+  /**
+   * Phase 7.3 — optional default IANA timezone for rooftops in this group
+   * (rooftop Dealership.timezone wins when set).
+   */
+  timezone    String?  @default("America/New_York")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dealers     Dealer[]
+  memberships DealerGroupMembership[]
+
+  @@index([status])
+  @@map("DealerGroup")
+}
+
+/** Owner (or co-owner) access to a DealerGroup portfolio. */
+model DealerGroupMembership {
+  id            String   @id @default(cuid())
+  dealerGroupId String   @map("dealer_group_id")
+  dealerGroup   DealerGroup @relation(fields: [dealerGroupId], references: [id], onDelete: Cascade)
+  technicianId  String   @map("technician_id")
+  technician    Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  /** owner | viewer (future roles as needed). */
+  role          String   @default("owner")
+  isPrimary     Boolean  @default(false) @map("is_primary")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([dealerGroupId, technicianId])
+  @@index([technicianId, isActive])
+  @@index([dealerGroupId])
+  @@map("DealerGroupMembership")
+}
+
+// APEX NATIONAL PLATFORM — brand / franchise unit under an optional DealerGroup.
+// MERLINUS SINGLE-DEALER: one default Dealer row backs the existing Tiverton dealership.
+model Dealer {
+  id                        String                        @id @default(cuid())
+  code                      String                        @unique
+  name                      String
+  status                    String                        @default("active")
+  dealerGroupId             String?                       @map("dealer_group_id")
+  dealerGroup               DealerGroup?                  @relation(fields: [dealerGroupId], references: [id], onDelete: SetNull)
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  dealerships               Dealership[]
+  technicians               Technician[]
+  repairOrders              RepairOrder[]
+  repairLines               RepairLine[]
+  auditLogs                 AuditLog[]
+  usageLogs                 UsageLog[]
+  usageEvents               UsageEvent[]
+  serviceAdvisors           ServiceAdvisor[]
+  advisorObservations       AdvisorComplaintObservation[]
+  certifiedStories          TechnicianCertifiedStory[]
+  technicianActivityLogs    TechnicianActivityLog[]
+  templates                 Template[]
+  knowledgeBaseEntries      KnowledgeBase[]
+
+  @@index([status])
+  @@index([dealerGroupId])
+  @@map("Dealer")
+}
+
+// MERLINUS SINGLE-DEALER — physical store / rooftop (unchanged concept; now optionally under Dealer).
+model Dealership {
+  id              String                        @id @default(cuid())
+  name            String
+  dealerId        String?                       @map("dealer_id")
+  dealer          Dealer?                       @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  /**
+   * Phase 7.3 (H7) — IANA timezone for "today" RO lists and daily AI usage caps
+   * (e.g. America/New_York, America/Los_Angeles). Falls back to USAGE_TIMEZONE env.
+   */
+  timezone        String                        @default("America/New_York")
+  /**
+   * Multi-brand story pack key: mercedes | generic | (future oem ids).
+   * Set at provision from rooftop template; defaults mercedes for existing pilots.
+   */
+  storyBrand      String                        @default("mercedes") @map("story_brand")
+  createdAt       DateTime                      @default(now())
+  technicians     Technician[]
+  repairOrders    RepairOrder[]
+  auditLogs       AuditLog[]
+  usageLogs       UsageLog[]
+  usageEvents     UsageEvent[]
+  serviceAdvisors ServiceAdvisor[]
+  advisorObservations AdvisorComplaintObservation[]
+  technicianMemberships TechnicianDealership[]
+  videoInspections      VideoInspection[]
+
+  @@index([dealerId])
+}
+
+// MERLINUS SINGLE-DEALER — Technician is the authenticated user model (no separate User table).
+model Technician {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  /** Nullable for owner accounts — partial unique index in DB (WHERE d7Number IS NOT NULL). */
+  d7Number       String?       @unique
+  /** APEX NATIONAL PLATFORM — multi-brand username (brand.firstname.lastname); lowercase at rest. */
+  apexUsername   String?       @unique
+  name           String
+  passwordHash   String
+  /**
+   * Apex dealer provision / admin reset — user must change password before PII routes.
+   * Forced for newly provisioned managers.
+   */
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  passwordChangedAt  DateTime? @map("password_changed_at")
+  /** Phase 4 Clerk — linked Clerk user id; null for legacy D7-only accounts. */
+  clerkUserId    String?       @unique @map("clerk_user_id")
+  /** Phase 4 — identity provider: legacy (JWT) or clerk. */
+  authProvider   String        @default("legacy") @map("auth_provider")
+  role           TechnicianRole @default(technician)
+  isAdmin        Boolean       @default(false)
+  isActive       Boolean       @default(true)
+  sessionVersion Int           @default(0)
+  dealerId       String?       @map("dealer_id")
+  dealer         Dealer?       @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId   String
+  dealership     Dealership    @relation(fields: [dealershipId], references: [id])
+  /** Links service_advisor role logins to their ServiceAdvisor profile for RO scoping. */
+  serviceAdvisorId String?
+  serviceAdvisor   ServiceAdvisor? @relation(fields: [serviceAdvisorId], references: [id], onDelete: SetNull)
+  consentAt      DateTime?
+  consentVersion String?
+  legalDisclaimerAt      DateTime?
+  legalDisclaimerVersion String?
+  firstAppLaunchAt       DateTime?
+  firstAppLaunchSessionId String?
+  /**
+   * Technician UI + voice locale (Phase 1 multilingual).
+   * App allowlist: en | es (TEXT for future codes). Default English.
+   */
+  preferredLanguage String @default("en") @map("preferred_language")
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  repairOrders         RepairOrder[]
+  auditLogs            AuditLog[]
+  usageLogs            UsageLog[]
+  technicianActivityLogs TechnicianActivityLog[]
+  certifiedStories       TechnicianCertifiedStory[]
+  sessionRefreshTokens SessionRefreshToken[]
+  dealershipMemberships TechnicianDealership[]
+  dealerGroupMemberships DealerGroupMembership[]
+  videoInspections       VideoInspection[]
+  videoInspectionShares  VideoInspectionShare[]
+  videoInspectionSmsLogs VideoInspectionSmsLog[]
+
+  @@index([dealerId])
+  @@index([dealershipId])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([serviceAdvisorId])
+  @@index([apexUsername])
+  /** Phase 7.3 — active staff lists / owner summary staff depth */
+  @@index([dealershipId, isActive, deletedAt])
+}
+
+/**
+ * Video Inspection — customer-facing multi-media inspections (separate from warranty AI).
+ * Private Blob video + encrypted transcript/report + shareable customer viewer.
+ */
+model VideoInspection {
+  id                    String   @id @default(cuid())
+  dealerId              String?  @map("dealer_id")
+  dealershipId          String
+  dealership            Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  technicianId          String
+  technician            Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  repairOrderId         String?
+  repairLineId          String?
+  /** draft | processing | ready | failed | sent */
+  status                String   @default("draft")
+  videoPathname         String   @default("")
+  contentType           String   @default("video/webm")
+  sizeBytes             Int      @default(0)
+  durationSec           Float?
+  thumbnailPathname     String?
+  /** JSON array of private Blob pathnames for AI keyframes */
+  framePathnames        String   @default("[]")
+  transcriptEncrypted   String   @default("")
+  transcriptLanguage    String   @default("en")
+  reportEncrypted       String   @default("")
+  reportPromptVersion   String   @default("")
+  vehicleLabel          String?
+  title                 String   @default("Video inspection")
+  errorMessage          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  shares                VideoInspectionShare[]
+  smsLogs               VideoInspectionSmsLog[]
+
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@index([dealershipId, status])
+  @@index([dealerId])
+}
+
+model VideoInspectionShare {
+  id                     String   @id @default(cuid())
+  videoInspectionId      String
+  videoInspection        VideoInspection @relation(fields: [videoInspectionId], references: [id], onDelete: Cascade)
+  tokenHash              String   @unique
+  passcodeHash           String?
+  expiresAt              DateTime?
+  revokedAt              DateTime?
+  viewCount              Int      @default(0)
+  createdByTechnicianId  String
+  createdBy              Technician @relation(fields: [createdByTechnicianId], references: [id], onDelete: Cascade)
+  createdAt              DateTime @default(now())
+
+  @@index([videoInspectionId])
+  @@index([createdByTechnicianId])
+}
+
+model VideoInspectionSmsLog {
+  id                String   @id @default(cuid())
+  videoInspectionId String
+  videoInspection   VideoInspection @relation(fields: [videoInspectionId], references: [id], onDelete: Cascade)
+  shareId           String?
+  phoneEncrypted    String   @default("")
+  phoneLast4        String   @default("")
+  providerMessageId String?
+  status            String   @default("queued")
+  sentByTechnicianId String
+  sentBy            Technician @relation(fields: [sentByTechnicianId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@index([videoInspectionId, createdAt])
+  @@index([sentByTechnicianId])
+}
+
+/** APEX Phase 5.2 — multi-rooftop membership; source of truth for dealership access scoping. */
+model TechnicianDealership {
+  id           String         @id @default(cuid())
+  technicianId String
+  technician   Technician     @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  dealershipId String
+  dealership   Dealership     @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  role         TechnicianRole
+  isPrimary    Boolean        @default(false)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+
+  @@unique([technicianId, dealershipId])
+  @@index([technicianId])
+  @@index([dealershipId])
+  @@index([technicianId, isActive])
+}
+
+model RepairOrder {
+  id                         String       @id @default(cuid())
+  /** Encrypted RO number — sole source of truth at rest. */
+  roNumberEncrypted          String       @default("")
+  /** HMAC blind-index tokens for RO search without decrypting roNumberEncrypted. */
+  roNumberSearchTokens       String[]     @default([])
+  technicianId               String
+  technician                 Technician   @relation(fields: [technicianId], references: [id])
+  dealerId                   String?      @map("dealer_id")
+  dealer                     Dealer?      @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId               String
+  dealership                 Dealership   @relation(fields: [dealershipId], references: [id])
+  serviceAdvisorId           String?
+  serviceAdvisor             ServiceAdvisor? @relation(fields: [serviceAdvisorId], references: [id], onDelete: SetNull)
+  serviceAdvisorNameEncrypted String      @default("")
+  advisorMatchConfidence     Float?
+  advisorIdentifiedAt        DateTime?
+  vinEncrypted               String       @default("")
+  year                       String       @default("")
+  make                       String       @default("")
+  model                      String       @default("")
+  engine                     String       @default("")
+  mileageIn                  String       @default("")
+  mileageOut                 String       @default("")
+  customerNameEncrypted      String       @default("")
+  complaintsEncrypted        String       @default("[]")
+  xentryOcrTextsEncrypted    String       @default("")
+  xentryImageUrls            String       @default("[]")
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+  repairLines                RepairLine[]
+  advisorObservations        AdvisorComplaintObservation[]
+  usageEvents                UsageEvent[]
+
+  @@index([technicianId])
+  @@index([dealerId])
+  @@index([dealershipId])
+  @@index([roNumberSearchTokens], type: Gin)
+  @@index([serviceAdvisorId])
+  @@index([dealerId, dealershipId])
+  /** RLS prep — composite tenant + recency for national platform list queries. */
+  @@index([dealershipId, dealerId, updatedAt])
+  /** Phase 7.3 — today/previous RO list + advisor metrics window by rooftop */
+  @@index([dealershipId, updatedAt])
+  /** Phase 7.3 — advisor-scoped lists */
+  @@index([dealershipId, serviceAdvisorId, updatedAt])
+}
+
+// ─── Advisor Intelligence (Phase 1) ─────────────────────────────────────────
+
+model ServiceAdvisor {
+  id              String   @id @default(cuid())
+  dealerId        String?  @map("dealer_id")
+  dealer          Dealer?  @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId    String
+  dealership      Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** Encrypted advisor display name — sole source of truth at rest. */
+  displayNameEncrypted String @default("")
+  nameFingerprint String
+  advisorCode     String?
+  status          String   @default("active")
+  mergedIntoId    String?
+  /** Soft delete — historical ROs, observations, and audit data are preserved. */
+  deletedAt       DateTime?
+  /** Optional dealership CSI score when survey data is available. */
+  csiScore        Float?
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  roCount         Int      @default(0)
+  aliases         ServiceAdvisorAlias[]
+  observations    AdvisorComplaintObservation[]
+  profile         AdvisorWritingProfile?
+  repairOrders    RepairOrder[]
+  linkedAccounts  Technician[]
+
+  @@unique([dealershipId, nameFingerprint])
+  @@index([dealerId])
+  @@index([dealershipId, lastSeenAt])
+  @@index([dealershipId, status])
+  /** RLS prep — composite tenant + status for advisor scoping. */
+  @@index([dealershipId, dealerId, status])
+  @@index([dealershipId, deletedAt])
+}
+
+model ServiceAdvisorAlias {
+  id               String         @id @default(cuid())
+  serviceAdvisorId String
+  serviceAdvisor   ServiceAdvisor @relation(fields: [serviceAdvisorId], references: [id], onDelete: Cascade)
+  aliasText        String
+  aliasFingerprint String
+  hitCount         Int            @default(1)
+  lastSeenAt       DateTime       @default(now())
+
+  @@unique([serviceAdvisorId, aliasFingerprint])
+  @@index([aliasFingerprint])
+}
+
+model AdvisorComplaintObservation {
+  id                     String         @id @default(cuid())
+  dealerId               String?        @map("dealer_id")
+  dealer                 Dealer?        @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId           String
+  dealership             Dealership     @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  serviceAdvisorId       String
+  serviceAdvisor         ServiceAdvisor @relation(fields: [serviceAdvisorId], references: [id], onDelete: Cascade)
+  repairOrderId          String
+  repairOrder            RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  lineLabel              String?
+  complaintTextEncrypted String
+  extractionSource       String
+  extractionConfidence   Float?
+  wasCorrected           Boolean        @default(false)
+  vehicleMake            String?
+  vehicleModel           String?
+  vehicleFamily          String?
+  observedAt             DateTime       @default(now())
+
+  @@index([serviceAdvisorId, observedAt])
+  @@index([repairOrderId])
+  @@index([dealerId])
+  @@index([dealershipId, observedAt])
+}
+
+model AdvisorWritingProfile {
+  id               String         @id @default(cuid())
+  serviceAdvisorId String         @unique
+  serviceAdvisor   ServiceAdvisor @relation(fields: [serviceAdvisorId], references: [id], onDelete: Cascade)
+  profileVersion   Int            @default(1)
+  /** Encrypted advisor writing-profile JSON — may contain complaint phrasing samples. */
+  profileDataEncrypted String     @default("{}")
+  observationCount Int            @default(0)
+  lastComputedAt   DateTime?
+  updatedAt        DateTime       @updatedAt
+}
+
+model RepairLine {
+  id                        String      @id @default(cuid())
+  repairOrderId             String
+  repairOrder               RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  dealerId                  String?     @map("dealer_id")
+  dealer                    Dealer?     @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  lineNumber                Int
+  /** Encrypted line description — sole source of truth at rest. */
+  descriptionEncrypted      String      @default("")
+  customerConcernEncrypted  String      @default("")
+  technicianNotesEncrypted  String      @default("")
+  xentryImageUrls           String      @default("[]")
+  xentryOcrTextsEncrypted   String      @default("")
+  extractedDataEncrypted    String      @default("{}")
+  warrantyStoryEncrypted    String?
+  /** Encrypted JSON: last MI audit/review score + coaching payload for this line. */
+  storyQualityAuditEncrypted String     @default("")
+  /** True when story came from a Customer Pay template — skips AI generation and quality audit. */
+  isCustomerPay             Boolean     @default(false)
+  /** Advisor-captured sold metrics — used for dealership KPI dashboards. */
+  soldLaborHours            Float?
+  soldLaborAmount           Float?
+  soldPartsAmount           Float?
+  customerApproved          Boolean?
+  isAddOn                   Boolean?
+  soldMetricsUpdatedAt      DateTime?
+  /** Technician certification — binds signed story hash to persisted warranty text. */
+  storyCertifiedAt              DateTime?
+  storyCertifiedByTechnicianId  String?
+  storyCertifiedByNameEncrypted String      @default("")
+  storyCertifiedHash            String      @default("")
+  /**
+   * Billing: true after the first AI warranty story is successfully generated and saved.
+   * Regenerations must not flip this back or emit additional usage_events.
+   */
+  storyGenerated                Boolean     @default(false) @map("story_generated")
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+  usageEvents                   UsageEvent[]
+
+  @@index([repairOrderId])
+  @@index([dealerId])
+  @@index([storyCertifiedAt])
+  @@index([storyGenerated])
+}
+
+/**
+ * Lightweight billing / metering events (not the daily UsageLog AI-cap table).
+ * Exactly one story_generated row per repair line (unique on line_id + event_type).
+ */
+model UsageEvent {
+  id             String      @id @default(cuid())
+  dealershipId   String      @map("dealership_id")
+  dealership     Dealership  @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  dealerId       String?     @map("dealer_id")
+  dealer         Dealer?     @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  repairOrderId  String      @map("ro_id")
+  repairOrder    RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  repairLineId   String      @map("line_id")
+  repairLine     RepairLine  @relation(fields: [repairLineId], references: [id], onDelete: Cascade)
+  eventType      String      @map("event_type")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@unique([repairLineId, eventType])
+  @@index([dealershipId, createdAt])
+  @@index([dealershipId, eventType, createdAt])
+  @@index([repairOrderId])
+  @@index([repairLineId])
+  @@map("usage_events")
+}
+
+model Template {
+  id           String    @id @default(cuid())
+  title        String
+  category     String
+  contentEncrypted String @db.Text
+  /** Customer Pay templates bypass Merlin AI — instant pre-written stories. */
+  isCustomerPay Boolean  @default(false)
+  templateType  String   @default("Warranty")
+  description   String?
+  source       String    @default("seed")
+  dealerId     String?   @map("dealer_id")
+  dealer       Dealer?   @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId String    @default("__global__")
+  createdById  String?
+  useCount     Int       @default(0)
+  lastUsedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([dealershipId, title])
+  @@index([category])
+  @@index([dealerId])
+  @@index([dealershipId, lastUsedAt])
+  @@index([source])
+}
+
+model KnowledgeBase {
+  id               String   @id @default(cuid())
+  title            String
+  category         String
+  generatedTextEncrypted    String? @db.Text
+  fullOriginalTextEncrypted String  @db.Text
+  cleanTemplateEncrypted    String  @db.Text
+  tags             String   @default("[]")
+  source           String   @default("seed")
+  dealerId         String?  @map("dealer_id")
+  dealer           Dealer?  @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId     String   @default("__global__")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([dealershipId, title])
+  @@index([category])
+  @@index([dealerId])
+  @@index([dealershipId])
+  @@index([source])
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       String
+  entityType   String?
+  entityId     String?
+  technicianId String?
+  technician   Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  dealerId     String?     @map("dealer_id")
+  dealer       Dealer?     @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId String
+  dealership   Dealership  @relation(fields: [dealershipId], references: [id])
+  metadata       String      @default("{}")
+  ipAddress      String?
+  /** Merlin prompt version for AI story events; legacy for pre-migration rows; n/a for non-AI actions. */
+  promptVersion  String      @default("legacy")
+  previousHash   String      @default("GENESIS")
+  entryHash      String      @default("")
+  /** APEX Phase 5 — identity provider for this event: legacy | clerk | refresh. */
+  authSource     String?     @map("auth_source")
+  /** APEX Phase 5 — session scope at time of event: national | dealership. */
+  scopeMode      String?     @map("scope_mode")
+  createdAt      DateTime    @default(now())
+
+  @@index([dealerId])
+  @@index([dealershipId])
+  @@index([technicianId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([dealershipId, createdAt])
+  @@index([dealerId, createdAt])
+  @@index([dealershipId, dealerId, action, createdAt])
+  /** Phase 7.3 — owner summary / image.upload recent path without dealerId filter */
+  @@index([dealershipId, action, createdAt])
+  /** Phase 7.3 — technician recent upload grants */
+  @@index([dealershipId, technicianId, action, createdAt])
+}
+
+/** APEX Phase 5 — rotating refresh tokens for fortress session model (apex PLATFORM_MODE). */
+model SessionRefreshToken {
+  id            String     @id @default(cuid())
+  technicianId  String
+  technician    Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  tokenHash     String     @unique
+  familyId      String
+  ipHash        String?
+  userAgentHash String?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([technicianId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+/** Operational technician activity — isolated from compliance AuditLog and advisor intelligence. */
+/** Certified warranty story indexed per technician — separate from audit/advisor data. */
+model TechnicianCertifiedStory {
+  id              String     @id @default(cuid())
+  dealerId        String?    @map("dealer_id")
+  dealer          Dealer?    @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId    String
+  technicianId    String
+  technician      Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  repairOrderId   String
+  repairLineId    String
+  roNumber        String
+  lineNumber      Int
+  certifiedAt     DateTime
+  certifiedByName String
+  promptVersion   String     @default("legacy")
+  auditLogId      String?
+  createdAt       DateTime   @default(now())
+
+  @@index([technicianId, certifiedAt(sort: Desc)])
+  @@index([dealerId])
+  @@index([dealershipId, certifiedAt(sort: Desc)])
+  @@index([repairOrderId])
+  @@index([repairLineId])
+}
+
+model TechnicianActivityLog {
+  id              String   @id @default(cuid())
+  dealerId        String?  @map("dealer_id")
+  dealer          Dealer?  @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId    String
+  technicianId    String
+  technician      Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  category        String
+  event           String
+  message         String
+  repairOrderId   String?
+  repairLineId    String?
+  clientSessionId String?
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@index([technicianId, createdAt])
+  @@index([dealerId])
+  @@index([dealershipId, category, createdAt])
+  @@index([repairLineId, createdAt])
+  @@index([clientSessionId, createdAt])
+}
+
+model UsageLog {
+  id           String      @id @default(cuid())
+  technicianId String
+  technician   Technician  @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  dealerId     String?     @map("dealer_id")
+  dealer       Dealer?     @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  dealershipId String
+  dealership   Dealership  @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  routeKey     String
+  createdAt    DateTime    @default(now())
+
+  @@index([technicianId, createdAt])
+  @@index([dealerId])
+  @@index([dealershipId, createdAt])
+}

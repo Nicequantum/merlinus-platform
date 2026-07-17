@@ -1,0 +1,28 @@
+---
+pid: 9656
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "$env:Path = \"C:\\Program Files\\nodejs;\" + $env:Path; Set-Location \"C:\\Users\\hombr\\viti-ai-clone\"; npm run start"
+started_at: 2026-06-29T22:07:33.380Z
+running_for_ms: 86400009 
+---
+
+> benz-tech@3.0.3 start
+> next start
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.177:3000
+
+ ✓ Starting...
+ ✓ Ready in 1560ms
+[merlin:env] KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled
+{"ts":"2026-06-29T22:07:36.260Z","level":"info","msg":"merlin.startup","service":"merlin","version":"3.0.3","promptVersion":"2.1.0","commit":"dev","maintenance":false}
+[Merlin] LoginView module evaluated
+[Merlin] BenzTechApp module evaluated
+[Merlin] HomePageClient module evaluated
+
+---
+exit_code: -1
+elapsed_ms: 86400009
+ended_at: 2026-06-30T22:07:33.431Z
+---

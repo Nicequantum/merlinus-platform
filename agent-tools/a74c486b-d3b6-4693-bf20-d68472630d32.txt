@@ -1,0 +1,727 @@
+
+> merlinus@3.0.0 typecheck
+> tsc --noEmit -p tsconfig.ci.json
+
+src/lib/voice/dictationText.ts(1,66): error TS2459: Module '"./dictationPunctuation"' declares 'VoiceDictationMode' locally, but it is not exported.
+
+> merlinus@3.0.0 test
+> tsx --import ./tests/setup/preload.mjs --test tests/unit/**/*.test.ts tests/unit/voiceInput.test.ts tests/unit/warrantyStory.test.ts tests/unit/storyGenerationPerf.test.ts tests/unit/storyGenerationPipeline.test.ts
+
+▶ advisorDashboardAccess
+  ✔ detects service advisor users (33.7606ms)
+✔ advisorDashboardAccess (37.0503ms)
+▶ advisor name utilities
+  ✔ fingerprints normalize punctuation and casing (2.4346ms)
+  ✔ rejects noise labels and implausible names (0.9172ms)
+  ✔ maps complaint indices to letter labels (0.3646ms)
+  ✔ infers Mercedes vehicle families (0.7156ms)
+✔ advisor name utilities (7.8444ms)
+▶ service advisor extraction
+  ✔ parses structured Grok output line (22.1947ms)
+  ✔ extracts advisor from raw RO header labels (1.098ms)
+✔ service advisor extraction (23.9387ms)
+▶ advisorMetrics
+  ✔ computes approval, closing, and upsell rates from accumulator (22.6336ms)
+  ✔ formats unavailable metrics gracefully (0.7367ms)
+  ✔ uses MI audit threshold of 75 (0.4458ms)
+✔ advisorMetrics (27.3098ms)
+▶ advisor prompt context
+  ✔ formats advisor profile with style guidance and guardrails (27.3997ms)
+  ✔ fast story prompt omits advisor context for latency (1.2349ms)
+✔ advisor prompt context (31.6116ms)
+▶ API input validation
+  ✔ login uses bounded JSON parsing (3.8533ms)
+  ✔ parseQueryParams rejects invalid repair order list queries (24.8288ms)
+  ✔ parseRouteParams rejects malformed entity ids (3.9974ms)
+  ✔ major GET routes use shared query schemas (1.5714ms)
+  ✔ dynamic repair-order line routes validate path params (1.3923ms)
+✔ API input validation (40.1673ms)
+▶ audit chain promptVersion
+  ✔ computeAuditEntryHash includes promptVersion for new entries (2.6383ms)
+  ✔ legacy promptVersion uses pre-migration hash algorithm (0.9801ms)
+  ✔ verifyAuditChain validates chained entries with promptVersion (3.5276ms)
+  ✔ tampering promptVersion breaks chain verification (0.7097ms)
+✔ audit chain promptVersion (11.2404ms)
+▶ Audit metadata display (M6)
+  ✔ formats primitive and nested metadata for manager UI (2.5355ms)
+  ✔ AuditLogView renders metadata inline without CSV export (M6) (0.8067ms)
+✔ Audit metadata display (M6) (6.9293ms)
+▶ bootstrap seed production kill-switch
+  ✔ detects production runtime from NODE_ENV or VERCEL_ENV (3.4873ms)
+  ✔ never allows bootstrap seed in production even when ALLOW_BOOTSTRAP=true (1.5947ms)
+  ✔ allows bootstrap seed only outside production (0.6433ms)
+  ✔ middleware hard-blocks seed path in production (2.9081ms)
+✔ bootstrap seed production kill-switch (13.1601ms)
+▶ deriveCompanionLineStoryState
+  ✔ uses persisted line audit when hook quality is null (4.7164ms)
+  ✔ resolves certification from line.storyCertification when hook record is missing (2.7194ms)
+  ✔ follows activeLineId instead of defaulting to the first repair line (0.9548ms)
+  ✔ accepts audit baseline when companion line story has not synced yet (0.8101ms)
+✔ deriveCompanionLineStoryState (15.4366ms)
+▶ companion snapshot diff
+  ✔ detects audit score and certification changes (3.6503ms)
+  ✔ returns no changes when repair order is unchanged (0.5589ms)
+✔ companion snapshot diff (7.3357ms)
+▶ desktop companion sync
+  ✔ keeps SSE connection stable without handler-driven reconnects (3.4989ms)
+  ✔ deduplicates status publishes and surfaces publish failures (0.8099ms)
+  ✔ configures long-lived companion SSE route (0.739ms)
+  ✔ uses stable publish callbacks in CompanionSyncBridge effects (0.7469ms)
+  ✔ mirrors audit and certification SSE events into live activity (0.83ms)
+  ✔ replays recent companion events when SSE connects (0.7604ms)
+  ✔ ensures RO and line context before applying companion story events (0.7166ms)
+  ✔ uses subscriber role on desktop and polls KV as SSE fallback (1.342ms)
+  ✔ waits for in-flight openROById before companion handlers apply state (1.5515ms)
+  ✔ polls companion events for all clients and snapshots RO state on desktop (1.5794ms)
+  ✔ merges companion story state from active line and persisted audit fields (1.0029ms)
+  ✔ scores warranty stories with full-structure retry instead of throwing on parse failure (2.7428ms)
+✔ desktop companion sync (20.6275ms)
+▶ complaint validation
+  ✔ keeps blank complaint slots during RO create/update parsing (10.8072ms)
+✔ complaint validation (14.2594ms)
+▶ compliance session gating
+  ✔ requires consent when timestamp or version is missing or stale (1.9484ms)
+  ✔ requires legal disclaimer when timestamp or version is missing or stale (0.6589ms)
+✔ compliance session gating (5.6732ms)
+▶ resolveServiceAdvisorLinkMode
+  ✔ returns null for non-service-advisor roles (2.4186ms)
+  ✔ prefers explicit mode when provided (0.4999ms)
+  ✔ defaults to existing when serviceAdvisorId is present (0.4075ms)
+  ✔ defaults to create when no profile id is present (0.4085ms)
+✔ resolveServiceAdvisorLinkMode (7.5259ms)
+▶ createUserSchema service advisor linking
+  ✔ accepts linking an existing profile (6.314ms)
+  ✔ accepts creating a new profile with advisor name (1.3928ms)
+  ✔ rejects existing mode without a profile id (1.6857ms)
+  ✔ rejects create mode without a valid advisor name (0.8523ms)
+  ✔ does not require advisor fields for technician accounts (0.8335ms)
+✔ createUserSchema service advisor linking (12.2788ms)
+▶ Critical audit fixes (C1–C7)
+  ✔ C1: repairLineSchema includes isCustomerPay (27.6829ms)
+  ✔ C1: PUT handler merges persisted isCustomerPay (0.8849ms)
+  ✔ C2: compliance-critical audit actions are defined (0.9063ms)
+  ✔ C3b: story.edit audits before repairLine.update with before/after hashes (0.8553ms)
+  ✔ C3: generate-story atomically persists audit and repair line in one transaction (0.8205ms)
+  ✔ C4: security-status requires manager auth (0.7655ms)
+  ✔ C5: health is authenticated and avoids costly Grok completion probes (1.1683ms)
+  ✔ C6: voice session coordinator is wired (0.9534ms)
+  ✔ C7: aborted errors do not auto-restart and handlers are disposed (0.9618ms)
+✔ Critical audit fixes (C1–C7) (39.5974ms)
+▶ critical path HTTP route coverage
+  ✔ login route validates input, rate-limits, sets session cookie, and audits success (2.9708ms)
+  ✔ RO extract route enforces auth, image access, and Grok extraction without DB retry (0.9267ms)
+  ✔ generate-story route audits before persist and scopes updates by dealership (0.8684ms)
+  ✔ integration suite exercises login, RO extract, and story generate over HTTP (1.0635ms)
+  ✔ cookies intercept test guards the traced auth.ts next/headers import path (1.5817ms)
+✔ critical path HTTP route coverage (11.0089ms)
+▶ Customer Pay templates
+  ✔ includes at least 12 professionally written templates (24.9072ms)
+  ✔ identifies customer pay template rows by explicit flag only (H14) (0.6301ms)
+  ✔ isCustomerPayStoryTemplate matches StoryTemplate flags (1.3859ms)
+✔ Customer Pay templates (30.4143ms)
+▶ Customer Pay audit compliance
+  ✔ uses customerPayTemplateApplied outside Merlin story prompt actions (0.7356ms)
+  ✔ hash chain accepts customer-pay sentinel without Merlin PROMPT_VERSION (1.1725ms)
+✔ Customer Pay audit compliance (2.4263ms)
+▶ D7 number helpers
+  ✔ normalizes casing and whitespace (2.4585ms)
+  ✔ accepts valid Mercedes D7 identifiers (0.7908ms)
+  ✔ rejects values without D7 prefix (0.3999ms)
+  ✔ builds internal email from D7 number (0.4751ms)
+✔ D7 number helpers (7.2893ms)
+▶ dateFormat utilities
+  ✔ formatDisplayDate returns locale date string (85.9516ms)
+  ✔ formatDisplayDate handles invalid input (0.6143ms)
+  ✔ formatDisplayDateTime includes time (1.1812ms)
+✔ dateFormat utilities (92.1975ms)
+{"ts":"2026-07-07T09:53:43.063Z","level":"warn","msg":"db.connection_retry","service":"merlin","context":"test.retry","attempt":1,"maxAttempts":3,"delayMs":1,"error":"Can't reach database server"}
+▶ database connection retry
+  ✔ detects retryable Prisma connection errors (2.9505ms)
+  ✔ uses exponential backoff capped by max delay (0.735ms)
+  ✔ retries transient connection failures then succeeds (21.6872ms)
+  ✔ does not retry non-connection Prisma errors (2.0964ms)
+  ✔ keeps login and RO extract off the retry wrapper (2.581ms)
+✔ database connection retry (36.2253ms)
+{"ts":"2026-07-07T09:53:45.474Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:53:45.849Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:53:46.589Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+▶ sensitive field encryption
+  ✔ encrypts and decrypts technician notes (337.7959ms)
+  ✔ reads legacy plaintext technician notes (0.7021ms)
+  ✔ encrypts and decrypts OCR text arrays (348.6402ms)
+  ✔ reads legacy plaintext OCR JSON arrays (0.5913ms)
+  ✔ encrypts and decrypts optional warranty stories (363.2259ms)
+  ✔ returns empty values for blank sensitive fields (0.5558ms)
+  ✔ encrypts and decrypts JSON object fields (356.1438ms)
+  ✔ reads legacy plaintext JSON object fields (2.5869ms)
+  ✔ migrates legacy plaintext to encrypted without double-encrypting (342.6877ms)
+  ✔ migrates legacy extractedData JSON objects (332.0332ms)
+  ✔ decryptJsonObject returns fallback when ciphertext cannot be decrypted (331.5689ms)
+  ✔ decryptStringArray returns empty array when ciphertext cannot be decrypted (372.5163ms)
+  ✔ decryptComplaintsPayload returns empty complaints when ciphertext cannot be decrypted (740.1896ms)
+✔ sensitive field encryption (3536.5156ms)
+{"ts":"2026-07-07T09:53:43.797Z","level":"error","msg":"env.validation_failed","service":"merlin","missing":["DATABASE_URL"]}
+{"ts":"2026-07-07T09:53:43.799Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled"}
+{"ts":"2026-07-07T09:53:43.800Z","level":"error","msg":"env.validation_forbidden_public_keys","service":"merlin","forbiddenPublicKeys":["NEXT_PUBLIC_GROK_API_KEY"]}
+{"ts":"2026-07-07T09:53:43.800Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled"}
+{"ts":"2026-07-07T09:53:43.801Z","level":"error","msg":"env.validation_failed","service":"merlin","missing":["BLOB_READ_WRITE_TOKEN","GROK_API_KEY"]}
+{"ts":"2026-07-07T09:53:43.801Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled"}
+{"ts":"2026-07-07T09:53:43.802Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"BLOB_READ_WRITE_TOKEN not configured — RO and Xentry photo scanning disabled"}
+{"ts":"2026-07-07T09:53:43.802Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"GROK_API_KEY not configured — RO and Xentry photo scanning disabled"}
+{"ts":"2026-07-07T09:53:43.802Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled"}
+▶ environment validation
+  ✔ detects maintenance mode values (2.9605ms)
+  ✔ reports missing required variables (4.3959ms)
+  ✔ fails validation when forbidden NEXT_PUBLIC_GROK_API_KEY is set (1.114ms)
+  ✔ requires BLOB_READ_WRITE_TOKEN in production for scanning (1.4812ms)
+  ✔ getBuildCommit falls back to dev (0.6727ms)
+✔ environment validation (14.8205ms)
+{"ts":"2026-07-07T09:53:48.756Z","level":"error","msg":"route.error","service":"merlin","context":"ros.update","error":"database connection refused","logDetail":"database connection refused","status":503}
+▶ route error handling
+  ✔ handleRouteError uses unified mapper and reports to Sentry (33.9623ms)
+✔ route error handling (36.7918ms)
+▶ grok API key security
+  ✔ reads server-only GROK_API_KEY (18.586ms)
+  ✔ rejects NEXT_PUBLIC_GROK_API_KEY exposure (9.1958ms)
+  ✔ detects all forbidden public env keys (5.1172ms)
+  ✔ never reads NEXT_PUBLIC_GROK_API_KEY as Grok key (4.1293ms)
+✔ grok API key security (44.7429ms)
+▶ grok route error mapping
+  ✔ maps missing API key to 503 (6.8947ms)
+  ✔ maps timeout to 504 (0.7748ms)
+  ✔ maps generic failures to 502 (0.6578ms)
+✔ grok route error mapping (13.2142ms)
+▶ enterprise health checks
+  ✔ aggregates error over warn over ok (26.8169ms)
+  ✔ authenticated health returns 503 only for critical failures (2.3089ms)
+  ✔ builds monitoring payload without internal detail strings (2.8724ms)
+  ✔ toHealthServiceStatus omits latency when absent (0.4922ms)
+  ✔ health route probes critical services with Grok connectivity (1.7713ms)
+✔ enterprise health checks (40.1438ms)
+▶ health CI simulation
+  ✔ treats NODE_ENV=test as non-production even when VERCEL_ENV=production (23.2698ms)
+  ✔ skips live Grok probe outside production and keeps HTTP 200 aggregate (2.7691ms)
+  ✔ skips live Grok/KV probes in test/CI and keeps HTTP 200 aggregate (2.0114ms)
+✔ health CI simulation (31.8068ms)
+▶ High priority audit fixes (H1–H15)
+  ✔ H1: shared isCustomerPayRepairLine helper (22.4652ms)
+  ✔ H2: serialized save queue and awaitable debounce flush (1.7479ms)
+  ✔ H3/H4: customer pay story audit actions (1.6629ms)
+  ✔ H5: audit advisory lock (1.0223ms)
+  ✔ H6/H7: encryption loud decrypt and derived salt (8.9653ms)
+  ✔ H8: production requires KV; dev keeps in-memory fallback (2.694ms)
+  ✔ H9: image access uses targeted query with exact pathname verification (0.8293ms)
+  ✔ H10: repair order list pagination (0.9671ms)
+  ✔ H16: repair order list uses summary DTO without full line decryption (1.0263ms)
+  ✔ H17: encryption keys split for AES and HMAC search (4.7129ms)
+  ✔ H11: no hardcoded changeme123 or password123 in seed sources (1.3239ms)
+  ✔ H12: noise monitor throttled to 4Hz (0.5823ms)
+  ✔ H13: recognition start failure detaches manual edit guard (0.678ms)
+  ✔ H14: template apply requires isCustomerPay flag (0.6091ms)
+  ✔ H15: build runs gated migrate deploy via migrate-deploy.mjs (1.0486ms)
+✔ High priority audit fixes (H1–H15) (55.4254ms)
+▶ image pathname matching
+  ✔ matches exact pathname only, not substrings (2.7785ms)
+  ✔ parses legacy string entries and proxy urls (4.6378ms)
+✔ image pathname matching (11.0436ms)
+▶ image upload audit metadata
+  ✔ matches exact pathname in audit metadata JSON (21.8973ms)
+✔ image upload audit metadata (24.9164ms)
+▶ integration compliance fixtures
+  ✔ fills missing compliance fields with current policy versions (27.278ms)
+  ✔ preserves existing compliant technician fields (0.6142ms)
+✔ integration compliance fixtures (31.7847ms)
+▶ login session cookie
+  ✔ attaches session cookie to NextResponse for route handlers (41.6419ms)
+✔ login session cookie (44.7471ms)
+▶ Low priority audit fixes (L1–L5)
+  ✔ L1: SSO/MFA documented as Phase 1 accepted risk with compensating controls (3.2692ms)
+  ✔ L2: public /api/status does not expose grokConfigured (0.9414ms)
+  ✔ L3: deprecated filteredROs export removed from useRepairOrders (1.0435ms)
+  ✔ L4: reencryption runbook documents legacy migration and key rotation steps (1.9359ms)
+  ✔ L5: Xentry cancel clears queued photos like RO scan cancel (1.2856ms)
+  ✔ pre-rollout validation separates code issues from config/env issues (1.6999ms)
+  ✔ obsolete IMPROVED_CODE_STRUCTURE.md marked deprecated (0.6939ms)
+✔ Low priority audit fixes (L1–L5) (15.7804ms)
+▶ Medium audit fixes (M1–M30)
+  ✔ M1: clear Customer Pay API and UI (26.2455ms)
+  ✔ M2/M3: transactional idempotent Customer Pay apply (0.7843ms)
+  ✔ M4/M5: warranty KB filter and customer pay generation guard (3.2715ms)
+  ✔ M6: prompt fingerprint metadata (2.0947ms)
+  ✔ M7: expanded field encryption columns (1.2544ms)
+  ✔ M9: JWT iss/aud constants (1.249ms)
+  ✔ M10: GET logout blocked (0.8246ms)
+  ✔ M11: TechnicianRole enum (1.7122ms)
+  ✔ M12: CSP middleware blocks eval (1.1674ms)
+  ✔ M13: audit metadata sanitization (1.5192ms)
+  ✔ M14: trusted IP extraction (4.9844ms)
+  ✖ M15/M16/M17: voice service guards (24.9714ms)
+  ✔ M18: long-form dictation without short listening cutoff (1.28ms)
+  ✔ M21: useRepairOrders split into focused hooks (5.633ms)
+  ✔ M22/M23: images route uses withAuth (0.8542ms)
+  ✔ M25: useSession preserves session on non-401 (0.833ms)
+  ✔ M26: batched reencrypt script (1.0821ms)
+  ✔ M28/M29: usage limit and timezone env (0.8733ms)
+  ✔ M30: reencryption runbook doc (0.8855ms)
+✖ Medium audit fixes (M1–M30) (87.1457ms)
+▶ networkErrors
+  ✔ isNetworkFailure detects fetch transport errors (3.3149ms)
+  ✔ isNetworkFailure ignores abort and API errors (0.6493ms)
+  ✔ retry backoff grows exponentially (0.8911ms)
+  ✔ isRetriableHttpStatus covers transient upload failures (0.5241ms)
+  ✔ parseRetryAfterMs reads seconds and dates (1.6359ms)
+✔ networkErrors (12.6116ms)
+▶ Phase 1 critical blockers
+  ✔ registers ro.extract as a critical audit action (24.7659ms)
+  ✔ registers diagnostics.extract as a critical audit action (0.5102ms)
+  ✔ AUDIT_ACTIONS filter dropdown matches every AuditAction union member (H7) (3.1603ms)
+  ✔ diagnostics.extract audit metadata contains no PII fields (1.0421ms)
+  ✔ ro.extract audit metadata contains no PII fields (1.1813ms)
+  ✔ assessRoExtractionQuality classifies strong extractions without exposing PII (0.4848ms)
+  ✔ story AI routes persist audit and DB update in a single transaction (1.7154ms)
+  ✔ certify-story evaluates gate inside transaction with row lock (0.7442ms)
+  ✔ extract route writes critical ro.extract audit after successful scan (0.9659ms)
+✔ Phase 1 critical blockers (39.1862ms)
+▶ PII search tokens
+  ✔ normalizeRoNumberForSearch uppercases and strips punctuation (2.1533ms)
+  ✔ buildRoNumberSearchTokens supports contains-style substring matching (5.911ms)
+  ✔ hashRoNumberSearchFragment is stable for identical input (0.8089ms)
+✔ PII search tokens (14.0465ms)
+{"ts":"2026-07-07T09:53:52.834Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"http://localhost/api/test","routeKey":"test.dev.1783418032827","nodeEnv":"development","vercel":null,"vercelEnv":null,"kvConfigured":false,"isProductionEnv":false,"isLocalhost":true}
+{"ts":"2026-07-07T09:53:52.838Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"http://localhost/api/test","routeKey":"test.local.prod.1783418032837","nodeEnv":"production","vercel":null,"vercelEnv":null,"kvConfigured":false,"isProductionEnv":false,"isLocalhost":true}
+▶ rate limiting
+  ✔ documents limits and KV memory fallback behavior in source (3.4188ms)
+  ✔ allows dev traffic without KV using in-memory limits (9.8364ms)
+  ✔ allows local production start without KV using in-memory limits (2.0113ms)
+{"ts":"2026-07-07T09:53:57.502Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"http://localhost/api/test","routeKey":"test.pulled.env.1783418032839","nodeEnv":"production","vercel":null,"vercelEnv":"production","kvConfigured":true,"isProductionEnv":false,"isLocalhost":true}
+{"ts":"2026-07-07T09:53:57.503Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"http://localhost/api/test","routeKey":"test.pulled.env.1783418032839","nodeEnv":"production","vercel":null,"vercelEnv":"production","kvConfigured":true,"isProductionEnv":false,"isLocalhost":true}
+{"ts":"2026-07-07T09:53:57.505Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"http://localhost/api/test","routeKey":"test.localhost.vercel.1783418037504","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":true}
+{"ts":"2026-07-07T09:53:57.507Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"auth.login","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.508Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"auth.me","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.509Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"legal_disclaimer","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.509Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"dashboard.summary","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.509Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"ros.list","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.510Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"technician_logs.ingest","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.510Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"consent","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.511Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"companion.stream","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.511Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"companion.publish","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.511Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"story.generate","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:53:57.512Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"upload","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":false,"isProductionEnv":true,"isLocalhost":false}
+  ✔ allows local env with VERCEL_ENV=production when KV is unreachable (4664.2693ms)
+  ✔ allows localhost traffic on Vercel production runtime without KV (1.7502ms)
+  ✔ allows all app routes on Vercel production without KV using in-memory limits (7.2492ms)
+{"ts":"2026-07-07T09:54:01.896Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"dashboard.summary","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:01.896Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"dashboard.summary","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:06.285Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"ros.list","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:06.285Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"ros.list","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:10.660Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"legal_disclaimer","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:10.660Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"legal_disclaimer","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:15.043Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"auth.login","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:15.043Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"auth.login","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:19.383Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"story.generate","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:19.383Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"story.generate","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:23.742Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"ro.extract","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:23.743Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"ro.extract","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:28.113Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"upload","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:28.113Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"upload","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:32.472Z","level":"warn","msg":"rate_limit.kv_fallback_memory","service":"merlin","ip":"203.0.113.10","error":"fetch failed","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"companion.stream","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+{"ts":"2026-07-07T09:54:32.472Z","level":"info","msg":"rate_limit.check","service":"merlin","decision":"kv_fallback_memory","requestUrl":"https://merlinus.vercel.app/api/test","routeKey":"companion.stream","nodeEnv":"production","vercel":"1","vercelEnv":"production","kvConfigured":true,"isProductionEnv":true,"isLocalhost":false}
+  ✔ falls back to memory for all routes on Vercel production when KV is unreachable (34959.5776ms)
+✔ rate limiting (39652.3686ms)
+▶ repairLineSoldMetrics
+  ✔ maps sold metrics from database rows (2.9086ms)
+  ✔ dbToRepairLine exposes soldMetrics on RepairLine (2.7177ms)
+  ✔ repairLineToDbFields does not overwrite sold metrics on technician saves (331.6274ms)
+  ✔ soldMetricsToDbUpdateFields writes RepairLine columns (0.7442ms)
+✔ repairLineSoldMetrics (345.797ms)
+▶ repairOrderFactory
+  ✔ createRepairOrderFromScan creates one repair line per complaint (6.6756ms)
+  ✔ syncRepairLinesWithComplaints adds lines when complaints grow (1.7431ms)
+✔ repairOrderFactory (12.0079ms)
+▶ RO complaint extraction
+  ✔ extracts Line A from minimal real-world RO format (23.7711ms)
+  ✔ extracts Line A when merged onto header row (9.4204ms)
+  ✔ extracts ALL CAPS complaints without lowercase letters (2.377ms)
+  ✔ parseStructuredROText recovers Line A when Grok skips it but OCR text is present (74.8318ms)
+  ✔ parseStructuredROText parses Grok A. format with period (7.9825ms)
+  ✔ does not treat unlabeled RISI detail lines as separate complaints (1.7898ms)
+  ✔ extracts multiple letter-labeled complaints in order (3.8764ms)
+  ✔ trims RISI/CDEF/PASSED continuations from collapsed OCR line (2.8959ms)
+  ✔ grok-only mislabeled RISI on B recovers Line A inspection text (5.1899ms)
+  ✔ mergeROExtractions recovers Line A from OCR when Grok skips it (12.742ms)
+  ✔ extracts hashtag-prefixed complaints (# A, # B, # C) (3.3038ms)
+  ✔ preserves non-sequential complaint letters (A, B, C, E, F — no D) (11.0455ms)
+  ✔ extracts Line A from merged hashtag header row (2.3826ms)
+  ✔ does not split RHODE ISLAND STATE INSPECTION into false E I L N letters (2.2439ms)
+  ✔ extracts A-F from vertical hashtag column with text below each label (3.9436ms)
+  ✔ extracts vertical column when label and text share the same line (2.248ms)
+  ✔ recovers A-F across two pages in vertical column and rejects Grok hallucinated fragments (13.5042ms)
+  ✔ parseStructuredROText preserves E/F labels from hashtag OCR (6.2205ms)
+  ✔ rejects VIN fragments and OCR garbage misread as complaints (0.4704ms)
+  ✔ pairs stacked label column with complaint text skipping form junk lines (4.4572ms)
+  ✔ mergeROExtractions uses Grok vision text when OCR pairs labels with junk (9.9803ms)
+  ✔ normalizeComplaintForDisplay strips customer states boilerplate and ellipsis (0.4515ms)
+  ✔ normalizeComplaintForDisplay fixes mixed case OCR within one complaint (0.3585ms)
+  ✔ extracts page 2 complaints after customer states boilerplate (4.3622ms)
+  ✔ mergeROExtractions prefers cleaner Grok text over noisy OCR (9.0392ms)
+  ✔ extracts complaints after DESCRIPTION / INSTRUCTIONS header (6.0844ms)
+  ✔ page 2 leftover text continues prior complaint before next hashtag label (9.8795ms)
+  ✔ mergeROExtractions keeps every hashtag label even when text is short (18.4919ms)
+  ✔ extracts letters beyond F (G, H) when present on RO (3.7953ms)
+  ✔ finds all stacked slot labels even when only one hashtag OCR line is obvious (6.0035ms)
+  ✔ mergeROExtractions unions Grok labels when OCR only pairs one line (11.5815ms)
+  ✔ extracts Line A jammed directly on DESCRIPTION / INSTRUCTIONS header (3.6788ms)
+  ✔ extracts Line A when complaint text is flush on header without hashtag (2.5167ms)
+  ✔ Line A ignores OCR garbage merged from above the complaint header (3.1025ms)
+  ✔ duplicate advisor Line B does not create a separate Line C (2.4685ms)
+  ✔ page 2 carryover before # F attaches to Line E not Line F (4.8421ms)
+  ✔ does not copy duplicate Line B text onto Line A when A is recovered from header (13.153ms)
+  ✔ mergeROExtractions prefers non-empty service advisor name (7.6066ms)
+  ✔ mergeMultiPassOcrExtractions favors VIN agreed on by two passes (7.3705ms)
+  ✔ mergeMultiPassOcrExtractions rejects lone hallucinated VIN when passes disagree (2.8852ms)
+  ✔ mergeScanSources cross-validates Grok and OCR while preserving complaint labels (12.883ms)
+✔ RO complaint extraction (344.3343ms)
+▶ repair order list query
+  ✔ defaults to today scope with pagination limit (6.9721ms)
+  ✔ parses previous scope and search query (3.6691ms)
+  ✔ today where clause filters updatedAt since dealership midnight (61.043ms)
+  ✔ previous where clause filters before dealership midnight (4.9255ms)
+  ✔ service advisor where clause scopes to linked advisor profile (4.7301ms)
+  ✔ search where clause matches RO number and vehicle fields (4.0423ms)
+  ✔ isRepairOrderActiveToday respects updatedAt boundary (11.7671ms)
+✔ repair order list query (103.07ms)
+{"ts":"2026-07-07T09:53:59.816Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:53:59.817Z","level":"error","msg":"pii.read_encrypted_field_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+{"ts":"2026-07-07T09:53:59.944Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:53:59.945Z","level":"error","msg":"pii.read_encrypted_field_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+{"ts":"2026-07-07T09:54:00.072Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:54:00.072Z","level":"error","msg":"pii.read_encrypted_field_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+{"ts":"2026-07-07T09:54:00.451Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:54:00.451Z","level":"error","msg":"pii.read_encrypted_field_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+{"ts":"2026-07-07T09:54:00.950Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:54:02.078Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:54:02.078Z","level":"error","msg":"pii.read_sensitive_text_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+{"ts":"2026-07-07T09:54:02.204Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:54:02.204Z","level":"error","msg":"pii.read_optional_sensitive_text_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+▶ roMapper sensitive field encryption
+  ✔ repairOrderToDbFields encrypts RO-level OCR text arrays (550.9992ms)
+  ✔ repairLineToDbFields encrypts technician notes, OCR texts, and warranty stories (667.0539ms)
+  ✔ repairLineToDbFields encrypts persisted story quality audits when provided (801.4804ms)
+  ✔ db mappers decrypt sensitive fields back to plaintext for API/UI (3695.5248ms)
+  ✔ dbToRepairOrder reads roNumber from encrypted column (1356.5523ms)
+  ✔ dbToRepairLine decrypts persisted story quality audits (1669.7825ms)
+  ✔ dbToRepairOrder reads legacy plaintext stored in encrypted PII columns (0.7389ms)
+  ✔ dbToRepairOrder tolerates unreadable encrypted PII fields (2254.9997ms)
+  ✔ dbToRepairLine tolerates unreadable technician notes and warranty story (1502.21ms)
+  ✔ dbToRepairOrderSummary avoids decrypting line PII and story text (879.6057ms)
+✔ roMapper sensitive field encryption (13384.9821ms)
+▶ RO persistence story race guards
+  ✔ preserveClientWarrantyStories keeps in-memory story when server response is empty (3.8742ms)
+  ✔ persistRO uses roRef at execution time (1.1058ms)
+  ✔ Save as Template stays visible when a generated story exists (1.3499ms)
+  ✔ story generation does not auto-score after API returns (4.6388ms)
+  ✔ generate story workflow skips immediate RO save after API (1.0769ms)
+✔ RO persistence story race guards (19.1675ms)
+{"ts":"2026-07-07T09:53:54.698Z","level":"error","msg":"route.error","service":"merlin","context":"ros.update","error":"database connection refused","logDetail":"database connection refused","status":503}
+▶ unified route error mapping
+  ✔ maps database connection failures to actionable 503 messages (20.8738ms)
+  ✔ maps audit write failures to compliance-safe 503 messages (0.602ms)
+  ✔ maps Prisma unique constraint violations to 409 (1.6166ms)
+  ✔ maps story.generate Grok failures with story-specific label (4.1735ms)
+  ✔ keeps scan route specialized messaging (0.9402ms)
+✔ unified route error mapping (32.2598ms)
+▶ sanitize
+  ✔ removes HTML tags and script handlers (3.1762ms)
+  ✔ removes javascript: protocol (1.9784ms)
+  ✔ sanitizes VIN to allowed characters (0.6312ms)
+  ✔ sanitizes identifiers (0.6674ms)
+  ✔ sanitizeComplaintSlots preserves empty in-progress complaint slots (2.408ms)
+  ✔ sanitizeTextArray still drops empty values for generic lists (0.5951ms)
+✔ sanitize (13.2193ms)
+▶ sanitizeForCDK
+  ✔ strips all CDK-unsafe special characters (3.8367ms)
+  ✔ preserves letters, numbers, spaces, period, comma, and hyphen (0.8155ms)
+  ✔ converts paragraph breaks to period-space (0.526ms)
+  ✔ reports wasModified when unsafe characters are removed (0.4555ms)
+  ✔ reports wasModified false for already-safe text (0.5187ms)
+  ✔ handles empty and non-string input (0.5315ms)
+✔ sanitizeForCDK (10.7433ms)
+▶ scan document classifier
+  ✔ classifies VMI pages separately from repair orders (3.6841ms)
+  ✔ combines only RO pages for complaint OCR (2.7038ms)
+✔ scan document classifier (9.8854ms)
+▶ scan pipeline errors
+  ✔ surfaces ApiError messages to technicians (2.7504ms)
+  ✔ includes HTTP status when server returns generic error text (0.7905ms)
+  ✔ prefers server message over fallback (0.4308ms)
+  ✔ detects retriable scan messages (0.6624ms)
+  ✔ treats Grok output with complaints as strong enough to skip OCR wait (0.6773ms)
+  ✔ requires OCR fallback when Grok returns no complaints and incomplete header (0.4841ms)
+✔ scan pipeline errors (9.3288ms)
+{"ts":"2026-07-07T09:53:56.238Z","level":"error","msg":"route.error","service":"merlin","context":"upload","error":"BLOB_READ_WRITE_TOKEN is not configured","logDetail":"BLOB_READ_WRITE_TOKEN is not configured","status":503}
+{"ts":"2026-07-07T09:53:56.257Z","level":"error","msg":"route.error","service":"merlin","context":"ro.extract","error":"Repair order scan failed (HTTP 502). — model not found","logDetail":"Repair order scan failed (HTTP 502). — model not found","status":502}
+▶ scan route errors
+  ✔ surfaces blob token misconfiguration (3.4506ms)
+  ✔ includes Grok API status and detail in the message (1.277ms)
+  ✔ parses xAI JSON error bodies (0.7191ms)
+  ✔ handleRouteError returns real message for upload route context (19.3612ms)
+  ✔ handleRouteError returns ScanRouteError message for extract context (2.2287ms)
+  ✔ mapScanRouteError classifies Grok failures in diagnostics context (0.7176ms)
+✔ scan route errors (31.2566ms)
+▶ security headers and CORS
+  ✔ detects cross-origin requests by Origin header (4.1552ms)
+  ✔ CSP is centralized and blocks eval plus third-party frames (1.8539ms)
+  ✔ adds cross-origin isolation and CORP headers (0.7748ms)
+✔ security headers and CORS (10.6307ms)
+▶ seed database credentials
+  ✔ defines canonical manager D7 and reads password from environment (47.5879ms)
+  ✔ uses bcrypt hash compatible with loginTechnician verification (2399.8888ms)
+✔ seed database credentials (2451.4186ms)
+▶ serviceAdvisorAccounts
+  ✔ isServiceAdvisorActive requires active status and no deletedAt (2.3312ms)
+✔ serviceAdvisorAccounts (5.1501ms)
+▶ sessionRefresh
+  ✔ detects compliance field drift between JWT and DB session (23.353ms)
+  ✔ maps session payload to client TechnicianSession without sessionVersion (0.6188ms)
+✔ sessionRefresh (27.1777ms)
+▶ manual story audit workflow
+  ✔ LineView exposes Audit Story button wired to score handler (3.0852ms)
+  ✔ useROStoryWorkflow exports manual scoreStory and skips post-generate scoring (1.2139ms)
+  ✔ scoreStory acquires in-flight lock before flushPendingSave (1.0705ms)
+  ✔ reviewStory acquires in-flight lock before flushPendingSave (0.8534ms)
+  ✔ quality loading panel separates generation from audit scoring (0.9304ms)
+✔ manual story audit workflow (10.8794ms)
+{"ts":"2026-07-07T09:53:54.142Z","level":"error","msg":"encryption.decrypt_failed","service":"merlin","error":"Unsupported state or unable to authenticate data"}
+{"ts":"2026-07-07T09:53:54.144Z","level":"error","msg":"pii.read_encrypted_field_failed","service":"merlin","error":"PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data"}
+▶ story certification decrypt tolerance (H8)
+  ✔ returns null instead of throwing when certifier name ciphertext is corrupt (346.2911ms)
+  ✔ maps certification when certifier name is legacy plaintext (0.5987ms)
+  ✔ maps certification when name decrypts successfully (357.7269ms)
+✔ story certification decrypt tolerance (H8) (707.9271ms)
+▶ story certification gate
+  ✔ matches audit metadata storyHash to certification hash (22.4295ms)
+  ✔ treats CDK-normalized story text as current for quality audit baseline (1.0077ms)
+  ✔ registers story.score as a distinct critical prompt-audit action (0.8167ms)
+  ✔ certify-story route enforces server-side gate under row lock inside transaction (1.2096ms)
+✔ story certification gate (29.352ms)
+▶ story compliance state
+  ✔ derives not-audited → audited → certified progression (2.6068ms)
+  ✔ C-FINAL-2: locks Copy for CDK until audit and certification complete (0.557ms)
+✔ story compliance state (7.3602ms)
+▶ warranty story export formatting
+  ✔ normalizes line endings and collapses excessive blank lines (2.6931ms)
+  ✔ strips zero-width and control characters (0.6376ms)
+  ✔ collapses irregular whitespace within lines (0.4925ms)
+  ✔ preserves intentional paragraph breaks (0.4686ms)
+✔ warranty story export formatting (8.129ms)
+▶ story generation performance settings
+  ✔ uses non-reasoning story model and grok-4.3 for vision (4.3289ms)
+  ✔ allows richer generation output and voice variation temperature (1.182ms)
+  ✔ prompts include master-technician system rules and persona user message (2.0391ms)
+  ✔ score system prompt uses compact MI criteria (1.4815ms)
+  ✔ generation phase messages cover story writing only (0.6848ms)
+✔ story generation performance settings (14.3361ms)
+▶ story generation pipeline audit
+  ✔ uses non-reasoning grok-4.20 model by default (2.982ms)
+  ✔ resolveStoryReasoningEffort skips param for non-reasoning models (0.698ms)
+  ✔ audit reports veteran-voice prompts and no optional context bloat (1.8036ms)
+✔ story generation pipeline audit (8.6255ms)
+▶ storyHash
+  ✔ changes when story text changes (3.0315ms)
+  ✔ invalidates certification when story drifts (1.6475ms)
+✔ storyHash (7.907ms)
+▶ MI 2.0 audit guidelines
+  ✔ defines audit rewards and rejection triggers (2.4221ms)
+  ✔ includes MI criteria and technicianDetails in scoring and review prompts (0.9899ms)
+✔ MI 2.0 audit guidelines (7.2644ms)
+▶ story quality parsing
+  ✔ parses fenced JSON quality response with technicianDetails (3.7235ms)
+  ✔ parses review response with coaching feedback (1.8572ms)
+  ✔ maps grades from score when missing (0.5856ms)
+  ✔ flags parse failures instead of returning a misleading zero score (2.5968ms)
+  ✔ parses alternate score field formats (0.8972ms)
+  ✔ extracts JSON wrapped in explanation text (0.718ms)
+  ✔ flags unreadable AI score responses (0.6595ms)
+  ✔ flags prose-only score responses as parse failures to trigger structured retry (0.9561ms)
+  ✔ parses alternate field names for strengths, improvements, and audit risks (0.8574ms)
+  ✔ pickRicherStoryQuality prefers the result with coaching detail (0.7676ms)
+  ✔ parses score from array-wrapped JSON responses (0.4633ms)
+  ✔ parses JSON with trailing commas (0.4999ms)
+✔ story quality parsing (16.4251ms)
+▶ story quality state
+  ✔ detects when scored baseline matches current story (3.307ms)
+  ✔ treats CDK-normalized stories as equivalent for audit matching (1.1024ms)
+✔ story quality state (7.7045ms)
+▶ story style variation
+  ✔ STYLE_VARIATION_SYSTEM_RULES covers all variation dimensions (2.543ms)
+  ✔ buildStoryStyleVariationBlock includes per-story profile fields (0.9424ms)
+  ✔ buildStoryStyleVariationBlock produces different profiles across calls (0.727ms)
+✔ story style variation (7.3295ms)
+▶ technicianAccounts
+  ✔ isTechnicianAccountActive requires active status and no deletedAt (2.2403ms)
+✔ technicianAccounts (5.3759ms)
+▶ story template seed data
+  ✔ includes 22 warranty seed templates (customer pay lives in customerPayTemplates.ts) (23.6083ms)
+  ✔ uses unique titles (0.5149ms)
+  ✔ stores user-provided blind spot original verbatim (0.8888ms)
+✔ story template seed data (28.8026ms)
+▶ knowledge base selection
+  ✔ ranks blind spot template for matching line description (3.0692ms)
+  ✔ formats knowledge base prompt with style guardrails (0.9736ms)
+  ✔ selects seed templates via cleanTemplate when fullOriginalText is empty (0.7276ms)
+  ✔ falls back to cleanTemplate in prompt when fullOriginalText is empty (0.4879ms)
+✔ knowledge base selection (6.0888ms)
+▶ template tags
+  ✔ builds tags from title and story content (39.6778ms)
+✔ template tags (40.0722ms)
+▶ template and knowledge base field encryption
+  ✔ mapTemplate decrypts stored template content (352.5954ms)
+  ✔ mapKnowledgeBase decrypts stored knowledge base text fields (844.2886ms)
+✔ template and knowledge base field encryption (1220.5594ms)
+▶ buildTemplateTags
+  ✔ includes category and domain keywords (3.2457ms)
+✔ buildTemplateTags (6.22ms)
+▶ Third-party audit hardening
+  ✔ legal disclaimer is server-gated with version re-check and audit trail (20.204ms)
+  ✔ story certification persists on RepairLine with hash binding (1.0712ms)
+  ✔ story hash is stable for identical sanitized text (2.4425ms)
+  ✔ production rate limiting falls back to memory when KV is unavailable (1.2702ms)
+  ✔ critical paths use structured logging instead of raw console.error (10.7794ms)
+  ✔ technician UI paths do not use console.log for debug noise (4.6326ms)
+  ✔ ErrorBoundary does not expose raw error messages to users (0.7492ms)
+  ✔ Grok errors do not echo response bodies (0.6936ms)
+  ✔ bootstrap seed is hard-disabled in production with audit logging (1.167ms)
+  ✔ unified route errors replace generic fallback for critical routes (1.3685ms)
+  ✔ service advisors are blocked from Grok extraction routes (0.8836ms)
+  ✔ compliance routes use atomic Prisma transactions for DB + audit (2.3476ms)
+  ✔ service advisors are blocked from customer-pay template routes (1.0623ms)
+  ✔ client timeouts align with shared constants (3.9226ms)
+  ✔ HSTS is production-only (0.6674ms)
+  ✔ image access verifies exact pathname matches (0.6126ms)
+  ✔ encryption and PII modules are server-only (1.7398ms)
+  ✔ client hooks do not import server-only certification modules (1.1595ms)
+  ✔ login shell does not import useRepairOrders or OCR modules (0.9562ms)
+  ✔ PII Phase 5 uses encrypted-only storage in Merlinus v2 (2.0826ms)
+  ✔ technician-scoped queries include dealershipId defense-in-depth (2.9839ms)
+  ✔ post-login compliance gates match server policy versions (1.9152ms)
+  ✔ openROById warns when encrypted fields fail to decrypt (M2) (1.0243ms)
+  ✔ previous RO pagination handles compliance 403 like today list (M9) (0.6822ms)
+  ✔ initial RO list load relies on listError UI instead of duplicate toast (M4) (0.6318ms)
+  ✔ withAuth uses session compliance versions without extra DB lookups (M5) (0.5106ms)
+  ✔ login shell paints before session gate and keeps post-auth chunks off critical path (2.3331ms)
+✔ Third-party audit hardening (75.6259ms)
+▶ vision extraction timeouts
+  ✔ diagnostic hierarchy: client > route > grok (1.9556ms)
+  ✔ RO hierarchy: client > route > grok (0.4462ms)
+✔ vision extraction timeouts (4.9787ms)
+▶ story AI timeouts
+  ✔ generate hierarchy: client > route > grok (0.4769ms)
+  ✔ score hierarchy: client > route > grok (0.3734ms)
+  ✔ review hierarchy: client > route > grok (0.3714ms)
+✔ story AI timeouts (1.7213ms)
+▶ upload helpers
+  ✔ retries uploads and uploads files with bounded concurrency (3.4189ms)
+✔ upload helpers (6.5166ms)
+▶ usage monitoring constants
+  ✔ M28: daily limit defaults to 50 or env override (20.3085ms)
+✔ usage monitoring constants (23.0138ms)
+▶ vin normalization
+  ✔ normalizeDecodedModel converts NHTSA *-Class to series token (3.2144ms)
+  ✔ normalizeDecodedModel derives model from trim when model is empty (1.2003ms)
+  ✔ normalizeDecodedModel passes through explicit model strings (0.3478ms)
+✔ vin normalization (8.006ms)
+▶ Vision pipeline mutex (C1/C4)
+  ✔ useOcrProgress exposes independent ro_scan and xentry pipeline state (2.8039ms)
+  ✔ RO scan and Xentry hooks acquire the global pipeline mutex before processing (1.4236ms)
+  ✔ BenzTechAuthenticatedApp wires separate progress lanes for scan vs Xentry (1.0191ms)
+  ✔ Xentry cancel aborts in-flight Grok fetch via AbortController (1.7087ms)
+  ✔ diagnostics extract route writes critical audit after success (0.9451ms)
+  ✔ Xentry auto-saves photos on capture and persists analysis at end (H2) (1.8295ms)
+  ✔ Xentry flushPendingSave uses maxWaitMs timeout before batch (H1) (1.769ms)
+  ✔ navigation awaits flushPendingSave before changing views (H6) (1.0564ms)
+  ✔ view guard blocks redirect while Xentry batch is in flight (H5) (0.9724ms)
+✔ Vision pipeline mutex (C1/C4) (17.2623ms)
+▶ voice confidence adaptation
+  ✔ lowers threshold as noise increases (3.05ms)
+  ✔ never drops below configured floor (0.5352ms)
+  ✔ M19: null or zero confidence accepted for live dictation (0.6202ms)
+  ✔ gates low-confidence hypotheses in quiet bays (0.5572ms)
+✔ voice confidence adaptation (8.9266ms)
+▶ voice dictation text
+  ✔ inserts word boundaries between finalized chunks (1.1715ms)
+  ✔ story mode converts spoken punctuation commands (1.6149ms)
+  ✔ processDictationChunk merges story chunks with punctuation and spacing (1.2132ms)
+  ✔ normalizeDictationSpacing tightens punctuation gaps (0.4795ms)
+✔ voice dictation text (5.5403ms)
+▶ voice dictation stability
+  ✔ VoiceInputProvider shares one pipeline across StableTextarea fields (2.1903ms)
+  ✔ VoiceInputService joins finalized chunks with spacing helper (1.0239ms)
+  ✔ StableTextarea defers parent sync until finalized speech (1.0083ms)
+  ✔ VoiceInputService ignores manual-edit guard while listening (0.7918ms)
+✔ voice dictation stability (5.7496ms)
+▶ voice error recovery
+  ✔ maps technician-friendly messages (0.5035ms)
+  ✔ auto-restarts only for recoverable errors within cap (0.4633ms)
+✔ voice error recovery (1.7318ms)
+▶ warranty story prompts
+  ✔ SYSTEM_PROMPT enforces master-technician 3C quality at v3.0.0 (2.501ms)
+  ✔ VETERAN_TECH_PERSONAS provides six distinct master-technician voices (0.58ms)
+  ✔ selectVeteranPersona rotates by line number (0.4851ms)
+  ✔ WARRANTY_WORKFLOW_STEPS lists all 10 billing/audit steps in order (0.5659ms)
+  ✔ STORY_TEMPLATES reference diagnostic workflow elements (0.6147ms)
+  ✔ buildWarrantyStoryUserMessage includes persona, line data, and full workflow instruction (1.1861ms)
+  ✔ WARRANTY_STORY_MAX_TOKENS allows full workflow narratives (0.3113ms)
+✔ warranty story prompts (9.234ms)
+▶ write request logging and audit trail
+  ✔ identifies mutating HTTP methods (16.5599ms)
+  ✔ withAuth logs structured api.write entries for write operations (0.8733ms)
+  ✔ login route emits api.write logs (0.5118ms)
+  ✔ clear customer pay and template use persist audit entries (0.8642ms)
+✔ write request logging and audit trail (22.081ms)
+▶ Xentry data model (M1/M3)
+  ✔ targetKey distinguishes line vs RO queues (2.241ms)
+  ✔ appendXentryImage stacks multiple photos without dropping prior images (3.5946ms)
+  ✔ line scope reads and writes only the target repair line (0.5562ms)
+  ✔ RO scope reads RO images/OCR and line-1 extracted data only (0.8396ms)
+  ✔ RO scope apply does not mirror images/OCR onto line 1 (M1) (0.7535ms)
+  ✔ useROXentryScan imports shared data model helpers (M3) (1.548ms)
+  ✔ Xentry cancel clears all pending queues (L5) (0.9489ms)
+  ✔ deleteROXentryImage updates RO media and line-1 extracted only (M1) (0.9487ms)
+✔ Xentry data model (M1/M3) (15.2512ms)
+▶ Xentry toast failure detection (H3)
+  ✔ detects colon-style analysis failures (3.8584ms)
+  ✔ detects per-image catch failures (0.8213ms)
+  ✔ detects empty extraction failures (0.4294ms)
+  ✔ does not flag successful extraction text (0.39ms)
+✔ Xentry toast failure detection (H3) (9.4561ms)
+ℹ tests 443
+ℹ suites 90
+ℹ pass 442
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52367.3831
+
+✖ failing tests:
+
+test at tests\unit\mediumAuditFixes.test.ts:2:4785
+✖ M15/M16/M17: voice service guards (24.9714ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(voice.includes('appendDictationChunk'))
+  
+      at TestContext.<anonymous> (C:\Users\hombr\viti-ai-clone\tests\unit\mediumAuditFixes.test.ts:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

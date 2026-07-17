@@ -1,0 +1,19 @@
+{
+  "title": "Settings",
+  "profile": "Profile",
+  "language": "Language",
+  "languageHint": "UI and voice dictation language. Warranty stories are always written in English.",
+  "languageSaved": "Language updated",
+  "languageSaveFailed": "Could not save language preference",
+  "changePassword": "Change password",
+  "currentPassword": "Current password",
+  "newPassword": "New password (min 8 characters)",
+  "updatePassword": "Update password",
+  "updating": "Updating…",
+  "passwordUpdated": "Password updated",
+  "passwordUpdatedReauth": "Password updated — please sign in again",
+  "signedOut": "Signed out",
+  "logoutFailed": "Logout failed",
+  "security": "Security & compliance",
+  "back": "Back"
+}

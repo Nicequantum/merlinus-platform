@@ -1,0 +1,15 @@
+{
+  "notesLabel": "Technician notes & findings",
+  "notesPlaceholder": "Document actual test results, measurements, codes, and repair steps…",
+  "concernLabel": "Customer concern",
+  "concernPlaceholder": "Customer stated…",
+  "concernHint": "Prefilled from scan — edit to match advisor wording",
+  "descriptionLabel": "Line description",
+  "descriptionPlaceholder": "Repair line description",
+  "storyLabel": "Warranty story",
+  "generateStory": "Generate warranty story",
+  "generatingStory": "Generating story…",
+  "scoreStory": "Audit Story",
+  "certifyStory": "Certify story",
+  "storyEnglishOnly": "Review and sign off on the English warranty story only. You may type or speak notes in your preferred language."
+}

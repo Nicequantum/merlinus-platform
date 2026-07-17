@@ -1,0 +1,1644 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apex platform tokens/surfaces — after Tailwind layers; file has no @layer (Next/PostCSS isolates imports). */
+@import '../styles/apex-platform.css';
+
+:root {
+  --benz-bg: #08080a;
+  --benz-bg-elevated: #0e0e12;
+  --benz-surface: #14141a;
+  --benz-surface-2: #1c1c24;
+  --benz-surface-3: #252530;
+  --benz-surface-input: #1a1a22;
+  --benz-border: rgba(180, 186, 198, 0.14);
+  --benz-border-strong: rgba(180, 186, 198, 0.22);
+  --benz-border-accent: rgba(0, 173, 239, 0.35);
+  --benz-text: #f2f3f6;
+  --benz-text-secondary: #9ca3b0;
+  --benz-text-muted: #6b7280;
+  --benz-silver: #c4c8d0;
+  --benz-silver-dim: #8b919c;
+  --benz-blue: #00adef;
+  --benz-blue-hover: #33c1f5;
+  --benz-blue-dim: #0088c6;
+  --benz-blue-glow: rgba(0, 173, 239, 0.18);
+  --benz-green: #34d399;
+  --benz-green-dim: rgba(52, 211, 153, 0.15);
+  --benz-amber: #f59e0b;
+  --benz-amber-dim: rgba(245, 158, 11, 0.12);
+  --benz-red: #f87171;
+  --benz-red-dim: rgba(248, 113, 113, 0.12);
+  --benz-radius-sm: 10px;
+  --benz-radius: 14px;
+  --benz-radius-lg: 18px;
+  --benz-radius-xl: 22px;
+  --benz-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  --benz-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.55);
+
+  /* Legacy aliases */
+  --bg: var(--benz-bg);
+  --surface: var(--benz-surface);
+  --surface-2: var(--benz-surface-2);
+  --surface-3: var(--benz-surface-3);
+  --text: var(--benz-text);
+  --text-secondary: var(--benz-text-secondary);
+  --accent: var(--benz-blue);
+  --accent-green: var(--benz-green);
+  --separator: var(--benz-border);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--benz-bg);
+    color: var(--benz-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .app-container {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    background:
+      radial-gradient(ellipse 90% 50% at 50% -8%, rgba(0, 173, 239, 0.09), transparent 58%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0, 136, 198, 0.04), transparent 50%),
+      linear-gradient(180deg, var(--benz-bg-elevated) 0%, var(--benz-bg) 42%);
+  }
+
+  .app-container.benz-app-wide {
+    max-width: 480px;
+  }
+
+  @media (min-width: 768px) {
+    .app-container.benz-app-wide {
+      max-width: 920px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .app-container.benz-app-wide {
+      max-width: 1080px;
+    }
+
+    .app-container.benz-companion-mode {
+      max-width: 1280px;
+    }
+  }
+
+  .benz-desktop-only {
+    display: none;
+  }
+
+  .benz-tablet-only {
+    display: block;
+  }
+
+  @media (min-width: 1024px) {
+    .benz-desktop-only {
+      display: block;
+    }
+
+    .benz-tablet-only {
+      display: none;
+    }
+  }
+
+  .benz-companion-layout {
+    @apply w-full min-w-0 px-5 pt-4 pb-10;
+  }
+
+  .benz-companion-header {
+    @apply flex flex-wrap items-start justify-between gap-4 mb-4;
+  }
+
+  .benz-companion-copy-btn {
+    @apply h-14 px-8 text-base font-semibold shrink-0;
+  }
+
+  .benz-companion-body {
+    @apply grid gap-6 min-w-0;
+  }
+
+  @media (min-width: 1024px) {
+    .benz-companion-body {
+      grid-template-columns: minmax(0, 1fr) 280px;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .benz-companion-body {
+      grid-template-columns: minmax(0, 1fr) 320px;
+    }
+  }
+
+  .benz-companion-main {
+    @apply min-w-0;
+  }
+
+  .benz-companion-story {
+    @apply rounded-lg p-4 max-h-[52vh] overflow-y-auto;
+    border: 1px solid var(--benz-border);
+    background: color-mix(in srgb, var(--benz-surface) 50%, transparent);
+  }
+
+  .benz-companion-line-row {
+    @apply flex flex-wrap items-center gap-2 justify-between rounded-lg px-3 py-2.5 text-sm;
+    border: 1px solid var(--benz-border);
+  }
+
+  .benz-companion-line-row-btn {
+    @apply cursor-pointer transition-colors;
+    background: var(--benz-card);
+  }
+
+  .benz-companion-line-row-btn:hover {
+    border-color: color-mix(in srgb, var(--benz-blue) 45%, var(--benz-border));
+    background: color-mix(in srgb, var(--benz-blue) 6%, var(--benz-card));
+  }
+
+  .benz-companion-line-row-btn:focus-visible {
+    outline: 2px solid var(--benz-blue);
+    outline-offset: 2px;
+  }
+
+  .benz-companion-nav {
+    @apply flex flex-wrap items-center gap-2 mb-4;
+  }
+
+  .benz-companion-nav-btn {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+    color: var(--benz-blue);
+    border: 1px solid color-mix(in srgb, var(--benz-blue) 25%, var(--benz-border));
+    background: color-mix(in srgb, var(--benz-blue) 4%, var(--benz-card));
+  }
+
+  .benz-companion-nav-btn:hover {
+    background: color-mix(in srgb, var(--benz-blue) 10%, var(--benz-card));
+  }
+
+  .benz-companion-status {
+    @apply benz-card px-4 py-3 mb-4;
+  }
+
+  .benz-companion-status-active {
+    @apply border-benz-blue/30 bg-benz-blue/5;
+  }
+
+  .benz-companion-status-progress {
+    @apply h-1 rounded-full mt-2.5 overflow-hidden;
+    background: var(--benz-border);
+  }
+
+  .benz-companion-status-progress-bar {
+    @apply h-full bg-benz-blue transition-all duration-300;
+  }
+
+  .benz-companion-activity {
+    @apply benz-card p-4 min-w-0 max-h-[70vh] overflow-y-auto;
+  }
+
+  .benz-companion-activity-item {
+    @apply pb-3 last:pb-0;
+    border-bottom: 1px solid var(--benz-border);
+  }
+
+  .benz-companion-activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .benz-page {
+    @apply px-5 pt-5 pb-10 w-full min-w-0;
+  }
+
+  .benz-page-compact {
+    @apply px-4 pt-3 pb-8;
+  }
+
+  .benz-header {
+    background: rgba(14, 14, 18, 0.88);
+    backdrop-filter: blur(20px) saturate(1.25);
+    border-bottom: 1px solid var(--benz-border);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.04),
+      0 8px 24px rgba(0, 0, 0, 0.25),
+      0 -1px 0 rgba(0, 173, 239, 0.06) inset;
+  }
+
+  .benz-card {
+    background: linear-gradient(165deg, var(--benz-surface) 0%, rgba(20, 20, 26, 0.98) 100%);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius-lg);
+    box-shadow: var(--benz-shadow);
+  }
+
+  .benz-card-elevated {
+    background: linear-gradient(165deg, #16161e 0%, #121218 100%);
+    border: 1px solid var(--benz-border-strong);
+    border-radius: var(--benz-radius-xl);
+    box-shadow: var(--benz-shadow-lg);
+  }
+
+  .benz-card-elevated-accent {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .benz-card-elevated-accent::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 173, 239, 0.55) 35%,
+      rgba(158, 233, 255, 0.75) 50%,
+      rgba(0, 173, 239, 0.55) 65%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .story-card {
+    background: linear-gradient(165deg, #16161e 0%, #101014 100%);
+    border: 1px solid var(--benz-border-accent);
+    border-radius: var(--benz-radius-xl);
+    box-shadow: 0 0 0 1px rgba(0, 173, 239, 0.06), var(--benz-shadow-lg);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .story-card-cp {
+    border-color: rgba(52, 211, 153, 0.4);
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.08), var(--benz-shadow-lg);
+  }
+
+  .benz-story-empty-state {
+    @apply rounded-xl border border-dashed p-6;
+    border-color: var(--benz-border-strong);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .benz-story-badge {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  }
+
+  .benz-story-badge-compact {
+    font-size: 0.65rem;
+  }
+
+  .benz-story-badge-cp {
+    background: rgba(52, 211, 153, 0.15);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: var(--benz-green);
+  }
+
+  .benz-story-badge-ai {
+    background: var(--benz-blue-glow);
+    border: 1px solid var(--benz-border-accent);
+    color: var(--benz-blue);
+  }
+
+  .benz-story-badge-mixed {
+    background: var(--benz-surface-2);
+    border: 1px solid var(--benz-border);
+    color: var(--benz-text-secondary);
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.65rem;
+  }
+
+  .benz-cp-switch-banner {
+    @apply rounded-xl p-3.5 text-left;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: var(--benz-amber-dim);
+  }
+
+  .stat-card {
+    background: linear-gradient(165deg, var(--benz-surface-2) 0%, var(--benz-surface) 100%);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+    box-shadow: var(--benz-shadow);
+    transition: border-color 0.2s ease, transform 0.15s ease;
+  }
+
+  .stat-card:hover {
+    border-color: var(--benz-border-strong);
+  }
+
+  .benz-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--benz-silver-dim);
+  }
+
+  .benz-section-header {
+    @apply flex items-center justify-between gap-3 mb-4;
+  }
+
+  .benz-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--benz-text-secondary);
+    margin-bottom: 0.375rem;
+  }
+
+  .benz-hint {
+    font-size: 0.8125rem;
+    color: var(--benz-text-secondary);
+    line-height: 1.55;
+  }
+
+  .benz-input,
+  .benz-textarea {
+    width: 100%;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+    color: var(--benz-text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .benz-input {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .benz-textarea {
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    resize: vertical;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  .benz-input:focus,
+  .benz-textarea:focus {
+    outline: none;
+    border-color: var(--benz-border-accent);
+    box-shadow: 0 0 0 3px var(--benz-blue-glow);
+    background: var(--benz-surface-2);
+  }
+
+  .benz-input-mono {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    letter-spacing: 0.06em;
+  }
+
+  .primary-btn {
+    background: linear-gradient(180deg, var(--benz-blue) 0%, var(--benz-blue-dim) 100%);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-radius: var(--benz-radius);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 12px rgba(0, 173, 239, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  }
+
+  .primary-btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow: 0 4px 20px rgba(0, 173, 239, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+
+  .primary-btn:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .primary-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .secondary-btn {
+    background: var(--benz-surface-2);
+    border: 1px solid var(--benz-border-strong);
+    border-radius: var(--benz-radius);
+    color: var(--benz-text);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.12s ease;
+  }
+
+  .secondary-btn:hover:not(:disabled) {
+    background: var(--benz-surface-3);
+    border-color: rgba(180, 186, 198, 0.28);
+  }
+
+  .secondary-btn:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .secondary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .benz-btn-accent-outline {
+    border-color: var(--benz-border-accent) !important;
+    color: var(--benz-blue) !important;
+  }
+
+  .benz-btn-success-outline {
+    border-color: rgba(52, 211, 153, 0.4) !important;
+    color: var(--benz-green) !important;
+  }
+
+  .benz-link {
+    color: var(--benz-blue);
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  .benz-link:hover {
+    color: var(--benz-blue-hover);
+  }
+
+  .benz-nav-back {
+    @apply flex items-center gap-1.5 mb-5;
+    color: var(--benz-blue);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  .benz-nav-back:hover {
+    color: var(--benz-blue-hover);
+  }
+
+  .benz-ro-header {
+    @apply mb-6 pb-5;
+    border-bottom: 1px solid var(--benz-border);
+  }
+
+  .benz-ro-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--benz-text);
+  }
+
+  .benz-ro-subtitle {
+    font-size: 0.8125rem;
+    color: var(--benz-text-secondary);
+    margin-top: 0.25rem;
+  }
+
+  .benz-advisor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--benz-blue);
+    background: var(--benz-blue-glow);
+    border: 1px solid var(--benz-border-accent);
+    border-radius: 999px;
+  }
+
+  .benz-vehicle-bar {
+    background: linear-gradient(135deg, rgba(0, 173, 239, 0.08) 0%, var(--benz-surface) 60%);
+    border: 1px solid var(--benz-border-accent);
+    border-radius: var(--benz-radius-lg);
+    padding: 1rem 1.125rem;
+  }
+
+  .benz-vehicle-bar-luxury {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .benz-vehicle-bar-luxury::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--benz-blue), transparent);
+    opacity: 0.65;
+  }
+
+  .benz-empty-state {
+    @apply text-center py-10 px-6;
+    background: linear-gradient(165deg, rgba(20, 20, 26, 0.6) 0%, rgba(14, 14, 18, 0.4) 100%);
+    border: 1px dashed var(--benz-border);
+    border-radius: var(--benz-radius-xl);
+  }
+
+  .benz-empty-state-compact {
+    @apply py-8 px-5;
+  }
+
+  .benz-empty-state-icon {
+    @apply mx-auto mb-4 flex items-center justify-center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 999px;
+    background: var(--benz-surface-2);
+    border: 1px solid var(--benz-border);
+    color: var(--benz-silver-dim);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .benz-empty-state-compact .benz-empty-state-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .benz-empty-state-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--benz-silver);
+  }
+
+  .benz-empty-state-hint {
+    font-size: 0.75rem;
+    color: var(--benz-text-muted);
+    line-height: 1.55;
+    max-width: 18rem;
+    margin: 0.5rem auto 0;
+  }
+
+  .benz-dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .benz-dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .benz-dashboard-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .benz-dashboard-overview {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .benz-dashboard-workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .benz-dashboard-grid {
+      grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+      gap: 2rem;
+    }
+  }
+
+  .benz-dashboard-nav-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+  }
+
+  @media (min-width: 640px) {
+    .benz-dashboard-nav-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 900px) {
+    .benz-dashboard-nav-row {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .benz-line-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .benz-line-flow > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .benz-line-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .benz-line-flow .benz-line-doc-card,
+    .benz-line-flow .benz-diagnostic-card,
+    .benz-line-flow .benz-generate-panel,
+    .benz-line-flow .story-card,
+    .benz-line-flow .benz-story-empty-state {
+      grid-column: 1 / -1;
+    }
+
+    .benz-line-flow .benz-generate-panel {
+      position: sticky;
+      top: 4.5rem;
+    }
+  }
+
+  .benz-line-doc-card {
+    padding: 1.375rem 1.5rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .benz-line-doc-divider {
+    margin: 1.25rem 0;
+    border-top: 1px solid var(--benz-border);
+  }
+
+  .benz-line-aside {
+    padding: 1rem 1.125rem;
+    background: rgba(20, 20, 26, 0.55);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius-lg);
+  }
+
+  .benz-gen-progress {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(0, 173, 239, 0.12);
+    overflow: hidden;
+  }
+
+  .benz-gen-progress-bar {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--benz-blue), rgba(0, 173, 239, 0.55));
+    transition: width 0.35s ease;
+  }
+
+  .benz-generate-panel {
+    padding: 1.5rem 1.25rem;
+    border-radius: var(--benz-radius-xl);
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 173, 239, 0.07), transparent 70%),
+      linear-gradient(165deg, var(--benz-surface) 0%, rgba(16, 16, 20, 0.95) 100%);
+    border: 1px solid var(--benz-border-strong);
+    box-shadow: var(--benz-shadow);
+    position: relative;
+    z-index: 5;
+    isolation: isolate;
+    pointer-events: auto;
+  }
+
+  .benz-quality-inset {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--benz-border);
+  }
+
+  .benz-admin-form-panel {
+    padding: 1.125rem;
+    margin-bottom: 1.25rem;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border-accent);
+    border-radius: var(--benz-radius-lg);
+  }
+
+  .benz-admin-user-card {
+    padding: 1rem 1.125rem;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius-lg);
+    transition: border-color 0.2s ease;
+  }
+
+  .benz-admin-user-card:hover {
+    border-color: var(--benz-border-strong);
+  }
+
+  .benz-admin-user-card-inactive {
+    opacity: 0.72;
+  }
+
+  .benz-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    justify-content: flex-end;
+  }
+
+  .benz-admin-action-btn {
+    @apply inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors;
+    border: 1px solid var(--benz-border);
+    background: var(--benz-surface-2);
+    color: var(--benz-text-secondary);
+  }
+
+  .benz-admin-action-btn:hover {
+    border-color: var(--benz-border-strong);
+    color: var(--benz-silver);
+  }
+
+  .benz-admin-action-btn-accent {
+    color: var(--benz-blue);
+    border-color: var(--benz-border-accent);
+  }
+
+  .benz-admin-action-btn-accent:hover {
+    background: var(--benz-blue-glow);
+  }
+
+  .benz-admin-action-btn-warn {
+    color: var(--benz-amber);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+
+  .benz-admin-action-btn-warn:hover {
+    background: var(--benz-amber-dim);
+  }
+
+  .benz-admin-action-btn-danger {
+    color: var(--benz-red);
+    border-color: rgba(248, 113, 113, 0.35);
+  }
+
+  .benz-admin-action-btn-danger:hover {
+    background: var(--benz-red-dim);
+  }
+
+  .benz-admin-reset-panel {
+    margin-top: 0.875rem;
+    padding: 0.875rem;
+    background: var(--benz-surface-2);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+  }
+
+  .benz-line-card {
+    @apply cursor-pointer transition-all duration-200;
+    border-radius: var(--benz-radius-lg);
+    padding: 1rem 1.125rem;
+    background: var(--benz-surface);
+    border: 1px solid var(--benz-border);
+  }
+
+  .benz-line-card:hover {
+    border-color: var(--benz-border-strong);
+    background: var(--benz-surface-2);
+    transform: translateY(-1px);
+    box-shadow: var(--benz-shadow);
+  }
+
+  .benz-line-card:active {
+    transform: translateY(0);
+  }
+
+  .benz-list-row {
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .benz-list-row:hover {
+    background: var(--benz-surface-2);
+    border-color: var(--benz-border-strong);
+  }
+
+  .benz-photo-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .benz-photo-thumb {
+    @apply overflow-hidden transition-all duration-200;
+    border-radius: var(--benz-radius-sm);
+    border: 1px solid var(--benz-border);
+    aspect-ratio: 1;
+  }
+
+  .benz-photo-thumb:hover {
+    border-color: var(--benz-border-accent);
+    box-shadow: 0 0 0 2px var(--benz-blue-glow);
+  }
+
+  .benz-photo-thumb img {
+    @apply w-full h-full object-cover;
+  }
+
+  .benz-progress-track {
+    height: 6px;
+    background: var(--benz-surface-3);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .benz-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--benz-blue-dim), var(--benz-blue));
+    border-radius: 999px;
+    transition: width 0.3s ease-out;
+  }
+
+  .benz-divider {
+    border-top: 1px solid var(--benz-border);
+  }
+
+  .benz-avatar {
+    @apply flex items-center justify-center shrink-0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--benz-surface-3), var(--benz-surface-2));
+    border: 1px solid var(--benz-border-strong);
+  }
+
+  .benz-settings-nav {
+    @apply w-full flex items-center justify-between text-left transition-all duration-200;
+    padding: 1.125rem 1.25rem;
+    border-radius: var(--benz-radius-lg);
+    background: var(--benz-surface);
+    border: 1px solid var(--benz-border);
+  }
+
+  .benz-settings-nav:hover {
+    border-color: var(--benz-border-accent);
+    background: var(--benz-surface-2);
+  }
+
+  .benz-complaint-row {
+    @apply flex gap-2.5 items-start w-full min-w-0;
+  }
+
+  .benz-complaint-field {
+    @apply min-w-0 flex-1 w-full;
+  }
+
+  .benz-complaint-label {
+    @apply shrink-0 font-bold text-sm pt-2.5;
+    color: var(--benz-blue);
+    width: 1.5rem;
+  }
+
+  .benz-extracted-panel {
+    font-size: 0.75rem;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+    padding: 0.875rem 1rem;
+    line-height: 1.5;
+  }
+
+  .benz-line-title-field {
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border-strong);
+    border-radius: var(--benz-radius-lg);
+    padding: 0.875rem 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .benz-line-title-field:focus-within {
+    border-color: var(--benz-border-accent);
+    box-shadow: 0 0 0 3px var(--benz-blue-glow);
+  }
+
+  .benz-line-title-input {
+    width: 100%;
+    min-width: 0;
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.35;
+    color: var(--benz-text);
+    background: transparent;
+    border: none;
+    outline: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .benz-line-title-input::placeholder {
+    color: var(--benz-text-muted);
+    font-weight: 500;
+  }
+
+  .benz-btn-lg {
+    height: 3.25rem;
+  }
+
+  .benz-danger-btn {
+    background: var(--benz-red-dim);
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    border-radius: var(--benz-radius);
+    color: var(--benz-red);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.12s ease;
+  }
+
+  .benz-danger-btn:hover:not(:disabled) {
+    background: rgba(248, 113, 113, 0.18);
+    border-color: rgba(248, 113, 113, 0.6);
+  }
+
+  .benz-danger-btn:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .benz-danger-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .benz-danger-icon-btn {
+    @apply p-2 rounded-lg transition-colors shrink-0;
+    color: var(--benz-red);
+    border: 1px solid transparent;
+  }
+
+  .benz-danger-icon-btn:hover {
+    background: var(--benz-red-dim);
+    border-color: rgba(248, 113, 113, 0.35);
+  }
+
+  .benz-tertiary-btn {
+    @apply inline-flex items-center justify-center gap-1.5 text-xs font-medium transition-colors;
+    color: var(--benz-text-secondary);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--benz-radius-sm);
+  }
+
+  .benz-tertiary-btn:hover:not(:disabled) {
+    color: var(--benz-silver);
+    background: var(--benz-surface-2);
+  }
+
+  .benz-tertiary-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .benz-tertiary-link {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--benz-text-secondary);
+    transition: color 0.15s ease;
+  }
+
+  .benz-tertiary-link:hover:not(:disabled) {
+    color: var(--benz-blue);
+  }
+
+  .benz-icon-btn {
+    @apply p-2 rounded-xl transition-colors;
+    color: var(--benz-text-secondary);
+  }
+
+  .benz-icon-btn:hover {
+    color: var(--benz-silver);
+    background: var(--benz-surface-2);
+  }
+
+  .benz-search {
+    @apply w-full;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    border-radius: var(--benz-radius);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--benz-text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .benz-search::placeholder {
+    color: var(--benz-text-muted);
+  }
+
+  .benz-search:focus {
+    outline: none;
+    border-color: var(--benz-border-accent);
+    box-shadow: 0 0 0 3px var(--benz-blue-glow);
+  }
+
+  .benz-page-title {
+    font-size: 1.625rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+  }
+
+  .benz-dashboard-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--benz-blue);
+    text-align: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .benz-logo-ring {
+    background: linear-gradient(145deg, var(--benz-blue) 0%, var(--benz-blue-dim) 100%);
+    border-radius: var(--benz-radius-xl);
+    padding: 3px;
+    box-shadow: 0 8px 32px rgba(0, 173, 239, 0.3);
+  }
+
+  .benz-logo-bubble {
+    border-radius: 22%;
+    padding: 2px;
+    box-shadow:
+      0 10px 36px rgba(0, 173, 239, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+  }
+
+  .benz-logo-bubble > svg,
+  .benz-logo-bubble > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 20%;
+  }
+
+  .merlin-logo-mark {
+    position: relative;
+    flex-shrink: 0;
+    border-radius: 22%;
+    overflow: hidden;
+    background: #000000;
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.55),
+      0 0 24px rgba(210, 218, 226, 0.08);
+    transform: translateZ(0);
+  }
+
+  .merlin-logo-mark > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+  }
+
+  .merlin-logo-mark--xs {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .merlin-logo-mark--sm {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .merlin-logo-mark--md {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .merlin-logo-mark--lg {
+    width: 5rem;
+    height: 5rem;
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.6),
+      0 0 32px rgba(210, 218, 226, 0.1);
+  }
+
+  .merlin-logo-mark--xl {
+    width: 6rem;
+    height: 6rem;
+    box-shadow:
+      0 18px 44px rgba(0, 0, 0, 0.65),
+      0 0 40px rgba(210, 218, 226, 0.12);
+  }
+
+  .merlin-brand-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .merlin-brand-hero::before {
+    content: '';
+    position: absolute;
+    top: -12%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(280px, 90vw);
+    height: 140px;
+    background: radial-gradient(ellipse at center, rgba(210, 218, 226, 0.16), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .merlin-brand-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .merlin-wordmark {
+    margin-top: 1rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    background: linear-gradient(180deg, #f8fafc 0%, #c4c8d0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .merlin-wordmark-accent {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--benz-blue);
+    opacity: 0.85;
+  }
+
+  .merlin-brand-divider {
+    width: 2.5rem;
+    height: 1px;
+    margin: 1.25rem auto 1rem;
+    background: linear-gradient(90deg, transparent, var(--benz-border-accent), transparent);
+  }
+
+  @keyframes merlin-logo-glow {
+    0%,
+    100% {
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 0 rgba(220, 228, 236, 0));
+    }
+    50% {
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5))
+        drop-shadow(0 0 16px rgba(220, 228, 236, 0.55));
+    }
+  }
+
+  .merlin-logo-animated {
+    animation: merlin-logo-glow 2.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .merlin-logo-animated {
+      animation: none;
+    }
+  }
+
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  .status-pill {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  .status-pill-valid {
+    background: var(--benz-green-dim);
+    color: var(--benz-green);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+  }
+
+  .status-pill-warn {
+    background: var(--benz-amber-dim);
+    color: var(--benz-amber);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .login-shell {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1.5rem, 5vw, 2.5rem) clamp(1.25rem, 4vw, 1.75rem);
+    background:
+      radial-gradient(ellipse 110% 70% at 50% -5%, rgba(0, 173, 239, 0.12), transparent 52%),
+      radial-gradient(ellipse 50% 35% at 15% 85%, rgba(0, 136, 198, 0.06), transparent 55%),
+      radial-gradient(ellipse 40% 30% at 88% 75%, rgba(0, 173, 239, 0.05), transparent 50%),
+      linear-gradient(180deg, #0a0a0e 0%, var(--benz-bg) 55%);
+  }
+
+  .login-panel {
+    width: 100%;
+    max-width: 22rem;
+  }
+
+  .login-brand {
+    margin-bottom: 2.25rem;
+  }
+
+  .login-brand .merlin-wordmark {
+    margin-top: 1.125rem;
+  }
+
+  .login-brand .merlin-brand-divider {
+    margin: 1.5rem auto 1.125rem;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.375rem;
+    padding: 1.625rem 1.5rem 1.75rem;
+  }
+
+  .login-form .benz-label {
+    margin-bottom: 0.5rem;
+  }
+
+  .login-submit-btn {
+    margin-top: 0.25rem;
+    height: 3.125rem;
+    border-radius: calc(var(--benz-radius) + 2px);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: linear-gradient(180deg, #1eb8f5 0%, var(--benz-blue) 44%, var(--benz-blue-dim) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.22),
+      0 8px 24px rgba(0, 173, 239, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .login-submit-btn:hover:not(:disabled) {
+    filter: none;
+    background: linear-gradient(180deg, #33c1f5 0%, #00b8f5 48%, var(--benz-blue-dim) 100%);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.22),
+      0 12px 32px rgba(0, 173, 239, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  }
+
+  .login-submit-btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.99);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.28),
+      0 4px 14px rgba(0, 173, 239, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  .login-submit-btn:disabled {
+    opacity: 0.52;
+    background: linear-gradient(180deg, rgba(30, 184, 245, 0.5) 0%, rgba(0, 173, 239, 0.42) 100%);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .login-footer {
+    margin-top: 1.75rem;
+    padding-inline: 1rem;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.65;
+    color: var(--benz-text-muted);
+    letter-spacing: 0.015em;
+  }
+
+  .login-alt-link {
+    color: var(--benz-blue);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  .login-alt-link:hover {
+    color: #33c1f5;
+    text-decoration: underline;
+  }
+
+  .login-alt-auth {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.25rem;
+  }
+
+  .login-alt-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--benz-text-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .login-alt-divider::before,
+  .login-alt-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(180, 186, 198, 0.16);
+  }
+
+  .login-clerk-btn {
+    height: 3rem;
+    border-radius: calc(var(--benz-radius) + 2px);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .clerk-sign-in-root {
+    padding: 1.25rem 1rem 1.5rem;
+    overflow: hidden;
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-box {
+    width: 100%;
+    max-width: none;
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    width: 100%;
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-title {
+    color: var(--benz-text);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-subtitle {
+    color: var(--benz-text-secondary);
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-primary-btn {
+    height: 3.125rem;
+    margin-top: 0.25rem;
+  }
+
+  .clerk-sign-in-root .clerk-sign-in-link {
+    color: var(--benz-blue);
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(156, 163, 176, 0.2);
+    border-top-color: var(--benz-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .text-benz-primary { color: var(--benz-text); }
+  .text-benz-secondary { color: var(--benz-text-secondary); }
+  .text-benz-muted { color: var(--benz-text-muted); }
+  .text-benz-blue { color: var(--benz-blue); }
+  .text-benz-green { color: var(--benz-green); }
+  .text-benz-amber { color: var(--benz-amber); }
+  .text-benz-red { color: var(--benz-red); }
+  .text-benz-silver { color: var(--benz-silver); }
+
+  .benz-modal-overlay {
+    @apply fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4;
+    background: rgba(4, 4, 6, 0.88);
+    backdrop-filter: blur(6px);
+  }
+
+  .benz-modal-panel {
+    @apply w-full flex flex-col overflow-hidden;
+    max-height: 92dvh;
+    border-radius: var(--benz-radius-xl) var(--benz-radius-xl) 0 0;
+    background: linear-gradient(165deg, #16161e 0%, #101014 100%);
+    border: 1px solid var(--benz-border-strong);
+    box-shadow: var(--benz-shadow-lg);
+  }
+
+  @media (min-width: 640px) {
+    .benz-modal-panel {
+      border-radius: var(--benz-radius-xl);
+    }
+  }
+
+  .benz-modal-header {
+    @apply flex items-start justify-between gap-3 px-5 pt-5 pb-3;
+    border-bottom: 1px solid var(--benz-border);
+  }
+
+  .benz-tab-btn {
+    @apply flex-1 rounded-xl px-3 py-2.5 text-left transition-all duration-200;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+    color: var(--benz-text-secondary);
+  }
+
+  .benz-tab-btn:hover {
+    border-color: var(--benz-border-strong);
+    background: var(--benz-surface-2);
+  }
+
+  .benz-tab-btn-active {
+    background: var(--benz-blue-glow);
+    border-color: var(--benz-border-accent);
+    color: var(--benz-text);
+    box-shadow: 0 0 0 1px rgba(0, 173, 239, 0.08);
+  }
+
+  .benz-chip {
+    @apply shrink-0 rounded-xl px-3 py-2 text-left transition-all duration-200;
+    background: var(--benz-surface-input);
+    border: 1px solid var(--benz-border);
+  }
+
+  .benz-chip:hover {
+    background: var(--benz-surface-2);
+    border-color: var(--benz-border-strong);
+  }
+
+  .benz-chip-active {
+    background: var(--benz-blue-glow);
+    border-color: var(--benz-border-accent);
+  }
+
+  .benz-tab-btn-customer.benz-tab-btn-active {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: rgba(52, 211, 153, 0.08);
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.12);
+  }
+
+  .benz-tab-btn-warranty.benz-tab-btn-active {
+    border-color: var(--benz-border-accent);
+    background: var(--benz-blue-glow);
+  }
+
+  .benz-cp-badge {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+    background: rgba(52, 211, 153, 0.15);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: var(--benz-green);
+  }
+
+  .benz-btn-customer-pay {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.9), rgba(16, 185, 129, 0.85)) !important;
+    border-color: rgba(52, 211, 153, 0.5) !important;
+  }
+
+  .benz-cp-instant-banner {
+    background: rgba(52, 211, 153, 0.08);
+  }
+
+  .benz-alert-warn {
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    background: var(--benz-amber-dim) !important;
+  }
+
+  .benz-alert-info {
+    border-color: var(--benz-border-accent) !important;
+    background: rgba(0, 173, 239, 0.06) !important;
+  }
+
+  .benz-score-excellent {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: var(--benz-green-dim);
+    color: var(--benz-green);
+  }
+
+  .benz-score-strong {
+    border-color: var(--benz-border-accent);
+    background: var(--benz-blue-glow);
+    color: var(--benz-blue);
+  }
+
+  .benz-score-needs-work {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: var(--benz-amber-dim);
+    color: var(--benz-amber);
+  }
+
+  .benz-score-at-risk {
+    border-color: rgba(248, 113, 113, 0.4);
+    background: var(--benz-red-dim);
+    color: var(--benz-red);
+  }
+
+  .benz-voice-inline-btn {
+    @apply absolute z-10 p-1.5 rounded-md transition-all duration-200;
+    background: transparent;
+    border: none;
+    color: var(--benz-text-muted);
+    opacity: 0.55;
+  }
+
+  .benz-voice-inline-btn-inner {
+    @apply relative inline-flex items-center justify-center;
+  }
+
+  .benz-voice-inline-btn:hover {
+    opacity: 0.85;
+    color: var(--benz-blue);
+  }
+
+  .benz-voice-inline-btn-active {
+    opacity: 1;
+    color: var(--benz-red);
+  }
+
+  .benz-voice-inline-btn-restarting {
+    opacity: 0.75;
+  }
+
+  .benz-voice-inline-pulse {
+    @apply absolute inset-0 rounded-md;
+    border: 1.5px solid var(--benz-red);
+    animation: benz-voice-inline-pulse 1.6s ease-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes benz-voice-inline-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.benz-offline-banner,
+.benz-maintenance-banner {
+  @apply flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium text-center;
+  position: sticky;
+  top: 0;
+  z-index: 60;
+}
+
+.benz-offline-banner {
+  background: var(--benz-amber-dim);
+  color: var(--benz-amber);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.benz-maintenance-banner {
+  background: var(--benz-red-dim);
+  color: var(--benz-red);
+  border-bottom: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.benz-app-footer {
+  @apply text-center py-4 mt-6 text-xs;
+  color: var(--benz-text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.benz-app-footer-sep {
+  @apply mx-1.5 opacity-50;
+}

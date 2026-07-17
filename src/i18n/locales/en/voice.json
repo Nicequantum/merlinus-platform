@@ -1,0 +1,17 @@
+{
+  "micLabel": "Voice input",
+  "startMic": "Start voice input",
+  "stopMic": "Stop voice input",
+  "listening": "Listening…",
+  "disabled": "Voice input is disabled for this dealership. Type your notes below.",
+  "notSupported": "Voice input is not supported in this browser. Use Chrome or Edge on your tablet.",
+  "permissionDenied": "Microphone blocked. Open site settings and allow mic access, then reload.",
+  "noSpeech": "No speech heard. Tap the mic or hold push-to-talk and speak closer to the tablet.",
+  "languageNotSupported": "Language not supported on this device. Type your notes instead.",
+  "network": "Voice recognition needs network access. Check Wi‑Fi in the service bay.",
+  "aborted": "Voice input stopped.",
+  "audioCapture": "Microphone unavailable. Check that no other app is using the mic.",
+  "notAllowed": "Microphone blocked. Allow mic access for this site in Chrome or Edge settings.",
+  "serviceNotAllowed": "Voice recognition is blocked by browser policy. Use manual typing.",
+  "genericError": "Voice input error. You can keep typing manually."
+}

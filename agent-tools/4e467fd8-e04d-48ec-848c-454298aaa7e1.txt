@@ -1,0 +1,2431 @@
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    +
+ CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | SeName                 Length
+----                 ------
+apple-touch-icon.png 265142
+icon-512.png         265142
+public\apple-touch-icon.png 512x512
+public\icon-512.png 512x512
+
+
+t-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 
+Set-Content : Cannot proceed with byte encoding. When using byte encoding the content must be of type byte.
+At line:1 char:91
++ ... -icon.png | Set-Content -Encoding Byte -Path $env:TEMP\old-apple.png; ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], PSArgumentException
+    + FullyQualifiedErrorId : Argument,Microsoft.PowerShell.Commands.SetContentCommand
+ 

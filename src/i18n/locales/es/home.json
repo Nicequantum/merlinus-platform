@@ -1,0 +1,13 @@
+{
+  "title": "Órdenes de reparación de hoy",
+  "previous": "Órdenes anteriores",
+  "scanRo": "Escanear RO",
+  "createManual": "Crear RO manual",
+  "searchPlaceholder": "Buscar RO (número, modelo, VIN)…",
+  "loadingRos": "Cargando órdenes de reparación de hoy",
+  "loadingSublabel": "Preparando su trabajo activo…",
+  "loadErrorTitle": "No se pudieron cargar las órdenes",
+  "noRos": "Aún no hay órdenes de reparación",
+  "settingsAria": "Configuración",
+  "technicianFallback": "Técnico"
+}

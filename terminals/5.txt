@@ -1,0 +1,13 @@
+---
+pid: 6828
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "$env:Path = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\"); Set-Location C:\\Users\\hombr\\viti-ai-clone; npx --yes playwright@1.49.0 install chromium 2>&1 | Select-Object -Last 5"
+started_at: 2026-06-29T22:10:02.284Z
+running_for_ms: 86400007 
+---
+
+---
+exit_code: -1
+elapsed_ms: 86400007
+ended_at: 2026-06-30T22:12:02.340Z
+---

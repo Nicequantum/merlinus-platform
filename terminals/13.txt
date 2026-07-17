@@ -1,0 +1,17 @@
+---
+pid: 10168
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "cd \"C:\\Users\\hombr\\viti-ai-clone\"; npm run typecheck 2>&1"
+started_at: 2026-07-04T14:33:58.900Z
+running_for_ms: 86400012 
+---
+
+> merlinus@3.0.0 typecheck
+> tsc --noEmit -p tsconfig.ci.json
+
+
+---
+exit_code: -1
+elapsed_ms: 86400012
+ended_at: 2026-07-05T14:34:57.106Z
+---

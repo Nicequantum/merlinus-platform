@@ -1,0 +1,13 @@
+{
+  "title": "Today's repair orders",
+  "previous": "Previous repair orders",
+  "scanRo": "Scan RO",
+  "createManual": "Create manual RO",
+  "searchPlaceholder": "Search past ROs (number, model, VIN)…",
+  "loadingRos": "Loading today's repair orders",
+  "loadingSublabel": "Getting your active work ready…",
+  "loadErrorTitle": "Could not load repair orders",
+  "noRos": "No repair orders yet",
+  "settingsAria": "Settings",
+  "technicianFallback": "Technician"
+}

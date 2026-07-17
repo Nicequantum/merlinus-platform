@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360" role="img" aria-label="Story actions wireframe">
+  <rect width="480" height="360" fill="#0b0d12"/>
+  <text x="24" y="32" fill="#e8ecf4" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Warranty Story · 3 C's</text>
+  <text x="380" y="32" fill="#4ade80" font-family="monospace" font-size="10">842 / 4000</text>
+  <rect x="24" y="44" width="432" height="100" rx="8" fill="#151922"/>
+  <text x="36" y="72" fill="#c5ccd8" font-family="system-ui,sans-serif" font-size="10">Concern: CEL on at startup…</text>
+  <text x="36" y="92" fill="#c5ccd8" font-family="system-ui,sans-serif" font-size="10">Cause: P0300 cylinder 3 misfire…</text>
+  <text x="36" y="112" fill="#c5ccd8" font-family="system-ui,sans-serif" font-size="10">Correction: Replaced ignition coil…</text>
+  <rect x="24" y="156" width="208" height="36" rx="8" fill="#2a3142" stroke="#00A0E3"/>
+  <text x="72" y="179" fill="#e8ecf4" font-family="system-ui,sans-serif" font-size="11">Audit Story</text>
+  <rect x="248" y="156" width="208" height="36" rx="8" fill="#2a3142"/>
+  <text x="310" y="179" fill="#e8ecf4" font-family="system-ui,sans-serif" font-size="11">Regenerate</text>
+  <rect x="24" y="200" width="432" height="36" rx="8" fill="#2a3142"/>
+  <text x="168" y="223" fill="#e8ecf4" font-family="system-ui,sans-serif" font-size="11">Review with AI</text>
+  <rect x="24" y="252" width="208" height="44" rx="8" fill="#00A0E3"/>
+  <text x="72" y="279" fill="#0b0d12" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Copy for CDK</text>
+  <rect x="248" y="252" width="208" height="44" rx="8" fill="#2a3142" stroke="#00A0E3"/>
+  <text x="310" y="279" fill="#e8ecf4" font-family="system-ui,sans-serif" font-size="12">Save</text>
+  <text x="24" y="320" fill="#9aa3b5" font-family="system-ui,sans-serif" font-size="10">Templates · Export PDF</text>
+</svg>

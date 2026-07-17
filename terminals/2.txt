@@ -1,0 +1,61 @@
+---
+pid: 15332
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "$env:Path = \"C:\\Program Files\\nodejs;\" + $env:Path; Set-Location \"C:\\Users\\hombr\\viti-ai-clone\"; npm run dev"
+started_at: 2026-06-29T10:18:33.896Z
+running_for_ms: 86400005 
+---
+
+> benz-tech@3.0.3 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.177:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+     · clientTraceMetadata
+     · optimizePackageImports
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 5.8s (1135 modules)
+[merlin:env] KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled
+{"ts":"2026-06-29T10:18:47.114Z","level":"info","msg":"merlin.startup","service":"merlin","version":"3.0.3","promptVersion":"2.1.0","commit":"dev","maintenance":false}
+ ✓ Ready in 9.5s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2s (893 modules)
+ ○ Compiling / ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (127kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled / in 21.4s (4108 modules)
+ GET / 200 in 23252ms
+ ✓ Compiled in 2.2s (1122 modules)
+ GET / 200 in 106ms
+ ○ Compiling /api/auth/me ...
+ ✓ Compiled /api/auth/me in 2.1s (4188 modules)
+ GET /api/auth/me 200 in 2758ms
+ ✓ Compiled in 2.7s (4199 modules)
+[Merlin] BenzTechApp module evaluated
+[Merlin] HomePageClient module evaluated
+[Merlin] HomePageClient render
+[Merlin] BenzTechApp render start
+[Merlin] BenzTechApp → rendering LoginView (no session)
+[Merlin] BenzTechApp → LoginView loading fallback
+ GET / 200 in 923ms
+ ✓ Compiled in 2s (4097 modules)
+[Merlin] LoginView module evaluated
+[Merlin] BenzTechApp module evaluated
+[Merlin] HomePageClient module evaluated
+[Merlin] HomePageClient render
+[Merlin] BenzTechApp render start
+[Merlin] BenzTechApp → rendering LoginView (no session)
+[Merlin] LoginView render
+ GET / 200 in 676ms
+
+---
+exit_code: -1
+elapsed_ms: 86400005
+ended_at: 2026-06-30T10:18:33.934Z
+---

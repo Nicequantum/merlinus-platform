@@ -1,0 +1,68 @@
+/**
+ * APEX NATIONAL PLATFORM — load .env.apex.local when Apex is active.
+ * MERLINUS SINGLE-DEALER: no-op when neither APEX_ENV nor PLATFORM_MODE=apex.
+ */
+
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+let apexEnvLoaded = false;
+
+export function isApexEnvEnabled(): boolean {
+  const value = process.env.APEX_ENV?.trim().toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+/** True when national Apex platform is selected (env flag or platform mode). */
+export function isApexPlatformEnvActive(): boolean {
+  if (isApexEnvEnabled()) return true;
+  const mode = process.env.PLATFORM_MODE?.trim().toLowerCase();
+  if (mode === 'apex') return true;
+  const publicMode = process.env.NEXT_PUBLIC_PLATFORM_MODE?.trim().toLowerCase();
+  return publicMode === 'apex';
+}
+
+function parseEnvLine(line: string): { key: string; value: string } | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) return null;
+  const eq = trimmed.indexOf('=');
+  if (eq <= 0) return null;
+  const key = trimmed.slice(0, eq).trim();
+  let value = trimmed.slice(eq + 1).trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return { key, value };
+}
+
+/**
+ * Load .env.apex.local when Apex is active (APEX_ENV or PLATFORM_MODE=apex).
+ * Existing process.env values win unless override=true.
+ */
+export function loadApexEnvFile(options: { override?: boolean } = {}): boolean {
+  if (!isApexPlatformEnvActive()) return false;
+  if (apexEnvLoaded && !options.override) return true;
+
+  const path = resolve(process.cwd(), '.env.apex.local');
+  if (!existsSync(path)) return false;
+
+  const content = readFileSync(path, 'utf8');
+  for (const line of content.split('\n')) {
+    const parsed = parseEnvLine(line);
+    if (!parsed) continue;
+    if (options.override || !process.env[parsed.key]?.trim()) {
+      process.env[parsed.key] = parsed.value;
+    }
+  }
+
+  apexEnvLoaded = true;
+  return true;
+}
+
+/** Reset loader state (unit tests). */
+export function resetApexEnvLoadState(): void {
+  apexEnvLoaded = false;
+}

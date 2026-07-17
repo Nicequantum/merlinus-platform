@@ -1,0 +1,74 @@
+---
+pid: 10832
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "Set-Location C:\\Users\\hombr\\viti-ai-clone; npm run dev"
+started_at: 2026-07-04T02:21:10.602Z
+running_for_ms: 86400004 
+---
+
+> merlinus@3.0.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.177:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+     · clientTraceMetadata
+     · optimizePackageImports
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 5.8s (1141 modules)
+{"ts":"2026-07-04T02:21:26.210Z","level":"info","msg":"merlin.startup","service":"merlin","version":"3.0.0","promptVersion":"3.0.0","commit":"dev","maintenance":false}
+{"ts":"2026-07-04T02:21:26.209Z","level":"error","msg":"env.validation_failed","service":"merlin","missing":["DATA_ENCRYPTION_KEY","SEARCH_HMAC_KEY"]}
+ ✓ Ready in 12.8s
+{"ts":"2026-07-04T02:21:26.209Z","level":"warn","msg":"env.validation_warning","service":"merlin","warning":"KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled"}
+{"ts":"2026-07-04T02:21:26.210Z","level":"error","msg":"merlin.startup.env_invalid","service":"merlin"}
+{"ts":"2026-07-04T02:21:27.166Z","level":"warn","msg":"db.connection_retry","service":"merlin","context":"startup.warmup","attempt":1,"maxAttempts":3,"delayMs":50,"error":"Can't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`."}
+{"ts":"2026-07-04T02:21:28.387Z","level":"warn","msg":"db.connection_retry","service":"merlin","context":"startup.warmup","attempt":2,"maxAttempts":3,"delayMs":100,"error":"Can't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`."}
+{"ts":"2026-07-04T02:21:29.208Z","level":"warn","msg":"db.warmup_failed","service":"merlin","error":"Can't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`."}
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 3.9s (899 modules)
+ ○ Compiling /api/auth/login ...
+ ✓ Compiled /api/auth/login in 7.3s (2232 modules)
+prisma:error 
+Invalid `prisma.technician.findUnique()` invocation:
+
+
+Can't reach database server at `db.prisma.io:5432`
+
+Please make sure your database server is running at `db.prisma.io:5432`.
+{"ts":"2026-07-04T02:21:43.696Z","level":"error","msg":"route.error","service":"merlin","context":"auth.login","error":"\nInvalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","logDetail":"Invalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","status":503}
+{"ts":"2026-07-04T02:21:43.695Z","level":"info","msg":"api.write","service":"merlin","routeKey":"auth.login","method":"POST","status":500,"durationMs":1368,"failed":true}
+ POST /api/auth/login 503 in 9618ms
+prisma:error 
+Invalid `prisma.technician.findUnique()` invocation:
+
+
+Can't reach database server at `db.prisma.io:5432`
+
+Please make sure your database server is running at `db.prisma.io:5432`.
+{"ts":"2026-07-04T02:21:48.654Z","level":"error","msg":"route.error","service":"merlin","context":"auth.login","error":"\nInvalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","logDetail":"Invalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","status":503}
+{"ts":"2026-07-04T02:21:48.654Z","level":"info","msg":"api.write","service":"merlin","routeKey":"auth.login","method":"POST","status":500,"durationMs":923,"failed":true}
+ POST /api/auth/login 503 in 955ms
+prisma:error 
+Invalid `prisma.technician.findUnique()` invocation:
+
+
+Can't reach database server at `db.prisma.io:5432`
+
+Please make sure your database server is running at `db.prisma.io:5432`.
+{"ts":"2026-07-04T02:21:58.759Z","level":"error","msg":"route.error","service":"merlin","context":"auth.login","error":"\nInvalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","logDetail":"Invalid `prisma.technician.findUnique()` invocation:\n\n\nCan't reach database server at `db.prisma.io:5432`\n\nPlease make sure your database server is running at `db.prisma.io:5432`.","status":503}
+{"ts":"2026-07-04T02:21:58.759Z","level":"info","msg":"api.write","service":"merlin","routeKey":"auth.login","method":"POST","status":500,"durationMs":1392,"failed":true}
+ POST /api/auth/login 503 in 1430ms
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (127kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled in 1193ms (1604 modules)
+
+---
+exit_code: -1
+elapsed_ms: 86400004
+ended_at: 2026-07-05T02:21:10.632Z
+---

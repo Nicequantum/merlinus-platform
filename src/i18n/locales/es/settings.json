@@ -1,0 +1,19 @@
+{
+  "title": "Configuración",
+  "profile": "Perfil",
+  "language": "Idioma",
+  "languageHint": "Idioma de la interfaz y del dictado por voz. Las historias de garantía siempre se escriben en inglés.",
+  "languageSaved": "Idioma actualizado",
+  "languageSaveFailed": "No se pudo guardar el idioma",
+  "changePassword": "Cambiar contraseña",
+  "currentPassword": "Contraseña actual",
+  "newPassword": "Nueva contraseña (mín. 8 caracteres)",
+  "updatePassword": "Actualizar contraseña",
+  "updating": "Actualizando…",
+  "passwordUpdated": "Contraseña actualizada",
+  "passwordUpdatedReauth": "Contraseña actualizada — inicie sesión de nuevo",
+  "signedOut": "Sesión cerrada",
+  "logoutFailed": "Error al cerrar sesión",
+  "security": "Seguridad y cumplimiento",
+  "back": "Atrás"
+}

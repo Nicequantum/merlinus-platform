@@ -1,0 +1,15 @@
+{
+  "notesLabel": "Notas y hallazgos del técnico",
+  "notesPlaceholder": "Documente resultados de pruebas, mediciones, códigos y pasos de reparación…",
+  "concernLabel": "Preocupación del cliente",
+  "concernPlaceholder": "El cliente indicó…",
+  "concernHint": "Prefijado del escaneo — edite para coincidir con el asesor",
+  "descriptionLabel": "Descripción de la línea",
+  "descriptionPlaceholder": "Descripción de la línea de reparación",
+  "storyLabel": "Historia de garantía",
+  "generateStory": "Generar historia de garantía",
+  "generatingStory": "Generando historia…",
+  "scoreStory": "Auditar historia",
+  "certifyStory": "Certificar historia",
+  "storyEnglishOnly": "Revise y apruebe solo la historia de garantía en inglés. Puede escribir o dictar notas en su idioma preferido."
+}

@@ -1,0 +1,29 @@
+-- =============================================================================
+-- APEX NATIONAL PLATFORM — RLS Policy Templates
+-- =============================================================================
+--
+-- Phase 5: prepared (commented) templates only.
+-- Phase 6.1: ENABLED via migration:
+--   prisma/migrations/20250712120000_apex_phase6_1_rls_foundation/migration.sql
+--
+-- Application integration:
+--   1. Optional: RLS_ENABLED=true — withRlsContext() sets app.rls_enforced=on
+--   2. setRlsContext() / withRlsContext() in src/lib/apex/rlsContext.ts
+--   3. Soft-open when app.rls_enforced is not 'on' (Merlinus + gradual rollout)
+--   4. Seed/service: withRlsBypass() sets app.rls_bypass=on
+--
+-- Session variables:
+--   app.rls_enforced           'on' | 'off'
+--   app.rls_bypass             'on' | 'off'
+--   app.scope_mode             'national' | 'dealership'
+--   app.active_dealership_id   rooftop id
+--   app.dealer_id              optional franchise id
+--   app.technician_id          actor id
+--
+-- See the Phase 6.1 migration for the live ENABLE/FORCE + policy definitions.
+-- =============================================================================
+
+-- Historical templates (superseded by 20250712120000_apex_phase6_1_rls_foundation):
+-- ALTER TABLE "RepairOrder" ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE "RepairOrder" FORCE ROW LEVEL SECURITY;
+-- CREATE POLICY repair_order_tenant_all ON "RepairOrder" ...

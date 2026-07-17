@@ -1,0 +1,21 @@
+---
+pid: 17356
+cwd: "C:\Users\hombr\viti-ai-clone"
+command: "$env:Path = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\"); Set-Location C:\\Users\\hombr\\viti-ai-clone; npx next start -p 3458"
+started_at: 2026-06-29T23:59:51.914Z
+running_for_ms: 86400011 
+---
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3458
+   - Network:      http://192.168.1.177:3458
+
+ ✓ Starting...
+ ✓ Ready in 1579ms
+[merlin:env] KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled
+{"ts":"2026-06-29T23:59:55.317Z","level":"info","msg":"merlin.startup","service":"merlin","version":"3.0.3","promptVersion":"2.1.0","commit":"dev","maintenance":false}
+
+---
+exit_code: -1
+elapsed_ms: 86400011
+ended_at: 2026-06-30T23:59:51.952Z
+---
