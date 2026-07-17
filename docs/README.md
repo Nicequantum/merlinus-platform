@@ -49,6 +49,8 @@
 |----------|---------|
 | [Rollout-Checklist.md](./Rollout-Checklist.md) | Full phased checklist (pre → day-of → post) |
 | [Go-Live-Checklist.md](./Go-Live-Checklist.md) | Final go/no-go 24–48 hours before launch |
+| [Go-Live-Deployment-Checklist.md](./Go-Live-Deployment-Checklist.md) | Deploy-time production checklist (env, modules, smoke) |
+| [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) | Full production readiness sign-off (includes product modules) |
 | [Go-Live-Email-Template.md](./Go-Live-Email-Template.md) | Team announcement emails |
 
 ### Technician materials

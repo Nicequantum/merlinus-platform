@@ -5,6 +5,7 @@
 
 import { getExposedPublicGrokEnvKeys } from '@/lib/grokApiKey.shared';
 import { logger } from '@/lib/logger';
+import { validateProductModuleEnvironment } from '@/lib/modules/envValidation';
 import { isApexPlatformMode } from '@/lib/platformMode';
 import { getSupabaseEnvConfig, isApexSupabaseProductionReady } from '@/lib/supabaseEnv';
 import { APP_VERSION } from '@/lib/version';
@@ -201,6 +202,15 @@ export function validateEnvironment(options: { throwOnError?: boolean; productio
     warnings.push(
       'ALLOW_BOOTSTRAP is set in production but bootstrap seed is permanently disabled — remove this variable'
     );
+  }
+
+  // Product modules (Video MPI, Maintenance, Parts/Sales/Service, Loaner, Voice) — env hygiene.
+  const moduleEnv = validateProductModuleEnvironment({ production: isProduction });
+  for (const fail of moduleEnv.hardFails) {
+    missing.push(`module_env: ${fail}`);
+  }
+  for (const w of moduleEnv.warnings) {
+    warnings.push(w);
   }
 
   // APEX NATIONAL PLATFORM — Supabase is optional in Phase 1; warn on partial configuration.

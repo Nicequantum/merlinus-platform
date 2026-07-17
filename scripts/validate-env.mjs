@@ -183,4 +183,103 @@ function resolveCommit() {
 process.env.NEXT_PUBLIC_BUILD_COMMIT = resolveCommit();
 process.env.NEXT_PUBLIC_BUILD_DATE = new Date().toISOString();
 
+// ─── Product modules (Video MPI, Maintenance, Parts/Sales/Service, Loaner, Voice, CDK deferred) ───
+const PRODUCT_MODULE_IDS = [
+  'video_mpi',
+  'maintenance',
+  'voice_agent',
+  'loaner',
+  'parts',
+  'sales',
+  'service',
+  'cdk_sync',
+];
+
+function parseModulesForce(envValue) {
+  const forced = [];
+  const invalid = [];
+  if (!envValue?.trim()) return { forced, invalid };
+  for (const raw of envValue.split(',')) {
+    const id = raw.trim();
+    if (!id) continue;
+    if (PRODUCT_MODULE_IDS.includes(id)) forced.push(id);
+    else invalid.push(id);
+  }
+  return { forced, invalid };
+}
+
+const truthy = (v) => ['1', 'true', 'yes'].includes((v || '').trim().toLowerCase());
+const { forced: forcedModules, invalid: invalidForceModules } = parseModulesForce(
+  process.env.MODULES_FORCE_ENABLE
+);
+
+if (invalidForceModules.length > 0) {
+  const msg = `MODULES_FORCE_ENABLE has unknown id(s): ${invalidForceModules.join(', ')} (valid: ${PRODUCT_MODULE_IDS.join(', ')})`;
+  if (isProduction) {
+    console.error(`[merlin:build] ${msg}`);
+    process.exit(1);
+  }
+  console.warn(`[merlin:build] ${msg}`);
+}
+
+if (forcedModules.length > 0) {
+  if (isProduction) {
+    console.warn(
+      `[merlin:build] MODULES_FORCE_ENABLE active in production (${forcedModules.join(', ')}) — prefer Manager Dashboard module toggles`
+    );
+  } else {
+    console.log(`[merlin:build] MODULES_FORCE_ENABLE: ${forcedModules.join(', ')}`);
+  }
+}
+
+if (truthy(process.env.VOICE_TWILIO_SKIP_SIGNATURE)) {
+  if (isProduction) {
+    console.error(
+      '[merlin:build] VOICE_TWILIO_SKIP_SIGNATURE must not be enabled in production — Twilio webhooks would skip signature verification'
+    );
+    process.exit(1);
+  }
+  console.warn(
+    '[merlin:build] VOICE_TWILIO_SKIP_SIGNATURE is enabled — local tunnel only; never set on Vercel production'
+  );
+}
+
+if (truthy(process.env.SMS_ENABLED)) {
+  const smsMissing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER'].filter(
+    (k) => !process.env[k]?.trim()
+  );
+  if (smsMissing.length > 0) {
+    if (isProduction) {
+      console.error(
+        `[merlin:build] SMS_ENABLED=true requires: ${smsMissing.join(', ')} (Video MPI SMS delivery)`
+      );
+      process.exit(1);
+    }
+    console.warn(`[merlin:build] SMS_ENABLED=true but incomplete Twilio SMS config: ${smsMissing.join(', ')}`);
+  }
+}
+
+if (forcedModules.includes('voice_agent')) {
+  const voiceMissing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'].filter((k) => !process.env[k]?.trim());
+  if (voiceMissing.length > 0) {
+    if (isProduction) {
+      console.error(
+        `[merlin:build] voice_agent force-enabled but missing: ${voiceMissing.join(', ')}`
+      );
+      process.exit(1);
+    }
+    console.warn(`[merlin:build] voice_agent force-enabled but Twilio incomplete: ${voiceMissing.join(', ')}`);
+  }
+} else if (!process.env.TWILIO_ACCOUNT_SID?.trim() || !process.env.TWILIO_AUTH_TOKEN?.trim()) {
+  console.warn(
+    '[merlin:build] Twilio voice credentials optional until AI Voice Agent is used (TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN)'
+  );
+}
+
+if (forcedModules.includes('cdk_sync')) {
+  console.warn(
+    '[merlin:build] cdk_sync force-enabled but live CDK Global sync is deferred (PR-M7) — no runtime client yet'
+  );
+}
+
 console.log(`[merlin:build] Environment OK — commit ${process.env.NEXT_PUBLIC_BUILD_COMMIT}`);

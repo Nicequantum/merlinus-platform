@@ -110,8 +110,18 @@ Do **not** put `core_story` in this list (it is not a valid product module id).
 | Item | Notes |
 |------|--------|
 | **PR-M7 CDK Global Sync** | Module id reserved; live API client blocked until credentials/access. Clipboard CDK paste for RO context remains available without this module. |
-| Production hardening | Encryption ops, go-live checklists, monitoring — see existing security/deployment docs. |
 | Dealer-group module admin UI | Group defaults resolve correctly; UI today is rooftop-scoped. |
+| Live multi-rooftop E2E | Staging smoke still recommended before first production rooftop. |
+
+## Production hardening hooks
+
+| Concern | Where |
+|---------|--------|
+| Env validation | `src/lib/modules/envValidation.ts`, `scripts/validate-env.mjs` |
+| Pre-deploy module PII / Twilio guards | `scripts/validate-pre-deploy.mjs` → `checkProductModuleHardening` |
+| Manager toggle audit | `module.set` in `src/lib/audit.ts` + `/api/modules` PATCH |
+| Sentry tags | `moduleId` on module gate blocks; release/env on server init |
+| Checklists | [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md), [Go-Live-Deployment-Checklist.md](./Go-Live-Deployment-Checklist.md) |
 
 ---
 

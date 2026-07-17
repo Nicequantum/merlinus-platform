@@ -24,3 +24,9 @@ export {
   type ModuleStatus,
   type SetDealershipModuleResult,
 } from '@/lib/modules/entitlements';
+
+export {
+  parseModulesForceEnableDetailed,
+  validateProductModuleEnvironment,
+  type ModuleEnvValidationResult,
+} from '@/lib/modules/envValidation';

@@ -282,6 +282,20 @@ async function withAuthInner<T>(
           }
         } catch (error) {
           if (error instanceof ModuleDisabledError) {
+            const { logger } = await import('@/lib/logger');
+            logger.info('module.disabled_blocked', {
+              moduleId: error.moduleId,
+              dealershipId,
+              routeKey,
+              technicianId: session.technicianId,
+            });
+            try {
+              const Sentry = await import('@sentry/nextjs');
+              Sentry.setTag('moduleId', error.moduleId);
+              Sentry.setTag('moduleGate', 'disabled');
+            } catch {
+              // Sentry optional
+            }
             return NextResponse.json(
               { error: error.message, code: error.code, moduleId: error.moduleId },
               { status: 403 }

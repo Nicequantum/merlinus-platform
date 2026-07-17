@@ -282,6 +282,70 @@ function checkOptimisticConcurrencyGuard() {
   pass('Repair order optimistic concurrency guard present (optional updatedAt → 409)');
 }
 
+/** Product modules — encrypted PII writes + core_story never gated. */
+function checkProductModuleHardening() {
+  const deptCreate = readSrc('src/app/api/department-requests/route.ts');
+  const deptRequired = [
+    'summaryEncrypted: encryptSensitiveText',
+    'customerNameEncrypted: encryptSensitiveText',
+    'customerPhoneEncrypted: encryptSensitiveText',
+    'vinEncrypted: encryptSensitiveText',
+  ];
+  for (const snippet of deptRequired) {
+    if (!deptCreate.includes(snippet)) {
+      fail(`Department request create missing encrypted write: ${snippet}`);
+    }
+  }
+  if (deptCreate.includes(deptRequired[0])) {
+    pass('Department inbox creates encrypt PII (summary/name/phone/VIN)');
+  }
+
+  const voiceTools = readSrc('src/lib/voiceAgent/tools.ts');
+  if (
+    !voiceTools.includes('encryptSensitiveText') ||
+    !voiceTools.includes("source: 'voice_agent'")
+  ) {
+    fail('Voice agent department ticket create must encrypt sensitive fields and set source voice_agent');
+  } else {
+    pass('Voice agent createDepartmentTicket encrypts sensitive fields');
+  }
+
+  const twilio = readSrc('src/lib/voiceAgent/twilio.ts');
+  if (!twilio.includes('isProduction') || !twilio.includes('VOICE_TWILIO_SKIP_SIGNATURE')) {
+    fail('Twilio signature validation must refuse skip in production');
+  } else {
+    pass('Twilio signature skip is production-fail-closed');
+  }
+
+  const catalog = readSrc('src/lib/modules/catalog.ts');
+  if (/\bcore_story\b/.test(catalog.match(/export const PRODUCT_MODULE_IDS[\s\S]*?\] as const/)?.[0] || '')) {
+    fail('PRODUCT_MODULE_IDS must not include core_story');
+  } else {
+    pass('core_story is not a product module id');
+  }
+
+  const modulesRoute = readSrc('src/app/api/modules/route.ts');
+  if (!modulesRoute.includes('export async function PATCH') || !modulesRoute.includes("action: 'module.set'")) {
+    fail('Manager modules API must support PATCH + audited module.set');
+  } else {
+    pass('Manager modules API has audited enable/disable path');
+  }
+
+  const skipSig = process.env.VOICE_TWILIO_SKIP_SIGNATURE?.trim()?.toLowerCase();
+  if (skipSig === 'true' || skipSig === '1' || skipSig === 'yes') {
+    if (isStrictProductionDeployGate()) {
+      fail('VOICE_TWILIO_SKIP_SIGNATURE must not be set for production deploy gate');
+    } else {
+      warn('VOICE_TWILIO_SKIP_SIGNATURE is set — local only; unset before production');
+    }
+  }
+
+  const force = process.env.MODULES_FORCE_ENABLE?.trim();
+  if (force) {
+    warn(`MODULES_FORCE_ENABLE is set (${force}) — prefer rooftop toggles in production`);
+  }
+}
+
 async function checkDatabaseConnection() {
   const strict = isStrictProductionDeployGate();
   const reportEnvIssue = (message) => {
@@ -350,6 +414,7 @@ async function main() {
   checkAiRouteMaxDuration();
   checkPlaintextPiiWriteGuards();
   checkOptimisticConcurrencyGuard();
+  checkProductModuleHardening();
   await checkDatabaseConnection();
 
   if (warnings.length > 0) {

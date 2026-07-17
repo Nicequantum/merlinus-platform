@@ -49,6 +49,7 @@ export function twimlReject(message?: string): string {
 /**
  * Validate Twilio request signature (X-Twilio-Signature).
  * Skipped when VOICE_TWILIO_SKIP_SIGNATURE=true (local tunnel dev only).
+ * Never skips in production / Vercel production — fail closed.
  */
 export function validateTwilioSignature(input: {
   authToken: string;
@@ -56,7 +57,10 @@ export function validateTwilioSignature(input: {
   url: string;
   params: Record<string, string>;
 }): boolean {
-  if (process.env.VOICE_TWILIO_SKIP_SIGNATURE?.trim() === 'true') return true;
+  const skipRequested = process.env.VOICE_TWILIO_SKIP_SIGNATURE?.trim() === 'true';
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  if (skipRequested && !isProduction) return true;
   if (!input.signature || !input.authToken) return false;
 
   const data =

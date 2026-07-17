@@ -4,6 +4,7 @@ import { scopedPiiWhere } from '@/lib/apex/tenantScope';
 import { withAuth } from '@/lib/apiRoute';
 import { writeAuditLog } from '@/lib/audit';
 import { apiError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import {
   isProductModuleId,
   listModuleStatuses,
@@ -79,6 +80,33 @@ export async function PATCH(request: Request) {
           forceEnvActive: result.forceEnvActive,
         },
       });
+
+      logger.info('module.set', {
+        moduleId: parsed.data.moduleId,
+        requestedEnabled: parsed.data.enabled,
+        effectiveEnabled: result.enabled,
+        source: result.status.source,
+        forceEnvActive: result.forceEnvActive,
+        dealershipId,
+        technicianId: session.technicianId,
+      });
+
+      try {
+        const Sentry = await import('@sentry/nextjs');
+        Sentry.setTag('moduleId', parsed.data.moduleId);
+        Sentry.addBreadcrumb({
+          category: 'module',
+          message: `module.set ${parsed.data.moduleId}=${parsed.data.enabled}`,
+          level: 'info',
+          data: {
+            moduleId: parsed.data.moduleId,
+            enabled: result.enabled,
+            dealershipId,
+          },
+        });
+      } catch {
+        // optional
+      }
 
       const modules = await listModuleStatuses(dealershipId);
       return NextResponse.json({
