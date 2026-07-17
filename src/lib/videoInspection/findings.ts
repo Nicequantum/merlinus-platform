@@ -1,8 +1,8 @@
 /**
- * PR-M1a — finding row helpers (encrypt notes, checklist snapshot).
+ * PR-M1a — client-safe finding helpers (checklist template, snapshots).
+ * Encryption / decrypt of finding notes lives in findingsServer.ts (server-only).
  */
 
-import { encryptSensitiveText, decryptSensitiveText } from '@/lib/encryption';
 import {
   computeSeveritySummary,
   isMpiCategory,
@@ -40,22 +40,14 @@ export type FindingDto = {
   sortOrder: number;
 };
 
-export function mapFindingDto(row: FindingRow): FindingDto {
-  return {
-    id: row.id,
-    category: row.category,
-    severity: row.severity,
-    note: decryptSensitiveText(row.noteEncrypted || ''),
-    timestampSec: row.timestampSec,
-    framePathname: row.framePathname,
-    sortOrder: row.sortOrder,
-  };
-}
-
-export function normalizeFindingInput(input: FindingInput, index: number): {
+/** Normalize category/severity/note fields without encrypting (safe for any runtime). */
+export function normalizeFindingFields(
+  input: FindingInput,
+  index: number
+): {
   category: string;
   severity: MpiSeverity;
-  noteEncrypted: string;
+  note: string;
   timestampSec: number | null;
   framePathname: string | null;
   sortOrder: number;
@@ -79,7 +71,7 @@ export function normalizeFindingInput(input: FindingInput, index: number): {
   return {
     category: isMpiCategory(category) ? category : category.slice(0, 64),
     severity,
-    noteEncrypted: encryptSensitiveText(note),
+    note,
     timestampSec,
     framePathname,
     sortOrder,

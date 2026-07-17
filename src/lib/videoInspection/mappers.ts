@@ -1,9 +1,8 @@
+import 'server-only';
+
 import { decryptSensitiveText } from '@/lib/encryption';
-import {
-  mapFindingDto,
-  type FindingDto,
-  type FindingRow,
-} from '@/lib/videoInspection/findings';
+import { type FindingDto, type FindingRow } from '@/lib/videoInspection/findings';
+import { mapFindingDto } from '@/lib/videoInspection/findingsServer';
 import { parseSeveritySummary } from '@/lib/videoInspection/mpiCategories';
 
 export type VideoInspectionRow = {

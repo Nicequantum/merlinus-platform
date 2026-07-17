@@ -3,11 +3,10 @@ import { withAuth } from '@/lib/apiRoute';
 import { apiError, NOT_FOUND_ERROR, VALIDATION_ERROR } from '@/lib/errors';
 import { findInspectionForSession, inspectionInclude } from '@/lib/videoInspection/access';
 import {
-  mapFindingDto,
-  normalizeFindingInput,
   severityAndChecklistFromDtos,
   type FindingInput,
 } from '@/lib/videoInspection/findings';
+import { mapFindingDto, normalizeFindingInput } from '@/lib/videoInspection/findingsServer';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody, parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
