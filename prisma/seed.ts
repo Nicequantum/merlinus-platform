@@ -6,6 +6,11 @@ const prisma = new PrismaClient();
 async function main() {
   const result = await runDatabaseSeed();
   console.log(`  Template library: ${result.templates} templates, ${result.knowledgeBase} knowledge-base entries`);
+  if (result.moduleRooftops != null) {
+    console.log(
+      `  Product modules: ${result.moduleRowsCreated ?? 0} rows created across ${result.moduleRooftops} rooftop(s) (missing only; cdk_sync off)`
+    );
+  }
   console.log('Seed complete.');
   console.log(`  Primary login: ${result.managerD7} (service manager)`);
   console.log(`  Technician login: ${result.techD7}`);

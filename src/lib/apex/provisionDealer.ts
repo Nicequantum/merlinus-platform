@@ -16,6 +16,7 @@ import { isApexUsernameCredential, normalizeApexUsername, normalizeEmailIdentifi
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ensureDealershipModuleDefaults } from '@/lib/modules/entitlements';
 import { CONSENT_VERSION, LEGAL_DISCLAIMER_VERSION } from '@/types';
 import { storyBrandFromTemplateBrand } from '@/lib/storyBrand/resolveStoryBrand';
 
@@ -573,6 +574,12 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
         isPrimary: true,
         isActive: true,
       },
+    });
+
+    // Product modules: enable shippable modules; leave cdk_sync off until credentials.
+    await ensureDealershipModuleDefaults(dealership.id, {
+      db: tx,
+      enabledById: manager.id,
     });
 
     const meta = buildDealerProvisionAuditMetadata({

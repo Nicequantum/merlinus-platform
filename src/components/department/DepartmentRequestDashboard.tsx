@@ -5,6 +5,7 @@ import { ArrowLeft, Briefcase, Package, Plus, Trash2, Wrench } from 'lucide-reac
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { DepartmentInbox } from '@/components/department/DepartmentInbox';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import {
   DEPARTMENT_LABELS,
   DEPARTMENT_REQUEST_PRIORITIES,
@@ -12,6 +13,7 @@ import {
   INBOX_EMPTY_COPY,
   INBOX_MODULE_HINT,
   PARTS_LINE_STATUSES,
+  moduleForDepartment,
   type DepartmentRequestStatus,
   type InboxDepartmentId,
 } from '@/lib/department/constants';
@@ -508,15 +510,11 @@ export function DepartmentRequestDashboard({
       </div>
 
       {moduleDisabled ? (
-        <div className="benz-card p-6 text-sm text-benz-secondary">
-          <p className="font-semibold text-benz-primary mb-2">{label} module is disabled</p>
-          <p>
-            Ask a manager to enable the <strong>{INBOX_MODULE_HINT[department]}</strong> module for
-            this rooftop (Modules section), or set{' '}
-            <code className="text-xs">MODULES_FORCE_ENABLE={department}</code> for local
-            development.
-          </p>
-        </div>
+        <ModuleDisabledNotice
+          title={`${label} inbox`}
+          moduleId={moduleForDepartment(department) || department}
+          hint={`Enable “${INBOX_MODULE_HINT[department]}” to open this inbox.`}
+        />
       ) : mode === 'list' ? (
         <DepartmentInbox
           department={department}

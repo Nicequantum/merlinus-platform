@@ -6,6 +6,7 @@ import { upsertTechnicianDealershipMembership } from '@/lib/apex/membershipGuard
 import { internalEmailForD7, normalizeD7Number } from './d7Number';
 import { prisma } from './db';
 import { seedTemplateLibraryIfEmpty } from './templateLibrary';
+import { ensureAllDealershipModuleDefaults } from '@/lib/modules/entitlements';
 
 /** Canonical seed credentials — login works immediately after db:seed or deploy auto-seed. */
 export const PRIMARY_MANAGER_D7 = 'D7HARRIH';
@@ -169,6 +170,9 @@ export interface SeedResult {
   techD7: string;
   templates: number;
   knowledgeBase: number;
+  /** Product module rows created on re-seed (missing only). */
+  moduleRowsCreated?: number;
+  moduleRooftops?: number;
   ownerEmail?: string;
   ownerEmails?: string[];
   multiRooftopUsername?: string;
@@ -218,11 +222,17 @@ export async function runDatabaseSeed(): Promise<SeedResult> {
   const apexOwner = await runApexOwnerSeedIfConfigured();
   const dealerGroup = await runDealerGroupSeedIfConfigured();
 
+  // PR polish — enable product modules on seed rooftops (skip rows managers already set).
+  // cdk_sync stays off until credentials exist. core_story is never a module row.
+  const modules = await ensureAllDealershipModuleDefaults({ db: prisma });
+
   return {
     managerD7,
     techD7,
     templates: library.templates,
     knowledgeBase: library.knowledgeBase,
+    moduleRowsCreated: modules.created,
+    moduleRooftops: modules.rooftops,
     ownerEmail: apexOwner?.ownerEmail,
     ownerEmails: apexOwner?.owners.map((o) => o.email),
     multiRooftopUsername: apexOwner?.multiRooftopUsername,

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import { localeToSpeechLang, normalizePreferredLanguage } from '@/lib/i18n/locales';
 import { isOnline, VideoCaptureSession } from '@/lib/videoInspection/captureSession';
 import {
@@ -101,6 +102,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const [pending, setPending] = useState<PendingVideoUpload[]>([]);
   const [flushingQueue, setFlushingQueue] = useState(false);
   const [online, setOnline] = useState(true);
+  const [moduleDisabled, setModuleDisabled] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const captureRef = useRef<VideoCaptureSession | null>(null);
@@ -111,11 +113,16 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
   const refreshList = useCallback(async () => {
     setLoading(true);
+    setModuleDisabled(false);
     try {
       const { inspections } = await api.listVideoInspections();
       setList(inspections);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Could not load inspections');
+      const msg = e instanceof Error ? e.message : 'Could not load inspections';
+      if (/module|not enabled|MODULE_DISABLED/i.test(msg)) {
+        setModuleDisabled(true);
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -879,25 +886,31 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           </h2>
           <p className="benz-hint">{t('subtitle')}</p>
         </div>
-        <button
-          type="button"
-          className="primary-btn h-11 px-4 shrink-0 touch-target"
-          onClick={() => {
-            setSelected(null);
-            setShareUrl(null);
-            setTranscript('');
-            setCustomerName('');
-            setCustomerPhone('');
-            setVin('');
-            setVehicleLabel('');
-            setChecklist(defaultChecklistTemplate());
-            setMode('create');
-          }}
-        >
-          {t('newInspection')}
-        </button>
+        {!moduleDisabled ? (
+          <button
+            type="button"
+            className="primary-btn h-11 px-4 shrink-0 touch-target"
+            onClick={() => {
+              setSelected(null);
+              setShareUrl(null);
+              setTranscript('');
+              setCustomerName('');
+              setCustomerPhone('');
+              setVin('');
+              setVehicleLabel('');
+              setChecklist(defaultChecklistTemplate());
+              setMode('create');
+            }}
+          >
+            {t('newInspection')}
+          </button>
+        ) : null}
       </div>
 
+      {moduleDisabled ? (
+        <ModuleDisabledNotice title="Video MPI" moduleId="video_mpi" />
+      ) : (
+        <>
       {!online ? (
         <div className="benz-card p-3 mb-4 flex items-center gap-2 text-sm text-benz-amber">
           <CloudOff size={16} />
@@ -1025,6 +1038,8 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             );
           })}
         </ul>
+      )}
+        </>
       )}
     </div>
   );

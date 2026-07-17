@@ -688,7 +688,7 @@ export const api = {
 
   getDashboardSummary: () => apiFetch<DashboardSummary>('/api/dashboard/summary'),
 
-  /** PR-M0 — manager read-only product module entitlements for active rooftop. */
+  /** PR-M0 — manager product module entitlements for active rooftop. */
   getModuleStatuses: () =>
     apiFetch<{
       dealershipId: string;
@@ -701,6 +701,29 @@ export const api = {
         source: 'force_env' | 'dealership' | 'dealer_group' | 'default';
       }>;
     }>('/api/modules'),
+
+  /** Manager enable/disable a product module for the active rooftop. */
+  setModuleEnabled: (moduleId: string, enabled: boolean) =>
+    apiFetch<{
+      dealershipId: string;
+      coreStoryAlwaysOn: true;
+      modules: Array<{
+        moduleId: string;
+        name: string;
+        description: string;
+        enabled: boolean;
+        source: 'force_env' | 'dealership' | 'dealer_group' | 'default';
+      }>;
+      updated: {
+        moduleId: string;
+        enabled: boolean;
+        source: string;
+        forceEnvActive: boolean;
+      };
+    }>('/api/modules', {
+      method: 'PATCH',
+      body: JSON.stringify({ moduleId, enabled }),
+    }),
 
   /** PR-M2 — department inbox (Parts first). */
   listDepartmentRequests: (params: { department: string; status?: string }) => {

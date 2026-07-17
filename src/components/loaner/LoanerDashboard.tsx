@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Car, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import { effectiveRole } from '@/lib/apex/viewAs';
 import {
   canManageLoanerFleet,
@@ -360,13 +361,7 @@ export function LoanerDashboard({
       </div>
 
       {moduleDisabled ? (
-        <div className="benz-card p-6 text-sm text-benz-secondary">
-          <p className="font-semibold text-benz-primary mb-2">Loaner module is disabled</p>
-          <p>
-            Enable <strong>Loaner Car Management</strong> for this rooftop, or set{' '}
-            <code className="text-xs">MODULES_FORCE_ENABLE=loaner</code> for local dev.
-          </p>
-        </div>
+        <ModuleDisabledNotice title="Loaner fleet" moduleId="loaner" />
       ) : mode === 'fleet' ? (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">

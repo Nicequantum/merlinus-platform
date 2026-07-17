@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import {
+  DEFERRED_MODULE_IDS,
   MODULE_CATALOG,
   PRODUCT_MODULE_IDS,
+  SEED_ENABLED_MODULE_IDS,
   isProductModuleId,
   parseForcedModules,
 } from '../../src/lib/modules/catalog';
@@ -80,11 +82,48 @@ describe('PR-M0 product module entitlements', () => {
     assert.ok(apiRoute.includes('assertModuleEnabled'));
   });
 
-  test('manager modules API is manager + dealership scoped', () => {
+  test('manager modules API is manager + dealership scoped with PATCH toggle', () => {
     const route = readFileSync(resolve(process.cwd(), 'src/app/api/modules/route.ts'), 'utf8');
     assert.ok(route.includes('requireManager: true'));
     assert.ok(route.includes('requireDealershipContext: true'));
     assert.ok(route.includes('listModuleStatuses'));
+    assert.ok(route.includes('setDealershipModuleEnabled'));
+    assert.ok(route.includes('export async function PATCH'));
     assert.ok(route.includes('coreStoryAlwaysOn'));
+    assert.ok(route.includes("action: 'module.set'"));
+  });
+
+  test('seed defaults enable shippable modules and leave cdk_sync deferred', () => {
+    for (const id of [
+      'video_mpi',
+      'maintenance',
+      'voice_agent',
+      'loaner',
+      'parts',
+      'sales',
+      'service',
+    ] as const) {
+      assert.ok(SEED_ENABLED_MODULE_IDS.includes(id), id);
+    }
+    assert.ok(!SEED_ENABLED_MODULE_IDS.includes('cdk_sync'));
+    assert.ok(DEFERRED_MODULE_IDS.includes('cdk_sync'));
+    assert.ok(!SEED_ENABLED_MODULE_IDS.includes('core_story' as never));
+  });
+
+  test('seed and provision wire module defaults; manager UI can toggle', () => {
+    const seed = readFileSync(resolve(process.cwd(), 'src/lib/seedDatabase.ts'), 'utf8');
+    assert.ok(seed.includes('ensureAllDealershipModuleDefaults'));
+
+    const provision = readFileSync(resolve(process.cwd(), 'src/lib/apex/provisionDealer.ts'), 'utf8');
+    assert.ok(provision.includes('ensureDealershipModuleDefaults'));
+
+    const manager = readFileSync(resolve(process.cwd(), 'src/components/ManagerDashboard.tsx'), 'utf8');
+    assert.ok(manager.includes('setModuleEnabled'));
+    assert.ok(manager.includes('Turn on'));
+    assert.ok(manager.includes('Turn off'));
+
+    const docs = readFileSync(resolve(process.cwd(), 'docs/Product-Modules.md'), 'utf8');
+    assert.ok(docs.includes('core_story'));
+    assert.ok(docs.includes('SEED_ENABLED_MODULE_IDS'));
   });
 });

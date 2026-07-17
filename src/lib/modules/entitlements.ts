@@ -18,6 +18,8 @@ import {
   getModuleCatalogEntry,
   MODULE_CATALOG,
   parseForcedModules,
+  PRODUCT_MODULE_IDS,
+  SEED_ENABLED_MODULE_IDS,
   type ProductModuleId,
 } from '@/lib/modules/catalog';
 
@@ -166,7 +168,7 @@ export async function resolveModuleStatus(
   };
 }
 
-/** Full catalog with enablement for manager read-only UI. */
+/** Full catalog with enablement for manager UI. */
 export async function listModuleStatuses(
   dealershipId: string,
   options?: { db?: DbClient }
@@ -175,4 +177,143 @@ export async function listModuleStatuses(
     MODULE_CATALOG.map((entry) => resolveModuleStatus(dealershipId, entry.id, options))
   );
   return statuses;
+}
+
+export interface SetDealershipModuleResult {
+  moduleId: ProductModuleId;
+  enabled: boolean;
+  status: ModuleStatus;
+  /** True when MODULES_FORCE_ENABLE still forces the module on after the write. */
+  forceEnvActive: boolean;
+}
+
+/**
+ * Upsert rooftop DealershipModule row (manager toggle).
+ * Does not write core_story. Force-env still overrides effective status when set.
+ */
+export async function setDealershipModuleEnabled(
+  dealershipId: string,
+  moduleId: ProductModuleId,
+  enabled: boolean,
+  options?: { db?: DbClient; enabledById?: string | null }
+): Promise<SetDealershipModuleResult> {
+  const rooftopId = dealershipId.trim();
+  if (!rooftopId) {
+    throw new Error('dealershipId is required');
+  }
+  if (!(PRODUCT_MODULE_IDS as readonly string[]).includes(moduleId)) {
+    throw new Error(`Unknown product module "${moduleId}"`);
+  }
+
+  const db = resolveDb(options?.db);
+  const now = new Date();
+  await db.dealershipModule.upsert({
+    where: {
+      dealershipId_moduleId: {
+        dealershipId: rooftopId,
+        moduleId,
+      },
+    },
+    create: {
+      dealershipId: rooftopId,
+      moduleId,
+      enabled,
+      enabledAt: enabled ? now : null,
+      enabledById: enabled ? options?.enabledById ?? null : null,
+    },
+    update: {
+      enabled,
+      enabledAt: enabled ? now : null,
+      enabledById: enabled ? options?.enabledById ?? null : null,
+    },
+  });
+
+  const status = await resolveModuleStatus(rooftopId, moduleId, { db });
+  return {
+    moduleId,
+    enabled: status.enabled,
+    status,
+    forceEnvActive: status.source === 'force_env',
+  };
+}
+
+export interface EnsureModuleDefaultsResult {
+  dealershipId: string;
+  created: number;
+  skipped: number;
+}
+
+/**
+ * Seed missing DealershipModule rows for a rooftop.
+ * Never overwrites an existing rooftop row (manager choices win on re-seed).
+ */
+export async function ensureDealershipModuleDefaults(
+  dealershipId: string,
+  options?: {
+    db?: DbClient;
+    /** Defaults to SEED_ENABLED_MODULE_IDS. */
+    enableIds?: readonly ProductModuleId[];
+    enabledById?: string | null;
+  }
+): Promise<EnsureModuleDefaultsResult> {
+  const rooftopId = dealershipId.trim();
+  if (!rooftopId) {
+    return { dealershipId: '', created: 0, skipped: 0 };
+  }
+
+  const db = resolveDb(options?.db);
+  const enableSet = new Set<ProductModuleId>(
+    options?.enableIds ?? SEED_ENABLED_MODULE_IDS
+  );
+
+  const existing = await db.dealershipModule.findMany({
+    where: { dealershipId: rooftopId },
+    select: { moduleId: true },
+  });
+  const have = new Set(existing.map((r) => r.moduleId as ProductModuleId));
+
+  let created = 0;
+  let skipped = 0;
+  const now = new Date();
+
+  for (const moduleId of PRODUCT_MODULE_IDS) {
+    if (have.has(moduleId)) {
+      skipped += 1;
+      continue;
+    }
+    const enabled = enableSet.has(moduleId);
+    await db.dealershipModule.create({
+      data: {
+        dealershipId: rooftopId,
+        moduleId,
+        enabled,
+        enabledAt: enabled ? now : null,
+        enabledById: enabled ? options?.enabledById ?? null : null,
+      },
+    });
+    created += 1;
+  }
+
+  return { dealershipId: rooftopId, created, skipped };
+}
+
+/**
+ * Apply module defaults for every dealership (seed / ops).
+ * Safe to re-run — only fills missing rows.
+ */
+export async function ensureAllDealershipModuleDefaults(options?: {
+  db?: DbClient;
+  enableIds?: readonly ProductModuleId[];
+}): Promise<{ rooftops: number; created: number }> {
+  const db = resolveDb(options?.db);
+  const dealerships = await db.dealership.findMany({ select: { id: true } });
+  let created = 0;
+  for (const d of dealerships) {
+    const result = await ensureDealershipModuleDefaults(d.id, {
+      db,
+      enableIds: options?.enableIds,
+    });
+    created += result.created;
+  }
+  return { rooftops: dealerships.length, created };
 }

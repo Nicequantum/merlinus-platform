@@ -67,7 +67,9 @@ export type AuditAction =
   | 'customerPayStory.edit'
   | 'customerPayStory.pdf_export'
   /** Apex control-plane — new franchise/rooftop provision (metadata must be PII-free). */
-  | 'dealer.provision';
+  | 'dealer.provision'
+  /** Manager toggled a product module for the active rooftop. */
+  | 'module.set';
 
 /** Customer Pay — lightweight audit; no Merlin promptVersion. */
 export const CUSTOMER_PAY_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
@@ -131,6 +133,7 @@ export const CRITICAL_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
   'template.use',
   'auth.clerk_link',
   'dealer.provision',
+  'module.set',
 ]);
 
 /** AI warranty story actions must record the active Merlin PROMPT_VERSION for audit defensibility. */

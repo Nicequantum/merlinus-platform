@@ -66,7 +66,8 @@ export const MODULE_CATALOG: readonly ModuleCatalogEntry[] = [
   {
     id: 'cdk_sync',
     name: 'CDK Global Sync',
-    description: 'Live CDK Global API sync (clipboard CDK paste remains always available).',
+    description:
+      'Live CDK Global API sync (requires dealer credentials). Clipboard CDK paste for RO context stays available without this module.',
   },
 ] as const;
 
@@ -85,6 +86,24 @@ export function getModuleCatalogEntry(moduleId: ProductModuleId): ModuleCatalogE
 export function isProductModuleId(value: string): value is ProductModuleId {
   return (PRODUCT_MODULE_IDS as readonly string[]).includes(value);
 }
+
+/**
+ * Modules enabled by default for seed / newly provisioned rooftops.
+ * Does not include cdk_sync (requires external CDK credentials — PR-M7).
+ * core_story is never listed (always-on, not a product module).
+ */
+export const SEED_ENABLED_MODULE_IDS: readonly ProductModuleId[] = [
+  'video_mpi',
+  'maintenance',
+  'voice_agent',
+  'loaner',
+  'parts',
+  'sales',
+  'service',
+] as const;
+
+/** Modules deferred until external integrations are configured. */
+export const DEFERRED_MODULE_IDS: readonly ProductModuleId[] = ['cdk_sync'] as const;
 
 /**
  * Dev/ops break-glass: MODULES_FORCE_ENABLE=video_mpi,parts,sales,service

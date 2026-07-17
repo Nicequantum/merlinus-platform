@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Phone, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import type { TechnicianSession } from '@/types';
 
 interface VoiceOpsDashboardProps {
@@ -177,13 +178,7 @@ export function VoiceOpsDashboard({
       </div>
 
       {moduleDisabled ? (
-        <div className="benz-card p-6 text-sm text-benz-secondary">
-          <p className="font-semibold text-benz-primary mb-2">Voice agent module is disabled</p>
-          <p>
-            Enable <strong>AI Voice Agent</strong> for this rooftop, or set{' '}
-            <code className="text-xs">MODULES_FORCE_ENABLE=voice_agent</code>.
-          </p>
-        </div>
+        <ModuleDisabledNotice title="AI Voice Agent" moduleId="voice_agent" />
       ) : selected ? (
         <div>
           <button

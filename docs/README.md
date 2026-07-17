@@ -38,6 +38,7 @@
 | Document | Purpose |
 |----------|---------|
 | [Admin-Setup-Guide.md](./Admin-Setup-Guide.md) | Environment, validation, monitoring, encryption |
+| [Product-Modules.md](./Product-Modules.md) | Product module catalog, seed defaults, manager toggles, core_story rule |
 | [Apex-National-Platform.md](./Apex-National-Platform.md) | Apex modes, owners, fortress summary, onboarding pointer |
 | [Apex-Dealer-Onboarding.md](./Apex-Dealer-Onboarding.md) | Secure multi-rooftop provision CLI, forced password, smoke tests |
 | [Apex-DealerGroup-Owner-Dashboard.md](./Apex-DealerGroup-Owner-Dashboard.md) | DealerGroup model, group owner login, dashboard tiers G1–G5 |

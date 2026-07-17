@@ -1,6 +1,8 @@
 export {
+  DEFERRED_MODULE_IDS,
   MODULE_CATALOG,
   PRODUCT_MODULE_IDS,
+  SEED_ENABLED_MODULE_IDS,
   getModuleCatalogEntry,
   isProductModuleId,
   parseForcedModules,
@@ -11,9 +13,14 @@ export {
 export {
   ModuleDisabledError,
   assertModuleEnabled,
+  ensureAllDealershipModuleDefaults,
+  ensureDealershipModuleDefaults,
   isModuleEnabled,
   listModuleStatuses,
   resolveModuleStatus,
+  setDealershipModuleEnabled,
+  type EnsureModuleDefaultsResult,
   type ModuleSource,
   type ModuleStatus,
+  type SetDealershipModuleResult,
 } from '@/lib/modules/entitlements';

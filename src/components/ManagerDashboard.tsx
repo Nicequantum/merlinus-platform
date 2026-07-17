@@ -124,6 +124,7 @@ export function ManagerDashboard({
   const [modules, setModules] = useState<ModuleStatusRow[] | null>(null);
   const [modulesLoading, setModulesLoading] = useState(true);
   const [modulesError, setModulesError] = useState<string | null>(null);
+  const [togglingModuleId, setTogglingModuleId] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -151,6 +152,30 @@ export function ManagerDashboard({
     }
   }, []);
 
+  const toggleModule = useCallback(
+    async (moduleId: string, enabled: boolean) => {
+      setTogglingModuleId(moduleId);
+      try {
+        const data = await api.setModuleEnabled(moduleId, enabled);
+        setModules(data.modules);
+        if (data.updated.forceEnvActive) {
+          toast.message(
+            `${moduleId} is forced on via MODULES_FORCE_ENABLE — rooftop row saved but env still wins`
+          );
+        } else {
+          toast.success(
+            enabled ? `${data.updated.moduleId} enabled for this rooftop` : `${data.updated.moduleId} disabled`
+          );
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Failed to update module');
+      } finally {
+        setTogglingModuleId(null);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
@@ -173,6 +198,13 @@ export function ManagerDashboard({
       default:
         return 'Default (off)';
     }
+  };
+
+  const moduleDeferredHint = (moduleId: string) => {
+    if (moduleId === 'cdk_sync') {
+      return 'Requires CDK API credentials (not configured yet).';
+    }
+    return null;
   };
 
   return (
@@ -335,10 +367,18 @@ export function ManagerDashboard({
                   <div>
                     <div className="font-semibold text-sm tracking-tight">Modules</div>
                     <div className="benz-hint mt-0.5">
-                      Rooftop product modules · read-only · core story always on
+                      Enable or disable rooftop product modules · core story always on
                     </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="secondary-btn h-9 px-3 text-xs shrink-0"
+                  onClick={() => void loadModules()}
+                  disabled={modulesLoading || togglingModuleId !== null}
+                >
+                  Refresh
+                </button>
               </div>
               {modulesLoading ? (
                 <p className="text-xs text-benz-secondary">Loading module status…</p>
@@ -346,36 +386,65 @@ export function ManagerDashboard({
                 <p className="text-xs text-benz-amber">{modulesError}</p>
               ) : modules && modules.length > 0 ? (
                 <ul className="space-y-2" aria-label="Product module entitlements">
-                  {modules.map((mod) => (
-                    <li
-                      key={mod.moduleId}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-benz-border/60 px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold tracking-tight">{mod.name}</div>
-                        <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
-                          {mod.description}
-                        </div>
-                        <div className="text-[11px] text-benz-secondary/80 mt-1">
-                          Source: {sourceLabel(mod.source)}
-                        </div>
-                      </div>
-                      <span
-                        className={`status-pill shrink-0 ${
-                          mod.enabled ? 'status-pill-valid' : 'status-pill-warn'
-                        }`}
+                  {modules.map((mod) => {
+                    const deferred = moduleDeferredHint(mod.moduleId);
+                    const forced = mod.source === 'force_env';
+                    const busy = togglingModuleId === mod.moduleId;
+                    return (
+                      <li
+                        key={mod.moduleId}
+                        className="flex items-start justify-between gap-3 rounded-lg border border-benz-border/60 px-3 py-2.5"
                       >
-                        {mod.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </li>
-                  ))}
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold tracking-tight">{mod.name}</div>
+                          <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
+                            {mod.description}
+                          </div>
+                          <div className="text-[11px] text-benz-secondary/80 mt-1">
+                            Source: {sourceLabel(mod.source)}
+                            {deferred ? ` · ${deferred}` : ''}
+                            {forced ? ' · env override active' : ''}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <span
+                            className={`status-pill ${
+                              mod.enabled ? 'status-pill-valid' : 'status-pill-warn'
+                            }`}
+                          >
+                            {mod.enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={mod.enabled}
+                            aria-label={`${mod.enabled ? 'Disable' : 'Enable'} ${mod.name}`}
+                            disabled={busy || forced}
+                            title={
+                              forced
+                                ? 'Controlled by MODULES_FORCE_ENABLE — clear env to manage from UI'
+                                : mod.enabled
+                                  ? 'Disable for this rooftop'
+                                  : 'Enable for this rooftop'
+                            }
+                            onClick={() => void toggleModule(mod.moduleId, !mod.enabled)}
+                            className={`secondary-btn h-9 px-3 text-xs min-w-[5.5rem] disabled:opacity-60 ${
+                              mod.enabled ? 'border-benz-green/40' : ''
+                            }`}
+                          >
+                            {busy ? 'Saving…' : mod.enabled ? 'Turn off' : 'Turn on'}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-xs text-benz-secondary">No modules configured.</p>
               )}
               <p className="text-[11px] text-benz-secondary mt-3 leading-relaxed">
                 Warranty RO story generation stays always available and is not listed as a toggleable
-                module.
+                module. Changes apply only to this rooftop and are audited.
               </p>
             </div>
 

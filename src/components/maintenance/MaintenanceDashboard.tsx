@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import { effectiveRole } from '@/lib/apex/viewAs';
 import {
   canManageMaintenance,
@@ -273,13 +274,7 @@ export function MaintenanceDashboard({
       </div>
 
       {moduleDisabled ? (
-        <div className="benz-card p-6 text-sm text-benz-secondary">
-          <p className="font-semibold text-benz-primary mb-2">Maintenance module is disabled</p>
-          <p>
-            Enable the <strong>Maintenance Management</strong> module for this rooftop, or set{' '}
-            <code className="text-xs">MODULES_FORCE_ENABLE=maintenance</code> for local dev.
-          </p>
-        </div>
+        <ModuleDisabledNotice title="Maintenance board" moduleId="maintenance" />
       ) : mode === 'board' ? (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
