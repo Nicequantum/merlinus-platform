@@ -116,6 +116,7 @@ export async function POST(
       requireDealershipContext: true,
       blockInMaintenance: true,
       trackUsage: true,
+      requireModule: 'video_mpi',
     }
   );
 }

@@ -108,6 +108,7 @@ export async function POST(
       rateLimitKey: 'video.sms',
       rateLimit: RATE_LIMITS.sms,
       requireDealershipContext: true,
+      requireModule: 'video_mpi',
     }
   );
 }

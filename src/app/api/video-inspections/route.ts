@@ -13,21 +13,27 @@ const createSchema = z.object({
   repairLineId: z.string().trim().max(64).optional(),
 });
 
+const VIDEO_MODULE = { requireModule: 'video_mpi' as const };
+
 export async function GET(request: Request) {
   return withAuth(
     request,
     async (session) => {
       const db = getRlsDb();
+      const url = new URL(request.url);
+      const statusFilter = url.searchParams.get('status')?.trim() || '';
       const rows = await db.videoInspection.findMany({
         where: {
           dealershipId: session.dealershipId,
           ...(canListAllInspections(session) ? {} : { technicianId: session.technicianId }),
+          ...(statusFilter ? { status: statusFilter } : {}),
         },
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take: 100,
         include: {
           technician: { select: { name: true } },
           dealership: { select: { name: true } },
+          findings: { select: { id: true, severity: true, sortOrder: true, category: true, noteEncrypted: true, timestampSec: true, framePathname: true } },
         },
       });
       return { inspections: rows.map(mapVideoInspectionListItem) };
@@ -35,6 +41,7 @@ export async function GET(request: Request) {
     {
       rateLimitKey: 'video.list',
       requireDealershipContext: true,
+      ...VIDEO_MODULE,
     }
   );
 }
@@ -58,10 +65,12 @@ export async function POST(request: Request) {
           repairLineId: parsed.data.repairLineId?.trim() || null,
           status: 'draft',
           transcriptLanguage: session.preferredLanguage || 'en',
+          recordingMode: 'standard',
         },
         include: {
           technician: { select: { name: true } },
           dealership: { select: { name: true } },
+          findings: true,
         },
       });
 
@@ -70,6 +79,7 @@ export async function POST(request: Request) {
     {
       rateLimitKey: 'video.create',
       requireDealershipContext: true,
+      ...VIDEO_MODULE,
     }
   );
 }

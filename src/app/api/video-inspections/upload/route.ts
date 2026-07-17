@@ -8,6 +8,8 @@ import { apiError, reportMappedRouteError } from '@/lib/errors';
 import { normalizePreferredLanguage } from '@/lib/i18n/locales';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
+import { inspectionInclude } from '@/lib/videoInspection/access';
+import { last8OfVin, phoneLast4 } from '@/lib/videoInspection/mpiCategories';
 import { getVideoMaxBytes, getVideoMaxDurationSec } from '@/lib/videoInspection/shareTokens';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import { uploadVideoFrameToBlob, uploadVideoToBlob } from '@/lib/videoBlob';
@@ -97,6 +99,17 @@ export async function POST(request: Request) {
 
       const title = String(form.get('title') || 'Video inspection').slice(0, 200);
       const vehicleLabel = String(form.get('vehicleLabel') || '').slice(0, 200) || null;
+      const recordingModeRaw = String(form.get('recordingMode') || 'standard').trim();
+      const recordingMode =
+        recordingModeRaw === 'fullscreen' || recordingModeRaw === 'upload'
+          ? recordingModeRaw
+          : 'standard';
+      const customerName = String(form.get('customerName') || '').slice(0, 200);
+      const customerPhone = String(form.get('customerPhone') || '').slice(0, 40);
+      const vin = String(form.get('vin') || '')
+        .trim()
+        .toUpperCase()
+        .slice(0, 32);
       const transcript = String(form.get('transcript') || '').slice(0, MAX_TRANSCRIPT_CHARS);
       const transcriptLanguage = normalizePreferredLanguage(
         form.get('transcriptLanguage') || session.preferredLanguage || 'en'
@@ -160,11 +173,14 @@ export async function POST(request: Request) {
           framePathnames: JSON.stringify(framePathnames),
           transcriptEncrypted: encryptSensitiveText(transcript),
           transcriptLanguage,
+          recordingMode,
+          customerNameEncrypted: encryptSensitiveText(customerName),
+          customerPhoneEncrypted: encryptSensitiveText(customerPhone),
+          customerPhoneLast4: phoneLast4(customerPhone),
+          vinEncrypted: encryptSensitiveText(vin),
+          vinLast8: last8OfVin(vin),
         },
-        include: {
-          technician: { select: { name: true } },
-          dealership: { select: { name: true } },
-        },
+        include: inspectionInclude,
       });
 
       await writeAuditedAccess({
@@ -189,6 +205,7 @@ export async function POST(request: Request) {
       rateLimit: RATE_LIMITS.videoUpload,
       requireDealershipContext: true,
       requireAuditedAccess: true,
+      requireModule: 'video_mpi',
     }
   );
 }

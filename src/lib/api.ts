@@ -225,11 +225,15 @@ export const api = {
       body: JSON.stringify({ preferredLanguage }),
     }),
 
-  listVideoInspections: () =>
-    apiFetch<{ inspections: import('@/types').VideoInspectionSummary[] }>(
-      '/api/video-inspections',
+  listVideoInspections: (params?: { status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return apiFetch<{ inspections: import('@/types').VideoInspectionSummary[] }>(
+      `/api/video-inspections${qs ? `?${qs}` : ''}`,
       { cache: 'no-store' }
-    ),
+    );
+  },
 
   getVideoInspection: (id: string) =>
     apiFetch<{ inspection: import('@/types').VideoInspectionDetail }>(
@@ -252,12 +256,41 @@ export const api = {
 
   patchVideoInspection: (
     id: string,
-    body: { title?: string; vehicleLabel?: string | null; report?: string; transcript?: string }
+    body: {
+      title?: string;
+      vehicleLabel?: string | null;
+      report?: string;
+      transcript?: string;
+      customerName?: string;
+      customerPhone?: string;
+      vin?: string;
+      recordingMode?: 'fullscreen' | 'standard' | 'upload';
+      status?: 'draft' | 'processing' | 'ready' | 'failed' | 'sent';
+      deliveryChannel?: 'sms' | 'email' | 'link' | null;
+    }
   ) =>
     apiFetch<{ inspection: import('@/types').VideoInspectionDetail }>(
       `/api/video-inspections/${id}`,
       { method: 'PATCH', body: JSON.stringify(body) }
     ),
+
+  putVideoInspectionFindings: (
+    id: string,
+    findings: Array<{
+      category: string;
+      severity?: 'ok' | 'recommend' | 'urgent';
+      note?: string;
+      timestampSec?: number | null;
+      sortOrder?: number;
+    }>
+  ) =>
+    apiFetch<{
+      findings: import('@/types').VideoInspectionFinding[];
+      inspection: import('@/types').VideoInspectionDetail;
+    }>(`/api/video-inspections/${id}/findings`, {
+      method: 'PUT',
+      body: JSON.stringify({ findings }),
+    }),
 
   shareVideoInspection: (id: string, body?: { passcode?: string; expiresInHours?: number }) =>
     apiFetch<{ shareId: string; url: string; token: string; expiresAt: string }>(

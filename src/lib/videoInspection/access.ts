@@ -12,6 +12,12 @@ export function canListAllInspections(session: SessionPayload): boolean {
   return effectiveIsAdmin(session);
 }
 
+const inspectionInclude = {
+  technician: { select: { name: true } },
+  dealership: { select: { name: true } },
+  findings: { orderBy: { sortOrder: 'asc' as const } },
+};
+
 export async function findInspectionForSession(session: SessionPayload, id: string) {
   const db = getRlsDb();
   const row = await db.videoInspection.findFirst({
@@ -20,10 +26,9 @@ export async function findInspectionForSession(session: SessionPayload, id: stri
       dealershipId: session.dealershipId,
       ...(canListAllInspections(session) ? {} : { technicianId: session.technicianId }),
     },
-    include: {
-      technician: { select: { name: true } },
-      dealership: { select: { name: true } },
-    },
+    include: inspectionInclude,
   });
   return row;
 }
+
+export { inspectionInclude };

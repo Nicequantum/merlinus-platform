@@ -271,7 +271,8 @@ model Technician {
 }
 
 /**
- * Video Inspection — customer-facing multi-media inspections (separate from warranty AI).
+ * Video Inspection / Video MPI — customer-facing multi-media inspections
+ * (separate from warranty AI story pipeline).
  * Private Blob video + encrypted transcript/report + shareable customer viewer.
  */
 model VideoInspection {
@@ -299,15 +300,59 @@ model VideoInspection {
   vehicleLabel          String?
   title                 String   @default("Video inspection")
   errorMessage          String?
+  // ─── PR-M1a Video MPI fields ───────────────────────────────────────────────
+  customerNameEncrypted  String   @default("")
+  customerPhoneEncrypted String  @default("")
+  customerPhoneLast4     String  @default("")
+  vinEncrypted           String  @default("")
+  /** Last 8 of VIN for display/search without decrypt. */
+  vinLast8               String?
+  /**
+   * Denormalized checklist snapshot JSON:
+   * [{ category, severity, note? }] — kept in sync with VideoInspectionFinding rows.
+   */
+  mpiChecklistJson       String  @default("[]")
+  /** e.g. ok:3|recommend:2|urgent:1 */
+  severitySummary        String?
+  /** fullscreen | standard | upload */
+  recordingMode          String  @default("standard")
+  /** sms | email | link | null */
+  deliveryChannel        String?
+  deliveredAt            DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   shares                VideoInspectionShare[]
   smsLogs               VideoInspectionSmsLog[]
+  findings              VideoInspectionFinding[]
 
   @@index([dealershipId, createdAt(sort: Desc)])
   @@index([technicianId, createdAt(sort: Desc)])
   @@index([dealershipId, status])
   @@index([dealerId])
+  @@index([dealershipId, vinLast8])
+}
+
+/**
+ * PR-M1a — multipoint inspection finding line (category / severity / notes).
+ * PII-ish free text lives in noteEncrypted.
+ */
+model VideoInspectionFinding {
+  id                String   @id @default(cuid())
+  videoInspectionId String
+  videoInspection   VideoInspection @relation(fields: [videoInspectionId], references: [id], onDelete: Cascade)
+  /** tires_wheels | brakes | battery_charging | … see mpiCategories */
+  category          String
+  /** ok | recommend | urgent */
+  severity          String   @default("ok")
+  noteEncrypted     String   @default("")
+  timestampSec      Float?
+  framePathname     String?
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([videoInspectionId, sortOrder])
+  @@index([videoInspectionId, severity])
 }
 
 model VideoInspectionShare {

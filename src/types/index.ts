@@ -154,6 +154,18 @@ export type AppView =
   | 'technicians'
   | 'videoInspection';
 
+export type VideoMpiSeverity = 'ok' | 'recommend' | 'urgent';
+
+export interface VideoInspectionFinding {
+  id: string;
+  category: string;
+  severity: VideoMpiSeverity | string;
+  note: string;
+  timestampSec: number | null;
+  framePathname: string | null;
+  sortOrder: number;
+}
+
 export interface VideoInspectionSummary {
   id: string;
   status: string;
@@ -169,6 +181,15 @@ export interface VideoInspectionSummary {
   createdAt: string;
   updatedAt: string;
   errorMessage: string | null;
+  /** PR-M1a */
+  vinLast8?: string | null;
+  customerPhoneLast4?: string | null;
+  severitySummary?: string | null;
+  severityCounts?: { ok: number; recommend: number; urgent: number };
+  findingCount?: number;
+  recordingMode?: string;
+  deliveryChannel?: string | null;
+  deliveredAt?: string | null;
 }
 
 export interface VideoInspectionDetail extends VideoInspectionSummary {
@@ -181,6 +202,12 @@ export interface VideoInspectionDetail extends VideoInspectionSummary {
   reportPromptVersion: string | null;
   repairOrderId: string | null;
   repairLineId: string | null;
+  /** PR-M1a MPI */
+  customerName?: string;
+  customerPhone?: string;
+  vin?: string;
+  mpiChecklistJson?: string;
+  findings?: VideoInspectionFinding[];
 }
 
 export type TemplateCategory = 'customer' | 'warranty';

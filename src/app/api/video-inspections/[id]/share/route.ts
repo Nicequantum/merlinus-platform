@@ -78,6 +78,10 @@ export async function POST(
         expiresAt: expiresAt.toISOString(),
       };
     },
-    { rateLimitKey: 'video.share', requireDealershipContext: true }
+    {
+      rateLimitKey: 'video.share',
+      requireDealershipContext: true,
+      requireModule: 'video_mpi',
+    }
   );
 }

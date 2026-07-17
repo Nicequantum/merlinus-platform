@@ -37,6 +37,10 @@ export async function GET(
         return apiError(NOT_FOUND_ERROR, 404);
       }
     },
-    { rateLimitKey: 'video.media', requireDealershipContext: true }
+    {
+      rateLimitKey: 'video.media',
+      requireDealershipContext: true,
+      requireModule: 'video_mpi',
+    }
   );
 }
