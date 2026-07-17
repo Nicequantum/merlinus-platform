@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApexDealershipSelector } from '@/components/apex/ApexDealershipSelector';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import {
@@ -35,6 +35,8 @@ interface ApexOwnerNationalShellProps {
   session: TechnicianSession;
   onLogout: () => Promise<void>;
   onSessionRefresh: () => Promise<TechnicianSession | null>;
+  /** Apply a session returned from enter/select APIs immediately (do not wait on soft /me probe). */
+  onSessionApplied: (session: TechnicianSession) => void;
 }
 
 function StatCard({
@@ -142,7 +144,7 @@ function RooftopCard({
         <span className={statusClass(rooftop.status)}>{rooftop.status}</span>
       </div>
       {rooftop.roDaily14d?.length ? (
-        <div className="apex-rooftop-spark">
+        <div className="apex-rooftop-spark" aria-hidden="true">
           <OwnerSparkline
             values={rooftop.roDaily14d}
             width={160}
@@ -211,9 +213,15 @@ function RooftopCard({
         type="button"
         className="apex-btn-secondary apex-rooftop-enter touch-target"
         disabled={entering}
-        onClick={() => onEnter(rooftop.dealershipId)}
+        aria-busy={entering}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (entering) return;
+          onEnter(rooftop.dealershipId);
+        }}
       >
-        Enter rooftop
+        {entering ? 'Entering…' : 'Enter rooftop'}
       </button>
     </article>
   );
@@ -223,6 +231,7 @@ export function ApexOwnerNationalShell({
   session,
   onLogout,
   onSessionRefresh,
+  onSessionApplied,
 }: ApexOwnerNationalShellProps) {
   const [view, setView] = useState<NationalView>('dashboard');
   const [summary, setSummary] = useState<OwnerNationalSummary | null>(null);
@@ -237,6 +246,9 @@ export function ApexOwnerNationalShell({
   const [selectedAdvisorId, setSelectedAdvisorId] = useState<string>('');
   const [advisors, setAdvisors] = useState<OwnerDealershipAdvisorOption[]>([]);
   const [loadingAdvisors, setLoadingAdvisors] = useState(false);
+  /** Prevents double-submit on first tap (enter CTA + rooftop cards). */
+  const enterInFlightRef = useRef(false);
+  const openEnterInFlightRef = useRef(false);
   const [advisorRooftopId, setAdvisorRooftopId] = useState<string | null>(null);
 
   const isGroupHome = session.scopeMode === 'group';
@@ -287,9 +299,10 @@ export function ApexOwnerNationalShell({
       if (dealerGroupId === (session.activeDealerGroupId || '')) return;
       setSwitchingGroup(true);
       try {
-        await selectOwnerDealerGroup(dealerGroupId);
+        const next = await selectOwnerDealerGroup(dealerGroupId);
+        onSessionApplied(next);
         toast.success('Switched dealer group portfolio');
-        await onSessionRefresh();
+        void onSessionRefresh();
         await loadSummary();
       } catch (error: unknown) {
         clientLog.error('owner.select_group_failed', error);
@@ -298,10 +311,19 @@ export function ApexOwnerNationalShell({
         setSwitchingGroup(false);
       }
     },
-    [switchingGroup, session.activeDealerGroupId, onSessionRefresh, loadSummary]
+    [
+      switchingGroup,
+      session.activeDealerGroupId,
+      onSessionApplied,
+      onSessionRefresh,
+      loadSummary,
+    ]
   );
 
   const openEnterDealership = useCallback(async () => {
+    if (openEnterInFlightRef.current || loadingDealerships || actionLoading) return;
+    openEnterInFlightRef.current = true;
+    // Switch view on the same tick as the click so first tap always feels instant
     setView('enter-dealership');
     setLoadingDealerships(true);
     setAdvisors([]);
@@ -316,58 +338,77 @@ export function ApexOwnerNationalShell({
       setView('dashboard');
     } finally {
       setLoadingDealerships(false);
+      openEnterInFlightRef.current = false;
     }
-  }, []);
+  }, [loadingDealerships, actionLoading]);
 
-  const handleEnterDealership = async (dealershipId: string) => {
-    setActionLoading(true);
-    try {
-      let advisorId: string | null = null;
-      if (viewAsRole === 'service_advisor') {
-        let list = advisors;
-        if (advisorRooftopId !== dealershipId || list.length === 0) {
-          setLoadingAdvisors(true);
-          setAdvisorRooftopId(dealershipId);
-          try {
-            list = await fetchOwnerDealershipAdvisors(dealershipId);
-            setAdvisors(list);
-            const pick =
-              selectedAdvisorId && list.some((a) => a.id === selectedAdvisorId)
+  const handleEnterDealership = useCallback(
+    async (dealershipId: string) => {
+      if (!dealershipId?.trim() || enterInFlightRef.current || actionLoading) return;
+      enterInFlightRef.current = true;
+      setActionLoading(true);
+      try {
+        let advisorId: string | null = null;
+        if (viewAsRole === 'service_advisor') {
+          let list = advisors;
+          if (advisorRooftopId !== dealershipId || list.length === 0) {
+            setLoadingAdvisors(true);
+            setAdvisorRooftopId(dealershipId);
+            try {
+              list = await fetchOwnerDealershipAdvisors(dealershipId);
+              setAdvisors(list);
+              const pick =
+                selectedAdvisorId && list.some((a) => a.id === selectedAdvisorId)
+                  ? selectedAdvisorId
+                  : list[0]?.id ?? '';
+              setSelectedAdvisorId(pick);
+              advisorId = pick || null;
+            } finally {
+              setLoadingAdvisors(false);
+            }
+          } else {
+            advisorId =
+              (selectedAdvisorId && list.some((a) => a.id === selectedAdvisorId)
                 ? selectedAdvisorId
-                : list[0]?.id ?? '';
-            setSelectedAdvisorId(pick);
-            advisorId = pick || null;
-          } finally {
-            setLoadingAdvisors(false);
+                : list[0]?.id) || null;
           }
-        } else {
-          advisorId =
-            (selectedAdvisorId && list.some((a) => a.id === selectedAdvisorId)
-              ? selectedAdvisorId
-              : list[0]?.id) || null;
         }
-        // Server auto-binds first advisor when id omitted; prefer explicit when available.
-      }
 
-      const roleLabel =
-        VIEW_AS_ROLE_OPTIONS.find((o) => o.value === viewAsRole)?.label ?? viewAsRole;
+        const roleLabel =
+          VIEW_AS_ROLE_OPTIONS.find((o) => o.value === viewAsRole)?.label ?? viewAsRole;
 
-      await enterOwnerDealership(dealershipId, {
-        viewAsRole,
-        viewAsServiceAdvisorId: viewAsRole === 'service_advisor' ? advisorId : null,
-      });
-      const latest = await onSessionRefresh();
-      if (!latest || latest.scopeMode !== 'dealership') {
-        throw new Error('Dealership entered but session did not update');
+        // Apply session from enter response immediately — do not depend on soft /me probe.
+        // Soft refresh races were the main cause of "first click failed, second worked".
+        const entered = await enterOwnerDealership(dealershipId, {
+          viewAsRole,
+          viewAsServiceAdvisorId: viewAsRole === 'service_advisor' ? advisorId : null,
+        });
+        onSessionApplied(entered);
+        void onSessionRefresh();
+
+        const scopeOk = entered.scopeMode === 'dealership' || Boolean(entered.activeDealershipId);
+        if (!scopeOk) {
+          throw new Error('Dealership entered but session scope was not dealership');
+        }
+        toast.success(`Viewing ${entered.dealershipName || 'rooftop'} as ${roleLabel}`);
+      } catch (error: unknown) {
+        clientLog.error('owner.dealership_enter_failed', error);
+        toast.error(error instanceof Error ? error.message : 'Could not enter dealership');
+      } finally {
+        enterInFlightRef.current = false;
+        setActionLoading(false);
       }
-      toast.success(`Viewing ${latest.dealershipName} as ${roleLabel}`);
-    } catch (error: unknown) {
-      clientLog.error('owner.dealership_enter_failed', error);
-      toast.error(error instanceof Error ? error.message : 'Could not enter dealership');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+    [
+      actionLoading,
+      advisors,
+      advisorRooftopId,
+      onSessionApplied,
+      onSessionRefresh,
+      selectedAdvisorId,
+      viewAsRole,
+    ]
+  );
 
   const viewAsControls = (
     <div className="apex-view-as-controls">
@@ -514,7 +555,9 @@ export function ApexOwnerNationalShell({
                     ? 'Group scope has no PII until you enter a dealership in your portfolio.'
                     : 'National scope has no PII access until you enter a dealership.'
                 }
-                onSelect={(dealershipId) => void handleEnterDealership(dealershipId)}
+                onSelect={(dealershipId) => {
+                  void handleEnterDealership(dealershipId);
+                }}
               />
             )}
           </section>
@@ -542,11 +585,17 @@ export function ApexOwnerNationalShell({
                   className="apex-btn-primary apex-national-enter-btn touch-target"
                   // Phase 5.8/5.9 gate: "Enter dealership" + View As dual selector CTA
                   aria-label="Enter dealership — View as / enter rooftop"
-                  onClick={() => void openEnterDealership()}
+                  disabled={loadingDealerships || actionLoading}
+                  aria-busy={loadingDealerships}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void openEnterDealership();
+                  }}
                 >
-                  View as / enter rooftop
+                  {loadingDealerships ? 'Loading rooftops…' : 'View as / enter rooftop'}
                 </button>
-                <p className="apex-hint" style={{ marginTop: '0.5rem', maxWidth: '16rem' }}>
+                <p className="apex-hint apex-national-enter-hint">
                   Video Inspection: enter a rooftop to record bay videos and send customer
                   reports.
                 </p>
@@ -554,7 +603,11 @@ export function ApexOwnerNationalShell({
                   type="button"
                   className="apex-btn-secondary touch-target"
                   disabled={summaryLoading}
-                  onClick={() => void loadSummary()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void loadSummary();
+                  }}
                 >
                   Refresh metrics
                 </button>
@@ -764,7 +817,9 @@ export function ApexOwnerNationalShell({
                           key={rooftop.dealershipId}
                           rooftop={rooftop}
                           entering={actionLoading}
-                          onEnter={(id) => void handleEnterDealership(id)}
+                          onEnter={(id) => {
+                            void handleEnterDealership(id);
+                          }}
                         />
                       ))}
                     </div>

@@ -34,6 +34,9 @@ describe('ApexDealershipSelector (Phase 5.8)', () => {
     assert.match(shell, /enterOwnerDealership/);
     assert.match(shell, /ApexDealershipSelector/);
     assert.match(shell, /VIEW_AS_ROLE_OPTIONS|viewAsRole/);
+    // First-click reliability: apply enter API session immediately (not soft /me only)
+    assert.match(shell, /onSessionApplied/);
+    assert.match(shell, /enterInFlightRef|openEnterInFlightRef/);
   });
 
   it('apexLoginSession passes rememberAsDefault to select-dealership', () => {

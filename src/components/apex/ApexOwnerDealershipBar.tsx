@@ -36,7 +36,13 @@ export function ApexOwnerDealershipBar({
           type="button"
           className="apex-btn-secondary apex-owner-exit-btn touch-target"
           disabled={loading}
-          onClick={onExit}
+          aria-busy={loading}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (loading) return;
+            onExit();
+          }}
         >
           {loading ? 'Returning…' : exitLabel}
         </button>

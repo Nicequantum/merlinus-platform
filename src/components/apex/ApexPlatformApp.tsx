@@ -277,6 +277,7 @@ export function ApexPlatformApp() {
         session={session}
         onLogout={logout}
         onSessionRefresh={() => refreshSession({ clearOnMissing: false })}
+        onSessionApplied={applySession}
       />
     );
   }
@@ -287,6 +288,7 @@ export function ApexPlatformApp() {
         session={session}
         onLogout={logout}
         onSessionRefresh={() => refreshSession({ clearOnMissing: false })}
+        onSessionApplied={applySession}
         AuthenticatedApp={BenzTechAuthenticatedApp}
       />
     );

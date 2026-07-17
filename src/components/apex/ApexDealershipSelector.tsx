@@ -42,7 +42,8 @@ export function ApexDealershipSelector({
   const filtered = useMemo(() => filterApexDealerships(sorted, query), [sorted, query]);
 
   const handleSelect = (dealershipId: string) => {
-    if (loading) return;
+    if (loading || !dealershipId) return;
+    // Mark active immediately so first tap shows feedback even while parent awaits API
     setActiveId(dealershipId);
     onSelect(dealershipId, { rememberAsDefault: showRememberDefault && rememberAsDefault });
   };
@@ -106,7 +107,11 @@ export function ApexDealershipSelector({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                onClick={() => handleSelect(dealership.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelect(dealership.id);
+                }}
               >
                 <span className="apex-dealership-option-top">
                   <span className="apex-dealership-name">{dealership.name}</span>

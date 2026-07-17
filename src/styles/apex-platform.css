@@ -882,6 +882,36 @@
   flex-shrink: 0;
   min-width: 12rem;
   padding: 0 1.35rem;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-platform='apex'] .apex-national-enter-hint {
+  margin: 0.35rem 0 0;
+  max-width: 16rem;
+  position: relative;
+  z-index: 1;
+}
+
+[data-platform='apex'] .apex-national-hero-actions {
+  position: relative;
+  z-index: 2;
+}
+
+[data-platform='apex'] .apex-btn-primary,
+[data-platform='apex'] .apex-btn-secondary,
+[data-platform='apex'] .apex-dealership-option,
+[data-platform='apex'] .apex-rooftop-enter,
+[data-platform='apex'] .apex-owner-exit-btn {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
 
 [data-platform='apex'] .apex-stat-grid {
@@ -1121,6 +1151,17 @@
 [data-platform='apex'] .apex-rooftop-enter {
   width: 100%;
   margin-top: 0.15rem;
+  position: relative;
+  z-index: 2;
+}
+
+[data-platform='apex'] .apex-rooftop-spark {
+  pointer-events: none;
+}
+
+[data-platform='apex'] .apex-rooftop-card {
+  position: relative;
+  z-index: 0;
 }
 
 [data-platform='apex'] .apex-attention-panel {
@@ -1199,9 +1240,16 @@
 
 [data-platform='apex'] .apex-national-hero-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  flex-wrap: nowrap;
   gap: 0.65rem;
-  align-items: center;
+  align-items: flex-start;
+}
+
+@media (min-width: 768px) {
+  [data-platform='apex'] .apex-national-hero-actions {
+    align-items: stretch;
+  }
 }
 
 [data-platform='apex'] .apex-empty-state {

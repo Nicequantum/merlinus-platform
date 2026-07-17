@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import { ApexOwnerDealershipBar } from '@/components/apex/ApexOwnerDealershipBar';
 import { viewAsRoleLabel } from '@/lib/apex/viewAs';
@@ -19,6 +19,8 @@ interface ApexOwnerDealershipWorkspaceProps {
   session: TechnicianSession;
   onLogout: () => Promise<void>;
   onSessionRefresh: () => Promise<TechnicianSession | null>;
+  /** Apply exit-API session immediately so first tap returns home without /me race. */
+  onSessionApplied: (session: TechnicianSession) => void;
   AuthenticatedApp: ComponentType<AuthenticatedAppProps>;
 }
 
@@ -31,9 +33,11 @@ export function ApexOwnerDealershipWorkspace({
   session,
   onLogout,
   onSessionRefresh,
+  onSessionApplied,
   AuthenticatedApp,
 }: ApexOwnerDealershipWorkspaceProps) {
   const [exiting, setExiting] = useState(false);
+  const exitInFlightRef = useRef(false);
   const rooftopName = session.dealershipName;
   const lensLabel = viewAsRoleLabel(session);
   const exitLabel = session.activeDealerGroupId
@@ -41,22 +45,26 @@ export function ApexOwnerDealershipWorkspace({
     : 'Return to National Owner';
 
   const handleExit = async () => {
+    if (exiting || exitInFlightRef.current) return;
+    exitInFlightRef.current = true;
     setExiting(true);
     try {
-      await exitOwnerDealership();
-      const latest = await onSessionRefresh();
-      if (!latest || !isOwnerHomeAfterExit(latest)) {
+      const exited = await exitOwnerDealership();
+      onSessionApplied(exited);
+      void onSessionRefresh();
+      if (!isOwnerHomeAfterExit(exited)) {
         throw new Error('Exit completed but session did not return to owner home scope');
       }
       const home =
-        latest.scopeMode === 'group'
-          ? latest.dealerGroupName || 'group operations'
+        exited.scopeMode === 'group'
+          ? exited.dealerGroupName || 'group operations'
           : 'national operations';
       toast.success(`Returned to ${home}`);
     } catch (error: unknown) {
       clientLog.error('owner.dealership_exit_failed', error);
       toast.error(error instanceof Error ? error.message : 'Could not exit dealership');
     } finally {
+      exitInFlightRef.current = false;
       setExiting(false);
     }
   };
