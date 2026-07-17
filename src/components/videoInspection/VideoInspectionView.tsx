@@ -103,8 +103,10 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const [flushingQueue, setFlushingQueue] = useState(false);
   const [online, setOnline] = useState(true);
   const [moduleDisabled, setModuleDisabled] = useState(false);
+  const [immersive, setImmersive] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const captureRef = useRef<VideoCaptureSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const flushingRef = useRef(false);
@@ -154,8 +156,13 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
   useEffect(() => {
     return () => {
-      void captureRef.current?.cancel();
+      // Hard-release camera/mic on unmount (navigate away, view switch)
+      const session = captureRef.current;
       captureRef.current = null;
+      if (session) {
+        void session.release();
+      }
+      setImmersive(false);
     };
   }, []);
 
@@ -195,8 +202,22 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         durationSec?: number;
         recordingMode: 'fullscreen' | 'standard' | 'upload';
         frames?: Blob[];
+        mimeType?: string;
       }
     ) => {
+      // Normalize empty browser blob types (common on iOS after MediaRecorder stop)
+      const contentType =
+        blob.type && blob.type !== 'application/octet-stream'
+          ? blob.type
+          : options.mimeType || 'video/webm';
+      const video =
+        blob.type === contentType ? blob : new Blob([blob], { type: contentType });
+
+      if (video.size < 256) {
+        toast.error(t('recordingEmpty'));
+        return;
+      }
+
       setBusy(true);
       setUploadProgress({
         phase: 'init',
@@ -211,7 +232,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
       const runUpload = async () =>
         uploadVideoInspectionResumable({
-          video: blob,
+          video,
           frames,
           meta,
           onProgress: setUploadProgress,
@@ -220,8 +241,8 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
       try {
         if (!isOnline()) {
           await enqueuePendingUpload({
-            contentType: blob.type || 'video/webm',
-            video: blob,
+            contentType,
+            video,
             frames,
             meta,
             lastError: 'offline',
@@ -229,25 +250,51 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           await refreshPending();
           toast.message(t('queuedOffline'));
           setMode('list');
+          void refreshList();
           return;
         }
 
         const { inspection } = await runUpload();
-        applyDetail(inspection);
+        if (!inspection?.id) {
+          throw new Error('Upload completed but no inspection was returned');
+        }
+        // Prefer list first so the inspection is visible even if detail mapping fails
+        await refreshList();
+        setSelected(inspection);
+        setReportDraft(inspection.report || '');
+        setTranscript(inspection.transcript || transcript);
+        setVehicleLabel(inspection.vehicleLabel || vehicleLabel);
+        setCustomerName(inspection.customerName || customerName);
+        setCustomerPhone(inspection.customerPhone || customerPhone);
+        setVin(inspection.vin || vin);
+        setPhone(inspection.customerPhone || phone);
+        setChecklist(
+          inspection.findings && inspection.findings.length > 0
+            ? inspection.findings.map((f) => ({
+                category: f.category,
+                severity: (MPI_SEVERITIES.includes(f.severity as MpiSeverity)
+                  ? f.severity
+                  : 'ok') as MpiSeverity,
+                note: f.note || '',
+              }))
+            : defaultChecklistTemplate()
+        );
+        setShareUrl(null);
         setMode('detail');
         toast.success(t('videoSaved'));
-        void refreshList();
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : 'Upload failed';
-        // Network / transient failures → offline queue
+        // Network / transient failures → offline queue so video is not lost
         const retriable =
           !isOnline() ||
-          /network|fetch|failed to fetch|timeout|abort|offline|503|502|504/i.test(message);
+          /network|fetch|failed to fetch|timeout|abort|offline|503|502|504|assembling/i.test(
+            message
+          );
         if (retriable) {
           try {
             await enqueuePendingUpload({
-              contentType: blob.type || 'video/webm',
-              video: blob,
+              contentType,
+              video,
               frames,
               meta,
               lastError: message,
@@ -255,18 +302,32 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             await refreshPending();
             toast.message(t('queuedOffline'));
             setMode('list');
+            void refreshList();
             return;
           } catch {
             // fall through
           }
         }
         toast.error(message);
+        setMode('list');
+        void refreshList();
       } finally {
         setBusy(false);
         setUploadProgress(null);
       }
     },
-    [buildMeta, refreshList, refreshPending, t]
+    [
+      buildMeta,
+      refreshList,
+      refreshPending,
+      t,
+      transcript,
+      vehicleLabel,
+      customerName,
+      customerPhone,
+      vin,
+      phone,
+    ]
   );
 
   const flushPendingQueue = useCallback(async () => {
@@ -318,20 +379,30 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const startRecording = async () => {
     try {
       setTranscript('');
+      setImmersive(false);
+      // Ensure previous session fully released (camera light off)
+      if (captureRef.current) {
+        await captureRef.current.release();
+        captureRef.current = null;
+      }
       const capture = new VideoCaptureSession();
       captureRef.current = capture;
       await capture.start({
         videoEl: videoRef.current,
+        fullscreenEl: stageRef.current,
         speechLang,
         preferFullscreen: true,
         onTranscript: (text) => setTranscript(text),
+        onImmersiveChange: (on) => setImmersive(on),
+        onError: (message) => toast.error(message),
       });
       setRecording(true);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Could not access camera/microphone');
-      await captureRef.current?.cancel();
+      await captureRef.current?.release();
       captureRef.current = null;
       setRecording(false);
+      setImmersive(false);
     }
   };
 
@@ -340,20 +411,23 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     if (!capture) return;
     setBusy(true);
     setRecording(false);
+    setImmersive(false);
     try {
       const result = await capture.stop();
       captureRef.current = null;
-      setTranscript(result.transcript || transcript);
+      if (result.transcript) setTranscript(result.transcript);
       await uploadBlob(result.blob, {
         durationSec: result.durationSec,
         recordingMode: result.recordingMode,
         frames: result.frames,
+        mimeType: result.mimeType,
       });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Could not stop recording');
-      await capture.cancel();
+      await capture.release();
       captureRef.current = null;
       setBusy(false);
+      setImmersive(false);
     }
   };
 
@@ -586,10 +660,10 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           type="button"
           className="benz-nav-back"
           onClick={() => {
-            if (recording) return;
+            if (recording || busy) return;
             setMode('list');
           }}
-          disabled={recording}
+          disabled={recording || busy}
         >
           <ArrowLeft size={18} /> {t('back')}
         </button>
@@ -600,72 +674,121 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           {!online ? ` · ${t('offlineBanner')}` : ''}
         </p>
 
-        {customerFields}
+        {!immersive ? customerFields : null}
         {progressBar}
 
-        <div className="benz-card overflow-hidden mb-4 bg-black relative">
-          <video ref={videoRef} className="w-full aspect-video" muted playsInline />
+        {/* Capture stage — native FS target + CSS immersive fallback for iOS */}
+        <div
+          ref={stageRef}
+          className={
+            immersive
+              ? 'fixed inset-0 z-[100] bg-black flex flex-col'
+              : 'benz-card overflow-hidden mb-4 bg-black relative'
+          }
+        >
+          <video
+            ref={videoRef}
+            className={
+              immersive
+                ? 'flex-1 w-full h-full object-cover bg-black'
+                : 'w-full aspect-video bg-black object-cover'
+            }
+            muted
+            playsInline
+            autoPlay
+          />
           {recording ? (
-            <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              {t('recording')}
+            <div
+              className={
+                immersive
+                  ? 'absolute top-safe top-4 left-4 right-4 flex items-center justify-between gap-3 pointer-events-none'
+                  : 'absolute top-3 left-3 flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full'
+              }
+            >
+              <div className="flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1.5 rounded-full pointer-events-none">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                {t('recording')}
+              </div>
+            </div>
+          ) : null}
+          {recording ? (
+            <div
+              className={
+                immersive
+                  ? 'absolute bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/80 to-transparent flex justify-center'
+                  : 'hidden'
+              }
+            >
+              <button
+                type="button"
+                className="primary-btn h-14 px-8 text-base touch-target bg-red-700 shadow-lg"
+                disabled={busy}
+                onClick={() => void stopRecordingAndUpload()}
+              >
+                <Square size={18} className="inline mr-2" />
+                {t('stopRecording')}
+              </button>
             </div>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {!recording ? (
-            <button
-              type="button"
-              className="primary-btn h-12 px-4 touch-target"
-              disabled={busy}
-              onClick={() => void startRecording()}
-            >
-              <Mic size={16} className="inline mr-2" />
-              {t('startRecording')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="primary-btn h-12 px-4 touch-target bg-red-700"
-              disabled={busy}
-              onClick={() => void stopRecordingAndUpload()}
-            >
-              <Square size={16} className="inline mr-2" />
-              {t('stopRecording')}
-            </button>
-          )}
-          <button
-            type="button"
-            className="secondary-btn h-12 px-4 touch-target"
-            disabled={busy || recording}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload size={16} className="inline mr-2" />
-            {t('uploadVideo')}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
-          />
-        </div>
+        {!immersive ? (
+          <>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {!recording ? (
+                <button
+                  type="button"
+                  className="primary-btn h-12 px-4 touch-target"
+                  disabled={busy}
+                  onClick={() => void startRecording()}
+                >
+                  <Mic size={16} className="inline mr-2" />
+                  {t('startRecording')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary-btn h-12 px-4 touch-target bg-red-700"
+                  disabled={busy}
+                  onClick={() => void stopRecordingAndUpload()}
+                >
+                  <Square size={16} className="inline mr-2" />
+                  {t('stopRecording')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="secondary-btn h-12 px-4 touch-target"
+                disabled={busy || recording}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={16} className="inline mr-2" />
+                {t('uploadVideo')}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
+              />
+            </div>
 
-        <label className="benz-label">{t('liveTranscript')}</label>
-        <textarea
-          className="benz-textarea min-h-[120px]"
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder={t('transcriptPlaceholder')}
-          disabled={busy}
-        />
-        {busy && !uploadProgress ? (
-          <p className="mt-3 text-sm text-benz-secondary flex items-center gap-2">
-            <Loader2 className="animate-spin" size={16} /> {t('processing')}
-          </p>
+            <label className="benz-label">{t('liveTranscript')}</label>
+            <textarea
+              className="benz-textarea min-h-[120px]"
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={t('transcriptPlaceholder')}
+              disabled={busy || recording}
+            />
+            {busy && !uploadProgress ? (
+              <p className="mt-3 text-sm text-benz-secondary flex items-center gap-2">
+                <Loader2 className="animate-spin" size={16} /> {t('processing')}
+              </p>
+            ) : null}
+          </>
         ) : null}
       </div>
     );

@@ -46,7 +46,7 @@
   "smsDisabled": "SMS no configurado — copie el enlace",
   "linkCopied": "Enlace del cliente copiado",
   "navLabel": "Video MPI",
-  "captureHints": "Mantiene la pantalla activa, prefiere horizontal/pantalla completa y guarda de forma confiable con Wi‑Fi inestable.",
+  "captureHints": "Abre a pantalla completa cuando es posible, mantiene la pantalla activa y guarda aunque el Wi‑Fi sea inestable.",
   "offlineBanner": "Sin conexión. Los videos nuevos se encolan en este dispositivo hasta reconectar.",
   "queuedOffline": "Guardado en este dispositivo — se subirá al reconectar",
   "pendingUploads": "Cargas pendientes",
@@ -56,5 +56,6 @@
   "uploadStarting": "Iniciando carga…",
   "uploading": "Subiendo video…",
   "videoSaved": "Video guardado",
-  "processing": "Procesando…"
+  "processing": "Procesando…",
+  "recordingEmpty": "La grabación quedó vacía — intente de nuevo o suba un archivo"
 }

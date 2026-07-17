@@ -84,8 +84,23 @@ async function putChunkWithRetry(
 export async function uploadVideoInspectionResumable(
   input: ChunkedUploadInput
 ): Promise<{ inspection: VideoInspectionDetail }> {
-  const { video, frames = [], meta, onProgress, signal } = input;
+  const { frames = [], meta, onProgress, signal } = input;
+  // Ensure Blob has a usable MIME type for server content-type checks
+  const rawType = input.video.type || '';
+  const contentType =
+    rawType && rawType !== 'application/octet-stream'
+      ? rawType
+      : meta.recordingMode === 'upload'
+        ? 'video/mp4'
+        : 'video/webm';
+  const video =
+    input.video.type === contentType
+      ? input.video
+      : new Blob([input.video], { type: contentType });
   const totalBytes = video.size;
+  if (totalBytes < 256) {
+    throw new Error('Recording produced no usable video data');
+  }
   const totalChunks = Math.max(1, computeChunkCount(totalBytes, VIDEO_UPLOAD_CHUNK_BYTES));
 
   // Small files: single-shot existing endpoint (still used for frames convenience)
@@ -98,7 +113,8 @@ export async function uploadVideoInspectionResumable(
       message: 'Uploading…',
     });
     const form = new FormData();
-    const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
+    const ext =
+      contentType.includes('mp4') || contentType.includes('quicktime') ? 'mp4' : 'webm';
     form.append('file', video, `inspection.${ext}`);
     form.append('title', meta.title || 'Video inspection');
     if (meta.vehicleLabel) form.append('vehicleLabel', meta.vehicleLabel);
@@ -144,7 +160,7 @@ export async function uploadVideoInspectionResumable(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contentType: video.type || 'video/webm',
+      contentType,
       totalBytes,
       totalChunks,
       meta: {

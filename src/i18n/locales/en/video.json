@@ -46,7 +46,7 @@
   "smsDisabled": "SMS is not configured — copy the link instead",
   "linkCopied": "Customer link copied",
   "navLabel": "Video MPI",
-  "captureHints": "Keeps the screen awake, prefers landscape/fullscreen, and saves reliably even on flaky bay Wi‑Fi.",
+  "captureHints": "Opens fullscreen when possible, keeps the screen awake, and saves even on flaky bay Wi‑Fi.",
   "offlineBanner": "You are offline. New videos will queue on this device until you reconnect.",
   "queuedOffline": "Saved on this device — will upload when online",
   "pendingUploads": "Pending uploads",
@@ -56,5 +56,6 @@
   "uploadStarting": "Starting upload…",
   "uploading": "Uploading video…",
   "videoSaved": "Video saved",
-  "processing": "Processing…"
+  "processing": "Processing…",
+  "recordingEmpty": "Recording was empty — try again or upload a file"
 }

@@ -64,8 +64,12 @@ describe('PR-M1b video capture / chunked upload', () => {
     );
     assert.ok(capture.includes('wakeLock'));
     assert.ok(capture.includes('orientation'));
-    assert.ok(capture.includes('requestFullscreen'));
+    assert.ok(capture.includes('requestFullscreen') || capture.includes('enterImmersive'));
     assert.ok(capture.includes('beforeunload'));
+    assert.ok(capture.includes('pagehide'));
+    assert.ok(capture.includes('stopAllTracks') || capture.includes('getTracks'));
+    assert.ok(capture.includes('forceReleaseHardware') || capture.includes('async release'));
+    assert.ok(capture.includes('cssImmersive') || capture.includes('onImmersiveChange'));
 
     const queue = readFileSync(
       resolve(process.cwd(), 'src/lib/videoInspection/offlineQueue.ts'),
