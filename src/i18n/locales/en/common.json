@@ -18,6 +18,26 @@
   "error": "Something went wrong",
   "networkError": "Network error — check connection and try again",
   "updating": "Updating…",
-  "technician": "Technician"
+  "technician": "Technician",
+  "vehicle": "Vehicle",
+  "vehicleTbd": "Vehicle TBD",
+  "engine": "Engine",
+  "customer": "Customer",
+  "advisor": "Advisor",
+  "vin": "VIN",
+  "mileageUnit": "mi",
+  "clear": "Clear",
+  "gallery": "Gallery",
+  "add": "Add",
+  "offlineBanner": "No network — typed notes are safe. Reconnect to generate stories or sync scans.",
+  "lineCount_one": "{{count}} line",
+  "lineCount_other": "{{count}} lines",
+  "deleteRoAria": "Delete {{roNumber}}",
+  "loadingRoAria": "Loading repair order",
+  "maintenance": "Maintenance",
+  "characters": "{{count}} characters",
+  "moreCodes": "+{{count}} more codes",
+  "guided": "Guided",
+  "meas": "Meas",
+  "loadErrorHint": "If this keeps happening, check Wi‑Fi in the service bay or ask your manager to verify Merlinus is online."
 }
-

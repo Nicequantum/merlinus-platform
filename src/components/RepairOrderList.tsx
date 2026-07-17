@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { ChevronRight, ClipboardList, Loader2, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { BenzEmptyState } from '@/components/BenzEmptyState';
 import { StoryStatusBadge } from '@/components/StoryStatusBadge';
 import { formatDisplayDate } from '@/lib/dateFormat';
@@ -31,7 +32,9 @@ const RepairOrderRow = memo(function RepairOrderRow({
   onOpenRO,
   onDeleteRO,
 }: RepairOrderRowProps) {
+  const { t } = useTranslation('common');
   const vehicleSummary = [ro.vehicle.year, ro.vehicle.make, ro.vehicle.model].filter(Boolean).join(' ');
+  const lineCount = ro.repairLines.length;
 
   return (
     <div
@@ -61,7 +64,7 @@ const RepairOrderRow = memo(function RepairOrderRow({
       <div className="min-w-0 flex-1">
         <div className="font-bold text-sm tracking-tight">{ro.roNumber}</div>
         <div className="text-xs text-benz-secondary mt-1">
-          {vehicleSummary || 'Vehicle TBD'} · {ro.repairLines.length} line{ro.repairLines.length === 1 ? '' : 's'}
+          {vehicleSummary || t('vehicleTbd')} · {t('lineCount', { count: lineCount })}
           {ro.technicianName ? ` · ${ro.technicianName}` : ''}
         </div>
         {ro.firstComplaintPreview && (
@@ -76,7 +79,7 @@ const RepairOrderRow = memo(function RepairOrderRow({
       </div>
       <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
         {isThisOpening ? (
-          <Loader2 size={20} className="text-benz-blue animate-spin" aria-label="Loading repair order" />
+          <Loader2 size={20} className="text-benz-blue animate-spin" aria-label={t('loadingRoAria')} />
         ) : (
           <>
             <StoryStatusBadge lines={ro.repairLines} compact />
@@ -92,10 +95,10 @@ const RepairOrderRow = memo(function RepairOrderRow({
               onDeleteRO(ro.id);
             }}
             className="benz-danger-icon-btn flex items-center gap-1 text-xs font-medium px-2"
-            aria-label={`Delete ${ro.roNumber}`}
+            aria-label={t('deleteRoAria', { roNumber: ro.roNumber })}
           >
             <Trash2 size={14} />
-            Delete
+            {t('delete')}
           </button>
         )}
       </div>
@@ -108,15 +111,17 @@ export function RepairOrderList({
   openingROId,
   onOpenRO,
   onDeleteRO,
-  emptyMessage = 'No repair orders yet.',
+  emptyMessage,
   emptyHint,
 }: RepairOrderListProps) {
+  const { t } = useTranslation('home');
+
   if (repairOrders.length === 0) {
     return (
       <BenzEmptyState
         icon={ClipboardList}
-        title={emptyMessage}
-        hint={emptyHint ?? 'Scan a repair order photo or create one manually to get started.'}
+        title={emptyMessage ?? t('emptyDefault')}
+        hint={emptyHint ?? t('emptyDefaultHint')}
       />
     );
   }

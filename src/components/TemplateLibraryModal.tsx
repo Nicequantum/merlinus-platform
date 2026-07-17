@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Clock3, FileText, Loader2, Search, SearchX, ShieldCheck, X, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { BenzEmptyState } from '@/components/BenzEmptyState';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -20,23 +21,6 @@ interface TemplateLibraryModalProps {
 
 type TabId = TemplateCategory;
 
-const TABS: Array<{ id: TabId; label: string; icon: React.ReactNode; description: string; accentClass: string }> = [
-  {
-    id: 'customer',
-    label: 'Customer Pay',
-    icon: <FileText size={16} />,
-    description: 'Instant pre-written stories — no AI',
-    accentClass: 'benz-tab-btn-customer',
-  },
-  {
-    id: 'warranty',
-    label: 'Warranty Claims',
-    icon: <ShieldCheck size={16} />,
-    description: 'Pre-approved 3 C\'s warranty story templates',
-    accentClass: 'benz-tab-btn-warranty',
-  },
-];
-
 export function TemplateLibraryModal({
   open,
   onClose,
@@ -44,6 +28,24 @@ export function TemplateLibraryModal({
   onApplyCustomerPay,
   defaultTab = 'warranty',
 }: TemplateLibraryModalProps) {
+  const { t } = useTranslation('story');
+  const { t: tCommon } = useTranslation('common');
+  const tabs: Array<{ id: TabId; label: string; icon: React.ReactNode; description: string; accentClass: string }> = [
+    {
+      id: 'customer',
+      label: t('tabCustomerPay'),
+      icon: <FileText size={16} />,
+      description: t('tabCustomerDesc'),
+      accentClass: 'benz-tab-btn-customer',
+    },
+    {
+      id: 'warranty',
+      label: t('tabWarranty'),
+      icon: <ShieldCheck size={16} />,
+      description: t('tabWarrantyDesc'),
+      accentClass: 'benz-tab-btn-warranty',
+    },
+  ];
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
   const [templates, setTemplates] = useState<StoryTemplate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,14 +73,14 @@ export function TemplateLibraryModal({
       if (seq === loadSeqRef.current) {
         setTemplates([]);
         setSelectedId(null);
-        toast.error(e instanceof Error ? e.message : 'Failed to load templates');
+        toast.error(e instanceof Error ? e.message : t('loadTemplatesFailed'));
       }
     } finally {
       if (seq === loadSeqRef.current) {
         setLoading(false);
       }
     }
-  }, [activeTab]);
+  }, [activeTab, t]);
 
   useEffect(() => {
     if (!open) {
@@ -168,10 +170,10 @@ export function TemplateLibraryModal({
       });
       setRecentRefs(getRecentTemplateRefs());
       onInsert(exactText, template.title, template.category);
-      toast.success(`Inserted "${template.title}" into story`);
+      toast.success(t('insertedTemplate', { title: template.title }));
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to insert template');
+      toast.error(e instanceof Error ? e.message : t('insertFailed'));
     } finally {
       setWarrantyInsertingId(null);
     }
@@ -186,26 +188,24 @@ export function TemplateLibraryModal({
           <div>
             <div className="flex items-center gap-2 text-benz-blue mb-1">
               <BookOpen size={18} />
-              <span className="text-xs uppercase tracking-[0.2em] font-semibold">Template Library</span>
+              <span className="text-xs uppercase tracking-[0.2em] font-semibold">{t('templateLibraryTitle')}</span>
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Mercedes-Benz Story Templates</h2>
-            <p className="text-xs text-benz-secondary mt-1">
-              Customer Pay = instant · Warranty = insert or generate with AI
-            </p>
+            <h2 className="text-lg font-semibold tracking-tight">{t('templateLibraryHeading')}</h2>
+            <p className="text-xs text-benz-secondary mt-1">{t('librarySubtitle')}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={!!warrantyInsertingId}
             className="benz-icon-btn border border-benz-surface-3 disabled:opacity-50"
-            aria-label="Close template library"
+            aria-label={t('closeLibrary')}
           >
             <X size={18} />
           </button>
         </div>
 
         <div className="px-5 pt-3 pb-2 flex gap-2">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -226,7 +226,7 @@ export function TemplateLibraryModal({
           <div className="px-5 pb-3">
             <div className="flex items-center gap-2 benz-section-title mb-2">
               <Clock3 size={14} />
-              Recently Used
+              {t('recentlyUsed')}
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {recentTemplates.map((template) => (
@@ -238,10 +238,10 @@ export function TemplateLibraryModal({
                 >
                   <div className="text-xs font-medium max-w-[160px] truncate">{template.title}</div>
                   {isCustomerPayStoryTemplate(template) && (
-                    <div className="text-[10px] text-benz-green mt-0.5 font-semibold">Instant</div>
+                    <div className="text-[10px] text-benz-green mt-0.5 font-semibold">{t('instant')}</div>
                   )}
                   {template.source === 'user' && (
-                    <div className="text-xs text-benz-green mt-0.5">Your template</div>
+                    <div className="text-xs text-benz-green mt-0.5">{t('yourTemplate')}</div>
                   )}
                 </button>
               ))}
@@ -256,7 +256,7 @@ export function TemplateLibraryModal({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${activeTab === 'customer' ? 'customer pay' : 'warranty'} templates...`}
+              placeholder={activeTab === 'customer' ? t('searchCpTemplates') : t('searchWarrantyTemplates')}
               className="benz-search pl-10"
             />
           </div>
@@ -267,14 +267,14 @@ export function TemplateLibraryModal({
             {loading ? (
               <div className="p-4 text-sm text-benz-secondary flex items-center gap-2">
                 <Loader2 size={16} className="animate-spin text-benz-blue" />
-                Loading templates…
+                {t('loadingTemplates')}
               </div>
             ) : filtered.length === 0 ? (
               <div className="p-4">
                 <BenzEmptyState
                   icon={SearchX}
-                  title="No templates match your search"
-                  hint="Try a different keyword or switch between warranty and customer pay tabs."
+                  title={t('noTemplatesMatch')}
+                  hint={t('noTemplatesHint')}
                   compact
                 />
               </div>
@@ -296,12 +296,12 @@ export function TemplateLibraryModal({
                     <div className="text-sm font-medium leading-snug flex-1">{template.title}</div>
                     {isCustomerPayStoryTemplate(template) && (
                       <span className="benz-cp-badge shrink-0">
-                        <Zap size={10} /> Instant
+                        <Zap size={10} /> {t('instant')}
                       </span>
                     )}
                   </div>
                   {template.source === 'user' && (
-                    <div className="text-xs text-benz-green mt-0.5">Saved by your team</div>
+                    <div className="text-xs text-benz-green mt-0.5">{t('savedByTeam')}</div>
                   )}
                 </button>
               ))
@@ -316,13 +316,13 @@ export function TemplateLibraryModal({
                     <div className="text-sm font-semibold tracking-tight">{selected.title}</div>
                     {selectedIsCustomerPay && (
                       <span className="benz-cp-badge">
-                        <Zap size={12} /> Customer Pay · Instant
+                        <Zap size={12} /> {t('tabCustomerPay')} · {t('instant')}
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-benz-secondary mt-0.5">
-                    {selectedIsCustomerPay ? 'Customer Pay — applies instantly, no AI' : 'Warranty Claim Template'}
-                    {selected.source === 'user' ? ' • Dealership' : ' • Standard'}
+                    {selectedIsCustomerPay ? t('cpApplyLabel') : t('warrantyTemplateLabel')}
+                    {selected.source === 'user' ? ` • ${t('dealershipSource')}` : ` • ${t('standardSource')}`}
                     {selected.description ? ` — ${selected.description}` : ''}
                   </div>
                 </div>
@@ -343,15 +343,15 @@ export function TemplateLibraryModal({
                     {warrantyInsertingId === selected.id ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Inserting…
+                        {t('inserting')}
                       </>
                     ) : selectedIsCustomerPay ? (
                       <>
                         <Zap size={16} />
-                        Apply instantly
+                        {t('applyInstantly')}
                       </>
                     ) : (
-                      'Insert into story'
+                      t('insertIntoStory')
                     )}
                   </button>
                   <button
@@ -360,13 +360,13 @@ export function TemplateLibraryModal({
                     disabled={!!warrantyInsertingId}
                     className="secondary-btn h-11 px-4 text-sm disabled:opacity-60"
                   >
-                    Cancel
+                    {tCommon('cancel')}
                   </button>
                 </div>
               </>
             ) : (
               <div className="p-6 text-sm text-benz-secondary">
-                {loading ? 'Loading templates…' : 'Select a template to preview.'}
+                {loading ? t('loadingTemplates') : t('selectTemplate')}
               </div>
             )}
           </div>

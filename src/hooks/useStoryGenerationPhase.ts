@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-/** Rotating status copy while Grok generates a warranty story (scoring runs separately). */
+const PHASE_THRESHOLDS_MS = [0, 2_000, 6_000] as const;
+const PHASE_KEYS = ['phaseThinking', 'phaseWriting', 'phasePolishing'] as const;
+
+/** English fallbacks for unit tests / non-i18n callers. */
 export const STORY_GENERATION_PHASES = [
   'Thinking…',
   'Writing story…',
   'Polishing narrative…',
 ] as const;
 
-const PHASE_THRESHOLDS_MS = [0, 2_000, 6_000] as const;
-
 export function useStoryGenerationPhase(active: boolean): { message: string; progress: number } {
+  const { t } = useTranslation('line');
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -26,20 +29,18 @@ export function useStoryGenerationPhase(active: boolean): { message: string; pro
     return () => clearInterval(timer);
   }, [active]);
 
-  if (!active) {
-    return { message: STORY_GENERATION_PHASES[0], progress: 0 };
-  }
-
   let phaseIndex = 0;
-  for (let i = PHASE_THRESHOLDS_MS.length - 1; i >= 0; i--) {
-    if (elapsedMs >= PHASE_THRESHOLDS_MS[i]) {
-      phaseIndex = i;
-      break;
+  if (active) {
+    for (let i = PHASE_THRESHOLDS_MS.length - 1; i >= 0; i--) {
+      if (elapsedMs >= PHASE_THRESHOLDS_MS[i]) {
+        phaseIndex = i;
+        break;
+      }
     }
   }
 
   // Ease toward 92% so the bar keeps moving without implying false completion.
-  const progress = Math.min(92, 6 + elapsedMs / 850);
+  const progress = active ? Math.min(92, 6 + elapsedMs / 850) : 0;
 
-  return { message: STORY_GENERATION_PHASES[phaseIndex], progress };
+  return { message: t(PHASE_KEYS[phaseIndex]), progress };
 }

@@ -18,6 +18,26 @@
   "error": "Algo salió mal",
   "networkError": "Error de red — revise la conexión e intente de nuevo",
   "updating": "Actualizando…",
-  "technician": "Técnico"
+  "technician": "Técnico",
+  "vehicle": "Vehículo",
+  "vehicleTbd": "Vehículo por definir",
+  "engine": "Motor",
+  "customer": "Cliente",
+  "advisor": "Asesor",
+  "vin": "VIN",
+  "mileageUnit": "mi",
+  "clear": "Borrar",
+  "gallery": "Galería",
+  "add": "Agregar",
+  "offlineBanner": "Sin red — las notas escritas están a salvo. Reconéctese para generar historias o sincronizar escaneos.",
+  "lineCount_one": "{{count}} línea",
+  "lineCount_other": "{{count}} líneas",
+  "deleteRoAria": "Eliminar {{roNumber}}",
+  "loadingRoAria": "Cargando orden de reparación",
+  "maintenance": "Mantenimiento",
+  "characters": "{{count}} caracteres",
+  "moreCodes": "+{{count}} códigos más",
+  "guided": "Guiadas",
+  "meas": "Med",
+  "loadErrorHint": "Si esto continúa, revise el Wi‑Fi del taller o pida a su gerente que verifique que Merlinus esté en línea."
 }
-

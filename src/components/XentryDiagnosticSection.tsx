@@ -1,6 +1,7 @@
 'use client';
 
 import { Camera, FolderOpen, Loader2, Sparkles, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DiagnosticPhotoGrid } from '@/components/DiagnosticPhotoGrid';
 import { ExtractedDataPreview } from '@/components/ExtractedDataPreview';
 import { XentryImageGallery } from '@/components/XentryImageGallery';
@@ -26,8 +27,8 @@ interface XentryDiagnosticSectionProps {
 }
 
 export function XentryDiagnosticSection({
-  title = 'XENTRY / Diagnostic Images',
-  hint = 'Capture Quick Test screens, fault codes, guided tests, voltmeter readings, and wiring diagrams. Each photo saves immediately — tap Process when ready to run AI extraction.',
+  title,
+  hint,
   savedImages,
   pendingImages,
   imagesNeedingAnalysisCount,
@@ -43,14 +44,18 @@ export function XentryDiagnosticSection({
   onDeletePendingImage,
   onDeleteSavedImage,
 }: XentryDiagnosticSectionProps) {
+  const { t } = useTranslation('line');
+  const { t: tCommon } = useTranslation('common');
+  const resolvedTitle = title ?? t('xentryTitle');
+  const resolvedHint = hint ?? t('diagnosticHint');
   const hasPending = pendingImages.length > 0;
   const hasSaved = savedImages.length > 0;
   const canProcess = imagesNeedingAnalysisCount > 0 && !pendingImages.some((img) => img.uploadStatus === 'uploading');
 
   return (
     <div className="benz-card benz-diagnostic-card p-5 min-w-0 w-full">
-      <div className="benz-section-title mb-1">{title}</div>
-      <p className="benz-hint mb-4 leading-relaxed">{hint}</p>
+      <div className="benz-section-title mb-1">{resolvedTitle}</div>
+      <p className="benz-hint mb-4 leading-relaxed">{resolvedHint}</p>
 
       <div className={`space-y-2 mb-3${isProcessing ? ' opacity-60 pointer-events-none' : ''}`}>
         <button
@@ -60,7 +65,7 @@ export function XentryDiagnosticSection({
           className="secondary-btn w-full h-13 flex items-center justify-center gap-2.5 text-sm font-medium touch-target disabled:opacity-50"
         >
           <Camera size={18} />
-          {hasSaved ? 'Add another diagnostic photo' : 'Take diagnostic photo'}
+          {hasSaved ? t('addAnotherPhoto') : t('takePhoto')}
         </button>
         <button
           type="button"
@@ -69,7 +74,7 @@ export function XentryDiagnosticSection({
           className="secondary-btn w-full h-11 flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50"
         >
           <FolderOpen size={18} />
-          Add from gallery
+          {t('addFromGallery')}
         </button>
       </div>
 
@@ -81,7 +86,7 @@ export function XentryDiagnosticSection({
             className="primary-btn flex-[2] h-13 flex items-center justify-center gap-2 text-sm font-semibold touch-target"
           >
             <Sparkles size={18} />
-            Process images ({imagesNeedingAnalysisCount})
+            {t('processImages', { count: imagesNeedingAnalysisCount })}
           </button>
           {hasPending && (
             <button
@@ -90,7 +95,7 @@ export function XentryDiagnosticSection({
               className="benz-danger-btn flex-1 h-13 flex items-center justify-center gap-2 text-sm"
             >
               <Trash2 size={18} />
-              Clear
+              {tCommon('clear')}
             </button>
           )}
         </div>
@@ -99,13 +104,13 @@ export function XentryDiagnosticSection({
       {isProcessing && (
         <div className="benz-card p-4 mb-3 border border-benz-accent/20">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="benz-section-title text-sm">Diagnostic extraction</div>
+            <div className="benz-section-title text-sm">{t('diagnosticExtraction')}</div>
             <button
               type="button"
               onClick={onCancelProcessing}
               className="text-xs font-semibold text-benz-amber hover:opacity-80"
             >
-              Cancel
+              {tCommon('cancel')}
             </button>
           </div>
           <div className="benz-progress-track mb-3">
@@ -113,7 +118,7 @@ export function XentryDiagnosticSection({
           </div>
           <p className="text-xs text-benz-secondary flex items-center gap-2">
             <Loader2 size={14} className="animate-spin shrink-0" />
-            {statusMessage || `Analyzing… ${ocrProgress}%`}
+            {statusMessage || t('analyzing', { progress: ocrProgress })}
           </p>
         </div>
       )}
@@ -122,8 +127,8 @@ export function XentryDiagnosticSection({
         <div className="benz-card p-4 mb-3">
           <div className="benz-section-title mb-3 text-sm">
             {isProcessing
-              ? 'Processing diagnostic photos'
-              : `Saving — ${pendingImages.length} photo${pendingImages.length === 1 ? '' : 's'} in queue`}
+              ? t('processingPhotos')
+              : t('savingPhotos', { count: pendingImages.length })}
           </div>
           <DiagnosticPhotoGrid
             images={pendingImages}
@@ -135,7 +140,7 @@ export function XentryDiagnosticSection({
 
       {hasSaved && (
         <>
-          <div className="benz-section-title mb-2 text-sm">Saved diagnostic photos</div>
+          <div className="benz-section-title mb-2 text-sm">{t('savedPhotos')}</div>
           <XentryImageGallery images={savedImages} onDeleteImage={onDeleteSavedImage} />
         </>
       )}

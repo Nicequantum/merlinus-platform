@@ -58,7 +58,7 @@ import {
   applyAllTechnicianDetails,
   applyTechnicianDetail,
 } from '@/lib/applyTechnicianDetails';
-import { GENERATE_STORY_BUTTON_LABEL, MI_PRODUCT_LABEL } from '@/lib/grokModels';
+import { MI_PRODUCT_LABEL } from '@/lib/grokModels';
 
 interface LineViewProps {
   ro: RepairOrder;
@@ -138,9 +138,13 @@ export function LineView({
   onCertifyAndSaveStory,
 }: LineViewProps) {
   const { t } = useTranslation('line');
+  const { t: tCommon } = useTranslation('common');
   const isCustomerPayLine = isCustomerPayRepairLine(line);
-  const vehicleSummary = [ro.vehicle.year, ro.vehicle.make, ro.vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
-  const mileageStr = ro.vehicle.mileageIn ? `${ro.vehicle.mileageIn} mi` : '';
+  const vehicleSummary =
+    [ro.vehicle.year, ro.vehicle.make, ro.vehicle.model].filter(Boolean).join(' ') || t('vehicleFallback');
+  const mileageStr = ro.vehicle.mileageIn
+    ? `${ro.vehicle.mileageIn} ${tCommon('mileageUnit')}`
+    : '';
   const storyLen = line.warrantyStory?.length ?? 0;
   const generationPhase = useStoryGenerationPhase(isGenerating);
   const advisorName = ro.serviceAdvisor?.displayName || ro.serviceAdvisorName;
@@ -180,33 +184,29 @@ export function LineView({
   }, [lastGeneratedStoryText, line.warrantyStory]);
 
   const defaultTemplateTitle = useMemo(() => {
-    const base = line.description?.trim() || 'Warranty Story';
+    const base = line.description?.trim() || t('defaultTemplateTitle');
     return base.length > 80 ? `${base.slice(0, 77)}…` : base;
-  }, [line.description]);
+  }, [line.description, t]);
 
   const handleApplyTechnicianDetail = (detail: TechnicianDetailPrompt) => {
     const patch = applyTechnicianDetail(line, detail);
     if (Object.keys(patch).length === 0) {
-      toast.message('Nothing to add for this item.');
+      toast.message(t('nothingToAdd'));
       return;
     }
     // Immediate persist so regenerate (server) sees notes + story corrections.
     onUpdateLine(patch, { immediate: true });
-    toast.success(
-      'Detail woven into the story — tap Audit Story to refresh the score (optional: Generate to polish).'
-    );
+    toast.success(t('detailWoven'));
   };
 
   const handleApplyAllTechnicianDetails = (details: TechnicianDetailPrompt[]) => {
     const patch = applyAllTechnicianDetails(line, details);
     if (Object.keys(patch).length === 0) {
-      toast.message('Those details are already in the story/notes.');
+      toast.message(t('detailsAlreadyIn'));
       return;
     }
     onUpdateLine(patch, { immediate: true });
-    toast.success(
-      `Wove ${details.length} correction${details.length === 1 ? '' : 's'} into the story at the correct steps — tap Audit Story now to refresh the score.`
-    );
+    toast.success(t('detailsWoven', { count: details.length }));
   };
 
   const handleInsertTemplate = (content: string, _title: string, category: TemplateCategory) => {
@@ -220,11 +220,11 @@ export function LineView({
   const handleCopy = async () => {
     if (certificationActionsLocked) {
       if (!isCustomerPayLine && storyComplianceState === 'not-audited') {
-        toast.error('Run Audit Story before copying to CDK');
+        toast.error(t('runAuditBeforeCopy'));
       } else if (!isCustomerPayLine && storyComplianceState === 'audit-stale') {
-        toast.error('Re-run Audit Story — the story changed since the last audit');
+        toast.error(t('rerunAuditBeforeCopy'));
       } else if (!isCustomerPayLine && !isStoryCertified) {
-        toast.error('Certify the story before copying to CDK');
+        toast.error(t('certifyBeforeCopy'));
       }
       return;
     }
@@ -233,11 +233,11 @@ export function LineView({
     try {
       const { wasModified } = await copyFormattedStory(ro, line, storyText);
       if (wasModified) {
-        toast.message('Story cleaned for CDK compatibility');
+        toast.message(t('storyCleanedCdk'));
       }
-      toast.success('Story copied — ready to paste into CDK');
+      toast.success(t('storyCopied'));
     } catch {
-      toast.error('Clipboard copy failed');
+      toast.error(t('clipboardFailed'));
     }
   };
 
@@ -265,19 +265,23 @@ export function LineView({
   return (
     <div className="benz-page pb-12">
       <button onClick={onBack} className="benz-nav-back">
-        <ArrowLeft size={18} /> Back to RO
+        <ArrowLeft size={18} /> {t('backToRo')}
       </button>
 
       <div className="benz-vehicle-bar benz-vehicle-bar-luxury mb-8">
         <div className="text-sm font-semibold tracking-tight text-benz-primary">
           {vehicleSummary}
           {mileageStr ? ` · ${mileageStr}` : ''}
-          {ro.vehicle.vin ? ` · VIN ${ro.vehicle.vin.slice(0, 10)}…` : ''}
+          {ro.vehicle.vin ? ` · ${tCommon('vin')} ${ro.vehicle.vin.slice(0, 10)}…` : ''}
         </div>
-        {ro.vehicle.engine && <div className="text-xs text-benz-secondary mt-1">Engine: {ro.vehicle.engine}</div>}
+        {ro.vehicle.engine && (
+          <div className="text-xs text-benz-secondary mt-1">
+            {tCommon('engine')}: {ro.vehicle.engine}
+          </div>
+        )}
         {ro.complaints && ro.complaints.length > 0 && (
           <div className="mt-2 text-xs text-benz-secondary leading-relaxed">
-            Complaints:{' '}
+            {t('complaints')}:{' '}
             {ro.complaints
               .map((c, i) => `${complaintLabel(ro.complaintLabels, i)}. ${c.slice(0, 42)}${c.length > 42 ? '…' : ''}`)
               .join('  ')}
@@ -286,14 +290,14 @@ export function LineView({
       </div>
 
       <div className="mb-6">
-        <label className="benz-label mb-2">Line {line.lineNumber} description</label>
+        <label className="benz-label mb-2">{t('descriptionLabel', { number: line.lineNumber })}</label>
         <div className="benz-line-title-field flex gap-2 items-center min-w-0">
           <StableInput
             fieldKey={`${line.id}-description`}
             value={line.description}
             onChange={(v) => onUpdateLine({ description: v })}
             showVoice
-            placeholder="Repair line description"
+            placeholder={t('descriptionPlaceholder')}
             className="benz-line-title-input flex-1 min-w-0"
           />
         </div>
@@ -331,7 +335,8 @@ export function LineView({
         </div>
 
         <XentryDiagnosticSection
-          title="Diagnostic Evidence"
+          title={t('diagnosticTitle')}
+          hint={t('diagnosticHint')}
           savedImages={xentrySavedImages}
           pendingImages={xentryPendingImages}
           imagesNeedingAnalysisCount={xentryImagesNeedingAnalysisCount}
@@ -352,10 +357,10 @@ export function LineView({
           <div className="benz-line-aside border-benz-accent/25 bg-benz-accent/5">
             <div className="flex items-center gap-2 text-benz-blue text-xs font-semibold">
               <Sparkles size={14} />
-              Advisor Intelligence Active
+              {t('advisorIntelTitle')}
             </div>
             <p className="text-xs text-benz-secondary mt-2 leading-relaxed">
-              Story generation will match {advisorName}&apos;s complaint phrasing style for this RO.
+              {t('advisorIntelBody', { name: advisorName })}
             </p>
           </div>
         )}
@@ -369,10 +374,8 @@ export function LineView({
             <div className="benz-cp-instant-banner flex items-start gap-3 p-4 rounded-xl border border-benz-green/30 bg-benz-green/8">
               <Zap size={20} className="text-benz-green shrink-0 mt-0.5" />
               <div>
-                <div className="text-sm font-semibold text-benz-primary">Customer Pay — instant story</div>
-                <p className="text-xs text-benz-secondary mt-1 leading-relaxed">
-                  Pre-written narrative applied. No AI generation or quality audit required — edit and copy to CDK.
-                </p>
+                <div className="text-sm font-semibold text-benz-primary">{t('cpInstantTitle')}</div>
+                <p className="text-xs text-benz-secondary mt-1 leading-relaxed">{t('cpInstantBody')}</p>
               </div>
             </div>
           ) : (
@@ -389,7 +392,7 @@ export function LineView({
                     {generationPhase.message}
                   </>
                 ) : (
-                  GENERATE_STORY_BUTTON_LABEL
+                  t('generateMi', { mi: MI_PRODUCT_LABEL })
                 )}
               </button>
               {isGenerating && (
@@ -407,20 +410,18 @@ export function LineView({
               disabled={isGenerating || isScoring || isReviewing}
               className="benz-tertiary-link disabled:opacity-50"
             >
-              {isCustomerPayLine ? 'Change Customer Pay template' : 'Browse template library'}
+              {isCustomerPayLine ? t('changeCpTemplate') : t('browseTemplates')}
             </button>
             {isCustomerPayLine && onClearCustomerPayMode && (
               <div className="benz-cp-switch-banner w-full">
-                <p className="text-xs text-benz-secondary leading-relaxed">
-                  Need a full warranty narrative with AI quality review?
-                </p>
+                <p className="text-xs text-benz-secondary leading-relaxed">{t('needWarrantyNarrative')}</p>
                 <button
                   type="button"
                   onClick={() => void onClearCustomerPayMode()}
                   disabled={isGenerating || isScoring || isReviewing}
                   className="secondary-btn benz-btn-accent-outline h-10 w-full mt-2 text-sm font-medium disabled:opacity-50"
                 >
-                  Switch to warranty AI
+                  {t('switchToWarrantyAi')}
                 </button>
               </div>
             )}
@@ -431,15 +432,15 @@ export function LineView({
                 disabled={isGenerating || isScoring || isReviewing}
                 className="benz-tertiary-link text-benz-green disabled:opacity-50"
               >
-                Save as template
+                {t('saveAsTemplate')}
               </button>
             )}
           </div>
 
           <p className="benz-hint text-center">
             {isCustomerPayLine
-              ? 'Customer Pay templates skip AI — pick another template or edit the story below.'
-              : `Generate ${MI_PRODUCT_LABEL}–ready stories, review with AI, edit, then save to grow your knowledge base.`}
+              ? t('cpTemplatesHint')
+              : t('generateHint', { mi: MI_PRODUCT_LABEL })}
           </p>
           {isGenerating && !isCustomerPayLine && !line.warrantyStory?.trim() && (
             <StoryQualityLoadingPanel
@@ -453,13 +454,11 @@ export function LineView({
         {!line.warrantyStory?.trim() && (
           <BenzEmptyState
             icon={isCustomerPayLine ? Zap : Sparkles}
-            title={isCustomerPayLine ? 'No Customer Pay story yet' : 'No warranty story yet'}
-            hint={
-              isCustomerPayLine
-                ? 'Pick an instant template from the library — no AI wait time.'
-                : 'Generate with Grok or browse templates to start your 3 C\'s narrative.'
+            title={isCustomerPayLine ? t('noCpStoryTitle') : t('noWarrantyStoryTitle')}
+            hint={isCustomerPayLine ? t('noCpStoryHint') : t('noWarrantyStoryHint')}
+            actionLabel={
+              isCustomerPayLine ? t('browseCpTemplates') : t('generateMi', { mi: MI_PRODUCT_LABEL })
             }
-            actionLabel={isCustomerPayLine ? 'Browse Customer Pay templates' : GENERATE_STORY_BUTTON_LABEL}
             onAction={() => (isCustomerPayLine ? setShowTemplateLibrary(true) : handleGenerateStory())}
             className="benz-story-empty-state"
           />
@@ -470,23 +469,23 @@ export function LineView({
             <div className="flex justify-between items-start gap-3 mb-4 min-w-0">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className="benz-section-title tracking-[0.12em]">
-                  {isCustomerPayLine ? 'Customer Pay Story' : "Warranty Story · 3 C's"}
+                  {isCustomerPayLine ? t('cpStoryTitle') : t('warrantyStoryTitle')}
                 </div>
                 {isCustomerPayLine && (
                   <span className="benz-cp-badge">
-                    <FileText size={12} /> Customer Pay · Instant
+                    <FileText size={12} /> {t('cpBadge')}
                   </span>
                 )}
               </div>
               {storyLen > 0 && (
                 <div className="text-xs font-mono font-medium text-benz-muted">
-                  {storyLen.toLocaleString()} characters
+                  {tCommon('characters', { count: storyLen.toLocaleString() })}
                 </div>
               )}
             </div>
             {cdkSanitizedNotice && (
               <div className="text-xs text-benz-amber mb-3 bg-benz-amber/10 border border-benz-amber/25 rounded-lg px-3 py-2">
-                Story cleaned for CDK compatibility
+                {t('storyCleanedCdk')}
               </div>
             )}
             <div className="benz-complaint-field">
@@ -500,7 +499,7 @@ export function LineView({
                   onUpdateLine({ warrantyStory: v });
                 }}
                 className="benz-textarea text-[15px] leading-relaxed mb-4 min-h-[220px]"
-                placeholder="Edit warranty story before DMS submission..."
+                placeholder={t('storyPlaceholder')}
               />
             </div>
             {!isCustomerPayLine && Boolean(line.warrantyStory?.trim()) && (
@@ -554,16 +553,16 @@ export function LineView({
                   title={
                     certificationActionsLocked
                       ? storyComplianceState === 'not-audited'
-                        ? 'Run Audit Story first'
+                        ? t('runAuditFirst')
                         : storyComplianceState === 'audit-stale'
-                          ? 'Re-run Audit Story — story changed'
-                          : 'Certify the story to unlock copy'
+                          ? t('rerunAuditChanged')
+                          : t('certifyToUnlockCopy')
                       : undefined
                   }
                   className="primary-btn w-full h-13 flex items-center justify-center gap-2.5 text-sm touch-target disabled:opacity-50"
                 >
                   <Copy size={18} />
-                  Copy for CDK
+                  {t('copyForCdk')}
                 </button>
                 {showCertificationSection && (
                   <button
@@ -579,11 +578,11 @@ export function LineView({
                   >
                     {isCertifyingStory ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" /> Saving…
+                        <Loader2 size={18} className="animate-spin" /> {tCommon('saving')}
                       </>
                     ) : (
                       <>
-                        <Save size={18} /> Save
+                        <Save size={18} /> {tCommon('save')}
                       </>
                     )}
                   </button>
@@ -601,11 +600,11 @@ export function LineView({
                     >
                       {isScoring ? (
                         <>
-                          <Loader2 size={16} className="animate-spin" /> Auditing…
+                          <Loader2 size={16} className="animate-spin" /> {t('auditing')}
                         </>
                       ) : (
                         <>
-                          <Shield size={16} /> Audit Story
+                          <Shield size={16} /> {t('auditStory')}
                         </>
                       )}
                     </button>
@@ -616,7 +615,7 @@ export function LineView({
                       className="secondary-btn h-12 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
                     >
                       {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                      Regenerate
+                      {t('regenerate')}
                     </button>
                   </div>
                   <button
@@ -627,11 +626,11 @@ export function LineView({
                   >
                     {isReviewing ? (
                       <>
-                        <Loader2 size={16} className="animate-spin" /> Reviewing…
+                        <Loader2 size={16} className="animate-spin" /> {t('reviewing')}
                       </>
                     ) : (
                       <>
-                        <Sparkles size={16} /> Review with AI
+                        <Sparkles size={16} /> {t('reviewWithAi')}
                       </>
                     )}
                   </button>
@@ -644,7 +643,7 @@ export function LineView({
                   onClick={() => setShowTemplateLibrary(true)}
                   className="benz-tertiary-btn"
                 >
-                  <BookOpen size={14} /> Templates
+                  <BookOpen size={14} /> {t('templates')}
                 </button>
                 {canSaveAsTemplate && (
                   <button
@@ -652,11 +651,11 @@ export function LineView({
                     onClick={() => setShowSaveTemplate(true)}
                     className="benz-tertiary-btn text-benz-green"
                   >
-                    <BookmarkPlus size={14} /> Save template
+                    <BookmarkPlus size={14} /> {t('saveTemplate')}
                   </button>
                 )}
                 <button type="button" onClick={handlePdf} className="benz-tertiary-btn">
-                  <Download size={14} /> Export PDF
+                  <Download size={14} /> {t('exportPdf')}
                 </button>
               </div>
             </div>

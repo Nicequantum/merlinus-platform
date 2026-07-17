@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { PreviousRepairOrdersSection } from '@/components/PreviousRepairOrdersSection';
 import { RepairOrderList } from '@/components/RepairOrderList';
 import type { RepairOrderSummary } from '@/types';
@@ -38,16 +39,17 @@ export function RepairOrderHomeLists({
   onOpenRO,
   onDeleteRO,
 }: RepairOrderHomeListsProps) {
+  const { t } = useTranslation('home');
   const isSearching = searchTerm.trim().length > 0;
 
   if (isSearching) {
     return (
       <div>
-        <div className="benz-section-title mb-3 px-0.5">Search Results</div>
+        <div className="benz-section-title mb-3 px-0.5">{t('searchResults')}</div>
         {searchLoading && searchResults.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-benz-secondary">
             <Loader2 size={18} className="animate-spin text-benz-blue" aria-hidden />
-            Searching repair orders…
+            {t('searchingRos')}
           </div>
         ) : (
           <RepairOrderList
@@ -55,8 +57,8 @@ export function RepairOrderHomeLists({
             openingROId={openingROId}
             onOpenRO={onOpenRO}
             onDeleteRO={onDeleteRO}
-            emptyMessage="No repair orders match your search."
-            emptyHint="Try RO number, model, year, or VIN."
+            emptyMessage={t('noSearchMatch')}
+            emptyHint={t('noSearchHint')}
           />
         )}
       </div>
@@ -65,14 +67,14 @@ export function RepairOrderHomeLists({
 
   return (
     <>
-      <div className="benz-section-title mb-3 px-0.5">Today&apos;s Repair Orders</div>
+      <div className="benz-section-title mb-3 px-0.5">{t('todaysRepairOrders')}</div>
       <RepairOrderList
         repairOrders={todayROs}
         openingROId={openingROId}
         onOpenRO={onOpenRO}
         onDeleteRO={onDeleteRO}
-        emptyMessage="No repair orders for today yet."
-        emptyHint="Scan a repair order or create one manually to get started."
+        emptyMessage={t('noTodayYet')}
+        emptyHint={t('noTodayHint')}
       />
       <PreviousRepairOrdersSection
         repairOrders={previousROs}

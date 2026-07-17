@@ -2,6 +2,7 @@
 
 import { WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const CONNECTIVITY_CHECK_TIMEOUT_MS = 4_000;
 
@@ -19,6 +20,7 @@ async function verifyServerReachable(): Promise<boolean> {
 }
 
 export function OfflineBanner() {
+  const { t } = useTranslation('common');
   const [offline, setOffline] = useState(false);
   const checkSeqRef = useRef(0);
 
@@ -61,7 +63,7 @@ export function OfflineBanner() {
   return (
     <div className="benz-offline-banner" role="status" aria-live="polite">
       <WifiOff size={16} aria-hidden />
-      <span>No network — typed notes are safe. Reconnect to generate stories or sync scans.</span>
+      <span>{t('offlineBanner')}</span>
     </div>
   );
 }

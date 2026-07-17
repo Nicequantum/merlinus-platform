@@ -1,7 +1,8 @@
 'use client';
 
-import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 
 interface LoadErrorScreenProps {
   title: string;
@@ -12,6 +13,7 @@ interface LoadErrorScreenProps {
 
 /** Technician-friendly retry screen for failed initial data loads. */
 export function LoadErrorScreen({ title, message, onRetry, retrying = false }: LoadErrorScreenProps) {
+  const { t } = useTranslation('common');
   return (
     <div className="app-container flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
       <ApexLogoMark size="md" className="mb-4" title="Apex" />
@@ -27,11 +29,9 @@ export function LoadErrorScreen({ title, message, onRetry, retrying = false }: L
         className="primary-btn h-13 px-8 flex items-center justify-center gap-2.5 touch-target disabled:opacity-60"
       >
         <RefreshCw size={18} className={retrying ? 'animate-spin' : ''} />
-        {retrying ? 'Retrying…' : 'Try again'}
+        {retrying ? t('retrying') : t('retry')}
       </button>
-      <p className="benz-hint mt-6 max-w-xs">
-        If this keeps happening, check Wi‑Fi in the service bay or ask your manager to verify Merlinus is online.
-      </p>
+      <p className="benz-hint mt-6 max-w-xs">{t('loadErrorHint')}</p>
     </div>
   );
 }

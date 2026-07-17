@@ -87,8 +87,8 @@ export function HomeView({
             type="button"
             onClick={onOpenMaintenance}
             className="benz-icon-btn touch-target"
-            aria-label="Maintenance"
-            title="Maintenance"
+            aria-label={t('maintenance')}
+            title={t('maintenance')}
           >
             <Wrench size={22} />
           </button>
@@ -140,7 +140,7 @@ export function HomeView({
                 onClick={onOpenMaintenance}
               >
                 <Wrench size={16} className="inline mr-2" />
-                Maintenance
+                {t('maintenance')}
               </button>
             ) : null}
           </div>

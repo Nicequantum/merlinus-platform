@@ -1,6 +1,7 @@
 'use client';
 
 import { FileText, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { isCustomerPayRepairLine } from '@/lib/customerPayLine';
 import type { RepairLine, RepairLineSummary } from '@/types';
 
@@ -20,6 +21,7 @@ function lineHasStory(line: StoryStatusLine): boolean {
 
 /** Distinguishes instant Customer Pay stories from AI-generated warranty stories. */
 export function StoryStatusBadge({ lines, compact = false }: StoryStatusBadgeProps) {
+  const { t } = useTranslation('story');
   const withStory = lines.filter((l) => lineHasStory(l));
   if (withStory.length === 0) return null;
 
@@ -30,7 +32,7 @@ export function StoryStatusBadge({ lines, compact = false }: StoryStatusBadgePro
     return (
       <span className={`benz-story-badge benz-story-badge-cp ${compact ? 'benz-story-badge-compact' : ''}`}>
         <FileText size={12} aria-hidden />
-        {compact ? 'Instant' : `Instant · ${cpCount}`}
+        {compact ? t('badgeInstant') : t('badgeInstantCount', { count: cpCount })}
       </span>
     );
   }
@@ -39,14 +41,14 @@ export function StoryStatusBadge({ lines, compact = false }: StoryStatusBadgePro
     return (
       <span className={`benz-story-badge benz-story-badge-ai ${compact ? 'benz-story-badge-compact' : ''}`}>
         <Sparkles size={12} aria-hidden />
-        {compact ? 'AI Story' : `AI Story · ${aiCount}`}
+        {compact ? t('badgeAi') : t('badgeAiCount', { count: aiCount })}
       </span>
     );
   }
 
   return (
     <span className={`benz-story-badge benz-story-badge-mixed ${compact ? 'benz-story-badge-compact' : ''}`}>
-      {cpCount} instant · {aiCount} AI
+      {t('badgeMixed', { cp: cpCount, ai: aiCount })}
     </span>
   );
 }

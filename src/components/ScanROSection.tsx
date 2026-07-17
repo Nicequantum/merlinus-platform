@@ -1,4 +1,5 @@
 import { Camera, FolderOpen, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DiagnosticPhotoGrid } from '@/components/DiagnosticPhotoGrid';
 import type { PendingImage } from '@/types';
 
@@ -30,14 +31,18 @@ export function ScanROSection({
   onCancelScan,
   onDeletePendingPage,
   onCreateManualRO,
-  scanButtonLabel = 'Scan RO',
+  scanButtonLabel,
   compact = false,
 }: ScanROSectionProps) {
+  const { t } = useTranslation('home');
+  const { t: tCommon } = useTranslation('common');
   const buttonHeight = compact ? 'h-11' : 'h-13';
   const buttonText = compact ? 'text-xs' : 'text-sm';
   const hasPending = pendingROImages.length > 0;
   const stillUploading = pendingROImages.some((img) => img.uploadStatus === 'uploading');
   const canProcess = hasPending && !stillUploading;
+  const pageCount = pendingROImages.length;
+  const resolvedScanLabel = scanButtonLabel ?? t('scanRo');
 
   return (
     <div className="mb-5">
@@ -48,7 +53,7 @@ export function ScanROSection({
             className={`primary-btn w-full ${buttonHeight} flex items-center justify-center gap-2 ${buttonText} font-semibold touch-target`}
           >
             <Camera size={compact ? 16 : 18} />
-            {hasPending ? 'Add page' : scanButtonLabel}
+            {hasPending ? t('addPage') : resolvedScanLabel}
           </button>
           <div className="flex gap-2">
             <button
@@ -56,14 +61,14 @@ export function ScanROSection({
               className={`secondary-btn flex-1 ${compact ? 'h-10' : 'h-11'} flex items-center justify-center gap-2 ${buttonText} font-medium`}
             >
               <FolderOpen size={compact ? 16 : 18} />
-              Gallery
+              {tCommon('gallery')}
             </button>
             <button
               onClick={onCreateManualRO}
               className={`benz-tertiary-btn flex-1 ${compact ? 'h-10' : 'h-11'}`}
             >
               <Plus size={compact ? 16 : 18} />
-              {compact ? 'Manual' : 'Manual entry'}
+              {compact ? t('manual') : t('manualEntry')}
             </button>
           </div>
         </div>
@@ -76,7 +81,7 @@ export function ScanROSection({
             className={`primary-btn w-full ${buttonHeight} flex items-center justify-center gap-2 ${buttonText} font-semibold opacity-60`}
           >
             <Loader2 size={compact ? 16 : 18} className="animate-spin" />
-            Scanning… {ocrProgress}%
+            {t('scanningProgress', { progress: ocrProgress })}
           </button>
         </div>
       )}
@@ -89,14 +94,14 @@ export function ScanROSection({
             className={`primary-btn flex-[2] ${buttonHeight} flex items-center justify-center gap-2 ${buttonText} font-semibold`}
           >
             <Sparkles size={compact ? 16 : 18} />
-            Process RO ({pendingROImages.length} page{pendingROImages.length === 1 ? '' : 's'})
+            {t('processRo', { count: pageCount })}
           </button>
           <button
             onClick={onClearPendingScan}
             className={`benz-danger-btn flex-1 ${buttonHeight} flex items-center justify-center gap-2 ${buttonText}`}
           >
             <Trash2 size={compact ? 16 : 18} />
-            Clear
+            {tCommon('clear')}
           </button>
         </div>
       )}
@@ -104,15 +109,15 @@ export function ScanROSection({
       {isProcessingOCR && (
         <div className="benz-card p-4 mb-3">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="benz-section-title">Scan in progress</div>
+            <div className="benz-section-title">{t('scanInProgress')}</div>
             <button onClick={onCancelScan} className="text-xs font-semibold text-benz-amber hover:opacity-80">
-              Cancel
+              {tCommon('cancel')}
             </button>
           </div>
           <div className="benz-progress-track mb-3">
             <div className="benz-progress-fill" style={{ width: `${Math.max(ocrProgress, 4)}%` }} />
           </div>
-          <p className="text-xs text-benz-secondary">{scanStatusMessage || 'Processing documents…'}</p>
+          <p className="text-xs text-benz-secondary">{scanStatusMessage || t('processingDocuments')}</p>
         </div>
       )}
 
@@ -120,10 +125,10 @@ export function ScanROSection({
         <div className="benz-card p-4 mb-3">
           <div className="benz-section-title mb-3">
             {isProcessingOCR
-              ? `Processing ${pendingROImages.length} page${pendingROImages.length === 1 ? '' : 's'}`
+              ? t('processingPages', { count: pageCount })
               : stillUploading
-                ? `Saving — ${pendingROImages.length} page${pendingROImages.length === 1 ? '' : 's'}`
-                : `Ready — ${pendingROImages.length} page${pendingROImages.length === 1 ? '' : 's'} saved`}
+                ? t('savingPages', { count: pageCount })
+                : t('readyPages', { count: pageCount })}
           </div>
           <DiagnosticPhotoGrid
             images={pendingROImages}
@@ -134,10 +139,7 @@ export function ScanROSection({
       )}
 
       {!isProcessingOCR && !hasPending && (
-        <p className="text-center benz-hint -mt-1 mb-2 px-2">
-          Capture each RO page (usually 3–5). Each page saves immediately. Use even lighting and avoid shadows on
-          colored paper. Add from Gallery for PDFs. Tap Process RO when all pages are captured.
-        </p>
+        <p className="text-center benz-hint -mt-1 mb-2 px-2">{t('scanHint')}</p>
       )}
     </div>
   );

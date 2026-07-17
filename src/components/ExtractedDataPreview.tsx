@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import type { ExtractedData } from '@/types';
 import { normalizeExtractedData } from '@/utils/diagnosticParser';
 
@@ -8,6 +9,8 @@ interface ExtractedDataPreviewProps {
 }
 
 export function ExtractedDataPreview({ data }: ExtractedDataPreviewProps) {
+  const { t } = useTranslation('line');
+  const { t: tCommon } = useTranslation('common');
   const extracted = normalizeExtractedData(data);
   const hasContent =
     extracted.faultCodes.length > 0 ||
@@ -19,7 +22,7 @@ export function ExtractedDataPreview({ data }: ExtractedDataPreviewProps) {
 
   return (
     <div className="benz-extracted-panel mt-3">
-      <div className="benz-section-title mb-2">Extracted from photos</div>
+      <div className="benz-section-title mb-2">{t('extractedTitle')}</div>
       {extracted.faultCodes.length > 0 && (
         <div className="space-y-1.5 mb-2">
           {extracted.faultCodes.slice(0, 4).map((fc) => (
@@ -30,16 +33,20 @@ export function ExtractedDataPreview({ data }: ExtractedDataPreviewProps) {
             </div>
           ))}
           {extracted.faultCodes.length > 4 && (
-            <div className="text-benz-muted">+{extracted.faultCodes.length - 4} more codes</div>
+            <div className="text-benz-muted">
+              {tCommon('moreCodes', { count: extracted.faultCodes.length - 4 })}
+            </div>
           )}
         </div>
       )}
       {extracted.guidedTests.length > 0 && (
-        <div className="text-benz-secondary">Guided: {extracted.guidedTests.slice(0, 2).join(' | ')}</div>
+        <div className="text-benz-secondary">
+          {tCommon('guided')}: {extracted.guidedTests.slice(0, 2).join(' | ')}
+        </div>
       )}
       {extracted.measurements.length > 0 && (
         <div className="text-benz-secondary mt-1">
-          Meas: {extracted.measurements[0].label}={extracted.measurements[0].value}
+          {tCommon('meas')}: {extracted.measurements[0].label}={extracted.measurements[0].value}
         </div>
       )}
     </div>

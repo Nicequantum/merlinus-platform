@@ -14,8 +14,8 @@ import {
   Target,
   Wrench,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { MI_PRODUCT_LABEL } from '@/lib/grokModels';
-import { technicianDetailActionLabel } from '@/lib/applyTechnicianDetails';
 import type { StoryQualityResult, StoryReviewResult, TechnicianDetailPrompt } from '@/types';
 
 interface StoryQualityPanelProps {
@@ -38,13 +38,6 @@ interface StoryQualityStaleProps {
   onAudit?: () => void;
 }
 
-const GRADE_LABELS: Record<StoryQualityResult['grade'], string> = {
-  excellent: 'MI 2.0 Ready',
-  strong: 'Strong — Minor Polish',
-  'needs-work': 'Needs Work',
-  'at-risk': 'At Risk',
-};
-
 function scoreTier(score: number): 'excellent' | 'strong' | 'needs-work' | 'at-risk' {
   if (score >= 90) return 'excellent';
   if (score >= 75) return 'strong';
@@ -57,16 +50,39 @@ function scoreRingClass(score: number): string {
   return `benz-score-${tier}`;
 }
 
+function detailActionLabel(
+  field: TechnicianDetailPrompt['field'],
+  t: (key: string) => string
+): string {
+  switch (field) {
+    case 'technicianNotes':
+      return t('addToStoryNotes');
+    case 'customerConcern':
+      return t('addToStoryConcern');
+    case 'diagnostic':
+      return t('addDiagnosticToStory');
+    case 'workflow':
+      return t('addWorkflowToStory');
+    default:
+      return t('addToStory');
+  }
+}
+
 export function StoryQualityLoadingPanel({ mode, statusMessage, progress = 0 }: StoryQualityLoadingProps) {
+  const { t } = useTranslation('story');
   const title =
-    mode === 'generating' ? 'Generating Story' : mode === 'scoring' ? 'MI Quality Audit' : 'AI Review Coaching';
+    mode === 'generating'
+      ? t('loadingGenerating')
+      : mode === 'scoring'
+        ? t('loadingScoring')
+        : t('loadingReviewing');
   const label =
     statusMessage ??
     (mode === 'generating'
-      ? 'Writing your warranty narrative…'
+      ? t('loadingWriting')
       : mode === 'scoring'
-        ? 'Scoring story against MI 2.0 audit criteria…'
-        : 'Generating detailed coaching feedback…');
+        ? t('loadingScoringBody')
+        : t('loadingReviewBody'));
 
   return (
     <div className="benz-card p-4">
@@ -87,17 +103,16 @@ export function StoryQualityLoadingPanel({ mode, statusMessage, progress = 0 }: 
 }
 
 export function StoryQualityStaleBanner({ onAudit }: StoryQualityStaleProps) {
+  const { t } = useTranslation('story');
   return (
     <div className="benz-card p-4 benz-alert-warn flex items-start gap-3">
       <AlertTriangle size={20} className="text-benz-amber shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs uppercase tracking-widest font-semibold text-benz-amber">Score Outdated</div>
-        <p className="text-sm text-benz-silver mt-1 leading-snug">
-          This story was edited after the last audit. Run Audit Story to refresh the MI quality score.
-        </p>
+        <div className="text-xs uppercase tracking-widest font-semibold text-benz-amber">{t('scoreOutdated')}</div>
+        <p className="text-sm text-benz-silver mt-1 leading-snug">{t('scoreOutdatedBody')}</p>
         {onAudit && (
           <button type="button" onClick={onAudit} className="mt-2.5 text-xs benz-link font-medium">
-            Audit Story →
+            {t('auditStoryArrow')}
           </button>
         )}
       </div>
@@ -112,9 +127,17 @@ export function StoryQualityPanel({
   onApplyTechnicianDetail,
   onApplyAllTechnicianDetails,
 }: StoryQualityPanelProps) {
+  const { t } = useTranslation('story');
   const [expanded, setExpanded] = useState(true);
   const [showReviewDetail, setShowReviewDetail] = useState(!!review);
   const [appliedIndexes, setAppliedIndexes] = useState<Set<number>>(() => new Set());
+
+  const gradeLabels: Record<StoryQualityResult['grade'], string> = {
+    excellent: t('gradeExcellent'),
+    strong: t('gradeStrong'),
+    'needs-work': t('gradeNeedsWork'),
+    'at-risk': t('gradeAtRisk'),
+  };
 
   useEffect(() => {
     setExpanded(true);
@@ -162,9 +185,9 @@ export function StoryQualityPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Shield size={14} className="text-benz-blue" />
-            <span className="benz-section-title">MI 2.0 Quality Score</span>
+            <span className="benz-section-title">{t('qualityScoreTitle')}</span>
             <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${ringClass}`}>
-              {GRADE_LABELS[quality.grade]}
+              {gradeLabels[quality.grade]}
             </span>
           </div>
           <p className="text-sm text-benz-silver mt-1.5 leading-snug">{quality.summary}</p>
@@ -182,17 +205,14 @@ export function StoryQualityPanel({
             quality.improvements.length === 0 &&
             quality.auditRisks.length === 0 &&
             details.length === 0 && (
-              <p className="text-sm text-benz-secondary leading-snug">
-                Detailed MI feedback did not load. Tap Audit Story again to refresh the green, yellow, and red
-                coaching sections.
-              </p>
+              <p className="text-sm text-benz-secondary leading-snug">{t('feedbackMissing')}</p>
             )}
 
           {details.length > 0 && (
             <div className="benz-alert-info rounded-xl p-3.5 border">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="text-xs uppercase tracking-wider font-semibold text-benz-blue flex items-center gap-1.5">
-                  <Wrench size={12} /> Add Technician Details
+                  <Wrench size={12} /> {t('addTechDetails')}
                 </div>
                 {canApply && onApplyAllTechnicianDetails && (
                   <button
@@ -203,20 +223,18 @@ export function StoryQualityPanel({
                   >
                     {allApplied ? (
                       <>
-                        <CheckCircle2 size={12} /> All added
+                        <CheckCircle2 size={12} /> {t('allAdded')}
                       </>
                     ) : (
                       <>
-                        <Plus size={12} /> Add All Tech Details
+                        <Plus size={12} /> {t('addAllTechDetails')}
                       </>
                     )}
                   </button>
                 )}
               </div>
               <p className="text-xs text-benz-secondary mb-3 leading-snug">
-                {MI_PRODUCT_LABEL} flagged these gaps. <strong>Add All Tech Details</strong> weaves each fix into
-                the story at the correct diagnostic step. Then tap <strong>Audit Story</strong> immediately — the
-                score should rise and fixed items should drop off. Optional: Generate to polish wording.
+                {t('techDetailsHint', { mi: MI_PRODUCT_LABEL })}
               </p>
               <ul className="space-y-3">
                 {details.map((detail, index) => {
@@ -237,17 +255,17 @@ export function StoryQualityPanel({
                             >
                               {applied ? (
                                 <>
-                                  <CheckCircle2 size={12} className="text-benz-green" /> Added
+                                  <CheckCircle2 size={12} className="text-benz-green" /> {t('added')}
                                 </>
                               ) : (
                                 <>
-                                  <Plus size={12} /> {technicianDetailActionLabel(detail.field)}
+                                  <Plus size={12} /> {detailActionLabel(detail.field, t)}
                                 </>
                               )}
                             </button>
                           ) : (
                             <div className="text-xs text-benz-muted mt-1">
-                              Add to: {technicianDetailActionLabel(detail.field).replace(/^Add to /, '')}
+                              {detailActionLabel(detail.field, t)}
                             </div>
                           )}
                         </div>
@@ -262,7 +280,7 @@ export function StoryQualityPanel({
           {quality.strengths.length > 0 && (
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-benz-green mb-2 flex items-center gap-1.5">
-                <CheckCircle2 size={12} /> Strengths
+                <CheckCircle2 size={12} /> {t('strengths')}
               </div>
               <ul className="space-y-1.5">
                 {quality.strengths.map((item) => (
@@ -277,7 +295,7 @@ export function StoryQualityPanel({
           {quality.improvements.length > 0 && (
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-benz-amber mb-2 flex items-center gap-1.5">
-                <Target size={12} /> Improve for MI 2.0
+                <Target size={12} /> {t('improveForMi')}
               </div>
               <ul className="space-y-1.5">
                 {quality.improvements.map((item) => (
@@ -292,7 +310,7 @@ export function StoryQualityPanel({
           {quality.auditRisks.length > 0 && (
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-benz-red mb-2 flex items-center gap-1.5">
-                <AlertTriangle size={12} /> Audit Risks
+                <AlertTriangle size={12} /> {t('auditRisks')}
               </div>
               <ul className="space-y-1.5">
                 {quality.auditRisks.map((item) => (
@@ -312,13 +330,13 @@ export function StoryQualityPanel({
                 className="text-xs uppercase tracking-wider font-semibold text-benz-blue flex items-center gap-1.5 mb-2"
               >
                 <Sparkles size={12} />
-                AI Review Coaching {showReviewDetail ? '▾' : '▸'}
+                {t('aiReviewCoaching')} {showReviewDetail ? '▾' : '▸'}
               </button>
               {showReviewDetail && (
                 <div className="space-y-3 benz-list-row p-3.5">
                   {review.priorityActions.length > 0 && (
                     <div>
-                      <div className="text-xs font-semibold text-benz-blue mb-1.5">Priority actions</div>
+                      <div className="text-xs font-semibold text-benz-blue mb-1.5">{t('priorityActions')}</div>
                       <ol className="list-decimal list-inside space-y-1">
                         {review.priorityActions.map((action) => (
                           <li key={action} className="text-xs text-benz-silver leading-relaxed">
@@ -328,11 +346,11 @@ export function StoryQualityPanel({
                       </ol>
                     </div>
                   )}
-                  <ReviewSection title="Structure (3 C's)" text={review.feedback.structure} />
-                  <ReviewSection title="Technical Detail" text={review.feedback.technicalDetail} />
-                  <ReviewSection title="Clarity" text={review.feedback.clarity} />
-                  <ReviewSection title="Workflow" text={review.feedback.workflow} />
-                  <ReviewSection title="Fabrication Risk" text={review.feedback.fabricationRisk} />
+                  <ReviewSection title={t('structure3c')} text={review.feedback.structure} />
+                  <ReviewSection title={t('technicalDetail')} text={review.feedback.technicalDetail} />
+                  <ReviewSection title={t('clarity')} text={review.feedback.clarity} />
+                  <ReviewSection title={t('workflow')} text={review.feedback.workflow} />
+                  <ReviewSection title={t('fabricationRisk')} text={review.feedback.fabricationRisk} />
                 </div>
               )}
             </div>
