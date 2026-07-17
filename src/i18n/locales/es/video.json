@@ -45,5 +45,16 @@
   "hasReport": "informe",
   "smsDisabled": "SMS no configurado — copie el enlace",
   "linkCopied": "Enlace del cliente copiado",
-  "navLabel": "Video MPI"
+  "navLabel": "Video MPI",
+  "captureHints": "Mantiene la pantalla activa, prefiere horizontal/pantalla completa y guarda de forma confiable con Wi‑Fi inestable.",
+  "offlineBanner": "Sin conexión. Los videos nuevos se encolan en este dispositivo hasta reconectar.",
+  "queuedOffline": "Guardado en este dispositivo — se subirá al reconectar",
+  "pendingUploads": "Cargas pendientes",
+  "retryPending": "Subir ahora",
+  "flushingQueue": "Subiendo videos en cola…",
+  "queueFlushed": "Videos en cola subidos",
+  "uploadStarting": "Iniciando carga…",
+  "uploading": "Subiendo video…",
+  "videoSaved": "Video guardado",
+  "processing": "Procesando…"
 }

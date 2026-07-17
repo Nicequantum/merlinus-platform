@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ClipboardList,
+  CloudOff,
   Link2,
   Loader2,
   Mic,
+  RefreshCw,
   Square,
   Upload,
   Video,
@@ -15,9 +17,12 @@ import {
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { localeToSpeechLang, normalizePreferredLanguage } from '@/lib/i18n/locales';
+import { isOnline, VideoCaptureSession } from '@/lib/videoInspection/captureSession';
 import {
-  defaultChecklistTemplate,
-} from '@/lib/videoInspection/findings';
+  uploadVideoInspectionResumable,
+  type UploadProgress,
+} from '@/lib/videoInspection/chunkedUploadClient';
+import { defaultChecklistTemplate } from '@/lib/videoInspection/findings';
 import {
   MPI_CATEGORIES,
   MPI_CATEGORY_LABELS,
@@ -29,12 +34,19 @@ import {
   type MpiSeverity,
   type MpiStatus,
 } from '@/lib/videoInspection/mpiCategories';
+import {
+  countPendingUploads,
+  enqueuePendingUpload,
+  listPendingUploads,
+  removePendingUpload,
+  updatePendingUpload,
+  type PendingVideoUpload,
+} from '@/lib/videoInspection/offlineQueue';
 import type {
   TechnicianSession,
   VideoInspectionDetail,
   VideoInspectionSummary,
 } from '@/types';
-import { getSpeechRecognitionCtor } from '@/lib/voice/speechRecognition';
 
 interface VideoInspectionViewProps {
   session: TechnicianSession;
@@ -53,7 +65,6 @@ function statusPillClass(status: string): string {
     case 'sent':
       return 'status-pill-valid';
     case 'failed':
-      return 'status-pill-warn';
     case 'processing':
       return 'status-pill-warn';
     default:
@@ -79,23 +90,22 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const [customerPhone, setCustomerPhone] = useState('');
   const [vin, setVin] = useState('');
   const [transcript, setTranscript] = useState('');
-  const [liveTranscript, setLiveTranscript] = useState('');
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [reportDraft, setReportDraft] = useState('');
   const [checklist, setChecklist] = useState<ChecklistDraftRow[]>(defaultChecklistTemplate());
   const [savingChecklist, setSavingChecklist] = useState(false);
+  const [pending, setPending] = useState<PendingVideoUpload[]>([]);
+  const [flushingQueue, setFlushingQueue] = useState(false);
+  const [online, setOnline] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const framesRef = useRef<Blob[]>([]);
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const captureRef = useRef<VideoCaptureSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const flushingRef = useRef(false);
 
   const speechLang = localeToSpeechLang(session.preferredLanguage);
 
@@ -111,9 +121,36 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     }
   }, []);
 
+  const refreshPending = useCallback(async () => {
+    try {
+      setPending(await listPendingUploads());
+    } catch {
+      setPending([]);
+    }
+  }, []);
+
   useEffect(() => {
     void refreshList();
-  }, [refreshList]);
+    void refreshPending();
+  }, [refreshList, refreshPending]);
+
+  useEffect(() => {
+    const sync = () => setOnline(isOnline());
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void captureRef.current?.cancel();
+      captureRef.current = null;
+    };
+  }, []);
 
   const filteredList = useMemo(() => {
     if (statusFilter === 'all') return list;
@@ -129,197 +166,193 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     return counts;
   }, [list]);
 
-  const stopStream = () => {
-    mediaStreamRef.current?.getTracks().forEach((tr) => tr.stop());
-    mediaStreamRef.current = null;
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-  };
+  const buildMeta = useCallback(
+    (recordingMode: 'fullscreen' | 'standard' | 'upload', durationSec?: number) => ({
+      title: 'Video inspection',
+      vehicleLabel: vehicleLabel.trim() || undefined,
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      vin: vin.trim() || undefined,
+      transcript: transcript.trim() || undefined,
+      transcriptLanguage: normalizePreferredLanguage(session.preferredLanguage),
+      recordingMode,
+      durationSec,
+    }),
+    [vehicleLabel, customerName, customerPhone, vin, transcript, session.preferredLanguage]
+  );
 
-  useEffect(() => () => stopStream(), []);
-
-  const startLiveStt = () => {
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return;
-    const recognition = new Ctor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = speechLang;
-    let finalText = '';
-    recognition.onresult = (event: {
-      resultIndex: number;
-      results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
-    }) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const piece = event.results[i]![0]!.transcript;
-        if (event.results[i]!.isFinal) finalText += `${piece} `;
-        else interim += piece;
+  const uploadBlob = useCallback(
+    async (
+      blob: Blob,
+      options: {
+        durationSec?: number;
+        recordingMode: 'fullscreen' | 'standard' | 'upload';
+        frames?: Blob[];
       }
-      setLiveTranscript(`${finalText}${interim}`.trim());
-      setTranscript(`${finalText}${interim}`.trim());
-    };
-    recognition.onerror = () => {
-      // keep recording even if STT fails
-    };
-    try {
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch {
-      // ignore
-    }
-  };
+    ) => {
+      setBusy(true);
+      setUploadProgress({
+        phase: 'init',
+        chunksTotal: 1,
+        chunksSent: 0,
+        percent: 1,
+        message: t('uploadStarting'),
+      });
 
-  const captureFrame = async () => {
-    const video = videoRef.current;
-    if (!video || video.videoWidth < 2) return;
-    const canvas = document.createElement('canvas');
-    const maxW = 960;
-    const scale = Math.min(1, maxW / video.videoWidth);
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.82)
-    );
-    if (blob) framesRef.current.push(blob);
-  };
+      const meta = buildMeta(options.recordingMode, options.durationSec);
+      const frames = options.frames || [];
+
+      const runUpload = async () =>
+        uploadVideoInspectionResumable({
+          video: blob,
+          frames,
+          meta,
+          onProgress: setUploadProgress,
+        });
+
+      try {
+        if (!isOnline()) {
+          await enqueuePendingUpload({
+            contentType: blob.type || 'video/webm',
+            video: blob,
+            frames,
+            meta,
+            lastError: 'offline',
+          });
+          await refreshPending();
+          toast.message(t('queuedOffline'));
+          setMode('list');
+          return;
+        }
+
+        const { inspection } = await runUpload();
+        applyDetail(inspection);
+        setMode('detail');
+        toast.success(t('videoSaved'));
+        void refreshList();
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Upload failed';
+        // Network / transient failures → offline queue
+        const retriable =
+          !isOnline() ||
+          /network|fetch|failed to fetch|timeout|abort|offline|503|502|504/i.test(message);
+        if (retriable) {
+          try {
+            await enqueuePendingUpload({
+              contentType: blob.type || 'video/webm',
+              video: blob,
+              frames,
+              meta,
+              lastError: message,
+            });
+            await refreshPending();
+            toast.message(t('queuedOffline'));
+            setMode('list');
+            return;
+          } catch {
+            // fall through
+          }
+        }
+        toast.error(message);
+      } finally {
+        setBusy(false);
+        setUploadProgress(null);
+      }
+    },
+    [buildMeta, refreshList, refreshPending, t]
+  );
+
+  const flushPendingQueue = useCallback(async () => {
+    if (flushingRef.current || !isOnline()) return;
+    flushingRef.current = true;
+    setFlushingQueue(true);
+    try {
+      const items = await listPendingUploads();
+      for (const item of items) {
+        try {
+          setUploadProgress({
+            phase: 'init',
+            chunksTotal: 1,
+            chunksSent: 0,
+            percent: 1,
+            message: t('flushingQueue'),
+          });
+          await uploadVideoInspectionResumable({
+            video: item.video,
+            frames: item.frames,
+            meta: item.meta,
+            onProgress: setUploadProgress,
+          });
+          await removePendingUpload(item.id);
+        } catch (e: unknown) {
+          await updatePendingUpload(item.id, {
+            attempts: item.attempts + 1,
+            lastError: e instanceof Error ? e.message : 'upload failed',
+          });
+        }
+      }
+      await refreshPending();
+      if ((await countPendingUploads()) === 0) {
+        toast.success(t('queueFlushed'));
+      }
+      void refreshList();
+    } finally {
+      flushingRef.current = false;
+      setFlushingQueue(false);
+      setUploadProgress(null);
+    }
+  }, [refreshList, refreshPending, t]);
+
+  useEffect(() => {
+    if (!online) return;
+    void flushPendingQueue();
+  }, [online, flushPendingQueue]);
 
   const startRecording = async () => {
     try {
-      framesRef.current = [];
-      chunksRef.current = [];
-      setLiveTranscript('');
       setTranscript('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+      const capture = new VideoCaptureSession();
+      captureRef.current = capture;
+      await capture.start({
+        videoEl: videoRef.current,
+        speechLang,
+        preferFullscreen: true,
+        onTranscript: (text) => setTranscript(text),
       });
-      mediaStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => undefined);
-        // Best-effort full-screen for bay capture (PR-M1b will deepen native shell)
-        try {
-          await videoRef.current.requestFullscreen?.();
-        } catch {
-          // ignore — browser may block without gesture nuances
-        }
-      }
-
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus'
-        : MediaRecorder.isTypeSupported('video/webm')
-          ? 'video/webm'
-          : 'video/mp4';
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorderRef.current = recorder;
-      startTimeRef.current = Date.now();
-      recorder.start(1000);
       setRecording(true);
-      startLiveStt();
-
-      let frameCount = 0;
-      const frameTimer = window.setInterval(() => {
-        if (frameCount >= 8 || !recording) {
-          window.clearInterval(frameTimer);
-          return;
-        }
-        void captureFrame();
-        frameCount += 1;
-      }, 4000);
-      void captureFrame();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Could not access camera/microphone');
-      stopStream();
+      await captureRef.current?.cancel();
+      captureRef.current = null;
+      setRecording(false);
     }
   };
 
   const stopRecordingAndUpload = async () => {
-    const recorder = recorderRef.current;
-    if (!recorder) return;
+    const capture = captureRef.current;
+    if (!capture) return;
     setBusy(true);
     setRecording(false);
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // ignore
-      }
-    }
-
-    await new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
-      try {
-        recorder.stop();
-      } catch {
-        resolve();
-      }
-    });
-    recognitionRef.current?.stop();
-    void captureFrame();
-    stopStream();
-
-    const durationSec = Math.max(1, (Date.now() - startTimeRef.current) / 1000);
-    const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
-    await uploadBlob(blob, durationSec, 'fullscreen');
-  };
-
-  const uploadBlob = async (
-    blob: Blob,
-    durationSec?: number,
-    recordingMode: 'fullscreen' | 'standard' | 'upload' = 'standard'
-  ) => {
-    setBusy(true);
     try {
-      const form = new FormData();
-      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
-      form.append('file', blob, `inspection.${ext}`);
-      form.append('title', 'Video inspection');
-      if (vehicleLabel.trim()) form.append('vehicleLabel', vehicleLabel.trim());
-      if (customerName.trim()) form.append('customerName', customerName.trim());
-      if (customerPhone.trim()) form.append('customerPhone', customerPhone.trim());
-      if (vin.trim()) form.append('vin', vin.trim());
-      form.append('recordingMode', recordingMode);
-      form.append('transcript', transcript || liveTranscript);
-      form.append(
-        'transcriptLanguage',
-        normalizePreferredLanguage(session.preferredLanguage)
-      );
-      if (durationSec) form.append('durationSec', String(durationSec));
-      for (const [i, frame] of framesRef.current.slice(0, 8).entries()) {
-        form.append('frames', frame, `frame-${i}.jpg`);
-      }
-
-      const { inspection } = await api.uploadVideoInspection(form);
-      applyDetail(inspection);
-      setMode('detail');
-      toast.success('Video saved');
-      void refreshList();
+      const result = await capture.stop();
+      captureRef.current = null;
+      setTranscript(result.transcript || transcript);
+      await uploadBlob(result.blob, {
+        durationSec: result.durationSec,
+        recordingMode: result.recordingMode,
+        frames: result.frames,
+      });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Upload failed');
-    } finally {
+      toast.error(e instanceof Error ? e.message : 'Could not stop recording');
+      await capture.cancel();
+      captureRef.current = null;
       setBusy(false);
     }
   };
 
   const onFileSelected = async (file: File | null) => {
     if (!file) return;
-    framesRef.current = [];
-    await uploadBlob(file, undefined, 'upload');
+    await uploadBlob(file, { recordingMode: 'upload', frames: [] });
   };
 
   const findingsToChecklist = (inspection: VideoInspectionDetail): ChecklistDraftRow[] => {
@@ -425,9 +458,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   };
 
   const updateChecklistRow = (index: number, patch: Partial<ChecklistDraftRow>) => {
-    setChecklist((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
-    );
+    setChecklist((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   };
 
   const addChecklistRow = () => {
@@ -474,6 +505,27 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     }
   };
 
+  const progressBar =
+    uploadProgress && busy ? (
+      <div className="mb-4 benz-card p-3">
+        <div className="flex items-center justify-between text-xs text-benz-secondary mb-1.5">
+          <span>{uploadProgress.message || t('uploading')}</span>
+          <span>{uploadProgress.percent}%</span>
+        </div>
+        <div className="h-2 rounded-full bg-benz-border/40 overflow-hidden">
+          <div
+            className="h-full bg-benz-blue transition-all duration-300"
+            style={{ width: `${Math.min(100, Math.max(0, uploadProgress.percent))}%` }}
+          />
+        </div>
+        {uploadProgress.chunksTotal > 1 ? (
+          <p className="text-[11px] text-benz-muted mt-1">
+            {uploadProgress.chunksSent}/{uploadProgress.chunksTotal} chunks
+          </p>
+        ) : null}
+      </div>
+    ) : null;
+
   const customerFields = (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
       <div>
@@ -483,6 +535,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
           placeholder={t('customerNamePlaceholder')}
+          disabled={recording || busy}
         />
       </div>
       <div>
@@ -492,6 +545,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           value={customerPhone}
           onChange={(e) => setCustomerPhone(e.target.value)}
           placeholder={t('phonePlaceholder')}
+          disabled={recording || busy}
         />
       </div>
       <div>
@@ -501,6 +555,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           value={vehicleLabel}
           onChange={(e) => setVehicleLabel(e.target.value)}
           placeholder={t('vehiclePlaceholder')}
+          disabled={recording || busy}
         />
       </div>
       <div>
@@ -511,6 +566,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           onChange={(e) => setVin(e.target.value.toUpperCase())}
           placeholder={t('vinPlaceholder')}
           maxLength={17}
+          disabled={recording || busy}
         />
       </div>
     </div>
@@ -519,16 +575,35 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   if (mode === 'create') {
     return (
       <div className="benz-page">
-        <button type="button" className="benz-nav-back" onClick={() => setMode('list')}>
+        <button
+          type="button"
+          className="benz-nav-back"
+          onClick={() => {
+            if (recording) return;
+            setMode('list');
+          }}
+          disabled={recording}
+        >
           <ArrowLeft size={18} /> {t('back')}
         </button>
         <h2 className="benz-page-title">{t('newInspection')}</h2>
-        <p className="benz-hint mb-4">{t('subtitle')}</p>
+        <p className="benz-hint mb-2">{t('subtitle')}</p>
+        <p className="text-[11px] text-benz-secondary mb-4">
+          {t('captureHints')}
+          {!online ? ` · ${t('offlineBanner')}` : ''}
+        </p>
 
         {customerFields}
+        {progressBar}
 
-        <div className="benz-card overflow-hidden mb-4 bg-black">
+        <div className="benz-card overflow-hidden mb-4 bg-black relative">
           <video ref={videoRef} className="w-full aspect-video" muted playsInline />
+          {recording ? (
+            <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              {t('recording')}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-4">
@@ -566,6 +641,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             ref={fileInputRef}
             type="file"
             accept="video/*"
+            capture="environment"
             className="hidden"
             onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
           />
@@ -574,13 +650,14 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         <label className="benz-label">{t('liveTranscript')}</label>
         <textarea
           className="benz-textarea min-h-[120px]"
-          value={transcript || liveTranscript}
+          value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           placeholder={t('transcriptPlaceholder')}
+          disabled={busy}
         />
-        {busy ? (
+        {busy && !uploadProgress ? (
           <p className="mt-3 text-sm text-benz-secondary flex items-center gap-2">
-            <Loader2 className="animate-spin" size={16} /> Uploading…
+            <Loader2 className="animate-spin" size={16} /> {t('processing')}
           </p>
         ) : null}
       </div>
@@ -604,6 +681,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           {selected.vehicleLabel || '—'}
           {selected.vinLast8 ? ` · …${selected.vinLast8}` : ''}
           {selected.customerPhoneLast4 ? ` · …${selected.customerPhoneLast4}` : ''}
+          {selected.recordingMode ? ` · ${selected.recordingMode}` : ''}
         </p>
         <div className="flex flex-wrap gap-2 mb-4 text-xs">
           <span className="status-pill status-pill-valid">OK {counts.ok}</span>
@@ -625,7 +703,6 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
         {customerFields}
 
-        {/* Multipoint checklist */}
         <div className="benz-card p-4 mb-4">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
@@ -809,7 +886,6 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             setSelected(null);
             setShareUrl(null);
             setTranscript('');
-            setLiveTranscript('');
             setCustomerName('');
             setCustomerPhone('');
             setVin('');
@@ -822,7 +898,49 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         </button>
       </div>
 
-      {/* Status board filters */}
+      {!online ? (
+        <div className="benz-card p-3 mb-4 flex items-center gap-2 text-sm text-benz-amber">
+          <CloudOff size={16} />
+          {t('offlineBanner')}
+        </div>
+      ) : null}
+
+      {pending.length > 0 ? (
+        <div className="benz-card p-4 mb-4">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="font-semibold text-sm flex items-center gap-2">
+              <CloudOff size={16} className="text-benz-amber" />
+              {t('pendingUploads')} ({pending.length})
+            </div>
+            <button
+              type="button"
+              className="secondary-btn h-9 px-3 text-xs"
+              disabled={!online || flushingQueue}
+              onClick={() => void flushPendingQueue()}
+            >
+              <RefreshCw size={14} className={`inline mr-1 ${flushingQueue ? 'animate-spin' : ''}`} />
+              {t('retryPending')}
+            </button>
+          </div>
+          <ul className="space-y-1.5 text-xs text-benz-secondary">
+            {pending.map((item) => (
+              <li key={item.id} className="flex justify-between gap-2">
+                <span>
+                  {new Date(item.createdAt).toLocaleString()}
+                  {item.meta.vehicleLabel ? ` · ${item.meta.vehicleLabel}` : ''}
+                </span>
+                <span className="text-benz-muted">
+                  {Math.round(item.video.size / 1024)} KB
+                  {item.attempts ? ` · try ${item.attempts}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {progressBar}
+
       <div className="flex flex-wrap gap-2 mb-4" role="tablist" aria-label={t('statusBoard')}>
         <button
           type="button"
@@ -883,6 +1001,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
                     {item.vehicleLabel || '—'}
                     {item.vinLast8 ? ` · …${item.vinLast8}` : ''}
                     {item.hasReport ? ` · ${t('hasReport')}` : ''}
+                    {item.recordingMode ? ` · ${item.recordingMode}` : ''}
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-benz-secondary">
                     <span className="inline-flex items-center gap-1">

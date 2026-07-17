@@ -333,6 +333,35 @@ model VideoInspection {
 }
 
 /**
+ * PR-M1b — resumable/chunked video upload session (ephemeral).
+ * Chunks live in private Blob under benz-tech/video-chunk/; assembled on complete.
+ * Not part of the warranty RO story pipeline.
+ */
+model VideoUploadSession {
+  id              String   @id @default(cuid())
+  dealershipId    String
+  technicianId    String
+  dealerId        String?  @map("dealer_id")
+  contentType     String   @default("video/webm")
+  totalBytes      Int      @default(0)
+  totalChunks     Int      @default(0)
+  receivedMask    String   @default("[]")
+  chunkPathnames  String   @default("[]")
+  /** JSON metadata for final inspection create (non-secret operational fields). */
+  metaJson        String   @default("{}")
+  /** pending | assembling | complete | failed | abandoned */
+  status          String   @default("pending")
+  errorMessage    String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([dealershipId, technicianId, status])
+  @@index([expiresAt])
+  @@map("VideoUploadSession")
+}
+
+/**
  * PR-M1a — multipoint inspection finding line (category / severity / notes).
  * PII-ish free text lives in noteEncrypted.
  */

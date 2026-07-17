@@ -23,6 +23,11 @@ export function isAllowedVideoFramePathname(pathname: string): boolean {
   );
 }
 
+/** PR-M1b — temporary chunk parts for resumable assembly. */
+export function isAllowedVideoChunkPathname(pathname: string): boolean {
+  return pathname.startsWith('benz-tech/video-chunk/') && !pathname.includes('..');
+}
+
 export interface UploadedVideoBlob {
   pathname: string;
   url: string;
@@ -87,6 +92,50 @@ export async function uploadVideoFrameToBlob(
   }
 
   throw lastError instanceof Error ? lastError : new Error('Video frame upload failed');
+}
+
+/** PR-M1b — store one resumable upload chunk (overwrite-safe fixed key per session+index). */
+export async function uploadVideoChunkToBlob(
+  buffer: Buffer,
+  dealershipId: string,
+  sessionId: string,
+  chunkIndex: number,
+  contentType = 'application/octet-stream'
+): Promise<UploadedVideoBlob> {
+  const safeDealer = dealershipId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
+  const safeSession = sessionId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
+  const index = Math.max(0, Math.floor(chunkIndex));
+  const key = `benz-tech/video-chunk/${safeDealer}/${safeSession}/${index}.part`;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < BLOB_PUT_MAX_ATTEMPTS; attempt++) {
+    try {
+      const blob = await put(key, buffer, {
+        access: 'private',
+        contentType,
+        token: getBlobToken(),
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      return { pathname: blob.pathname, url: blob.url };
+    } catch (error) {
+      lastError = error;
+      if (attempt === BLOB_PUT_MAX_ATTEMPTS - 1) break;
+      await sleep(networkRetryDelayMs(attempt));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Video chunk upload failed');
+}
+
+export async function fetchPrivateVideoChunkAsBuffer(pathname: string): Promise<Buffer> {
+  if (!isAllowedVideoChunkPathname(pathname)) {
+    throw new Error('Invalid video chunk path');
+  }
+  const result = await get(pathname, { access: 'private', token: getBlobToken() });
+  if (!result) throw new Error('Video chunk not found in storage');
+  const ab = await new Response(result.stream).arrayBuffer();
+  return Buffer.from(ab);
 }
 
 export async function streamPrivateVideoBlob(pathname: string) {
