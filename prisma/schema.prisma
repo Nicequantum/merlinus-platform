@@ -1,7 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
-  // Cloudflare D1 requires the driverAdapters preview (Prisma 6) + @prisma/adapter-d1 at runtime.
-  previewFeatures = ["driverAdapters"]
+  // D1 uses @prisma/adapter-d1 at runtime (driver adapters are stable in Prisma 6.19+).
+  provider = "prisma-client-js"
 }
 
 datasource db {
