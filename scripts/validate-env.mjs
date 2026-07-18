@@ -46,20 +46,25 @@ if (apexEnvEnabled) {
   console.log('[merlin:build] APEX_ENV active — loaded .env.apex.local');
 }
 
-// Cloudflare D1 is the sole database — no DATABASE_URL / DIRECT_URL required at build.
-// Prisma generate uses a local file URL if DATABASE_URL is unset (see below).
-if (!process.env.DATABASE_URL?.trim()) {
+// Cloudflare D1 is the sole database — no Postgres DATABASE_URL / DIRECT_URL required.
+// Prisma CLI needs a file: URL for generate only; coerce any non-file URL so CI secrets
+// that still set postgresql:// do not break prisma generate.
+const rawDbUrl = process.env.DATABASE_URL?.trim() || '';
+if (!rawDbUrl.startsWith('file:')) {
+  if (rawDbUrl && /^postgres(ql)?:\/\//i.test(rawDbUrl)) {
+    console.warn(
+      '[merlin:build] Ignoring PostgreSQL DATABASE_URL — Merlinus uses Cloudflare D1. Using file:./prisma/dev.db for prisma generate only.'
+    );
+  } else if (rawDbUrl) {
+    console.warn(
+      `[merlin:build] DATABASE_URL is not a sqlite file: URL — using file:./prisma/dev.db for prisma generate (was: ${rawDbUrl.slice(0, 32)}…)`
+    );
+  } else {
+    console.log('[merlin:build] DATABASE_URL unset — using file:./prisma/dev.db for prisma generate only');
+  }
   process.env.DATABASE_URL = 'file:./prisma/dev.db';
-  console.log('[merlin:build] DATABASE_URL unset — using file:./prisma/dev.db for prisma generate only');
-} else if (/^postgres(ql)?:\/\//i.test(process.env.DATABASE_URL)) {
-  console.error(
-    '[merlin:build] DATABASE_URL points at PostgreSQL, but Merlinus uses Cloudflare D1 (sqlite).'
-  );
-  console.error(
-    '[merlin:build] Remove DATABASE_URL or set DATABASE_URL=file:./prisma/dev.db for local tooling.'
-  );
-  process.exit(1);
 }
+delete process.env.DIRECT_URL;
 console.log('[merlin:build] Database: Cloudflare D1 (binding DB) / local sqlite file for generate');
 
 const isProduction =
