@@ -83,14 +83,11 @@ jobs:
         env:
           DATABASE_URL: file:./prisma/dev.db
 
-      # P0: OpenNext may bake .env secrets into .open-next/cloudflare/next-env.mjs.
-      # Strip runtime-only keys, then fail the job if any remain (must use Wrangler secrets).
+      # Also gate secrets after quality build when that path succeeds.
       - name: Strip and verify OpenNext has no baked secrets
         run: |
           node scripts/strip-opennext-secrets.mjs
           node scripts/verify-opennext-no-secrets.mjs
-        env:
-          DATABASE_URL: file:./prisma/dev.db
 
       - name: Ready to deploy
         run: npm run ready-to-deploy
@@ -98,3 +95,48 @@ jobs:
           NODE_ENV: production
           VERCEL_ENV: production
           DATABASE_URL: file:./prisma/dev.db
+
+  # P0 security gate: always runs (does not depend on unit tests).
+  # Fails if OpenNext bakes runtime secrets into next-env.mjs after strip.
+  opennext-secrets:
+    name: OpenNext secret bake gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: production
+      SESSION_SECRET: ci-test-session-secret-min-32-chars-long
+      DATA_ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      SEARCH_HMAC_KEY: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      DATABASE_URL: file:./prisma/dev.db
+      BLOB_READ_WRITE_TOKEN: ci-blob-token
+      KV_REST_API_URL: https://ci-kv.example.com
+      KV_REST_API_TOKEN: ci-kv-token
+      GROK_API_KEY: ci-grok-key
+      NEXT_PUBLIC_SENTRY_DSN: https://fake@o0.ingest.sentry.io/0
+      ADMIN_SEED_PASSWORD: Oceanic1735!
+      TECH_SEED_PASSWORD: Oceanic1735!
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: OpenNext build (includes next build)
+        run: npm run build
+
+      - name: Strip runtime secrets from next-env.mjs
+        run: node scripts/strip-opennext-secrets.mjs
+
+      - name: Verify no runtime secrets remain baked
+        run: node scripts/verify-opennext-no-secrets.mjs
