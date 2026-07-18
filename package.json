@@ -12,6 +12,10 @@
     "ready-to-deploy": "npm run validate:pre-deploy && npm run validate:pre-rollout && node scripts/validate-pre-rollout.mjs && echo Merlinus is ready for Mercedes-Benz dealership deployment && echo \"Run: npm run db:migrate-pii-safe (dry-run first)\"",
     "deploy:check": "node -e \"process.stdout.write(require('fs').readFileSync('docs/DEPLOYMENT-CHECKLIST.md','utf8'))\"",
     "build": "node scripts/validate-env.mjs && node scripts/prisma-with-sqlite-url.mjs generate && node scripts/migrate-deploy.mjs && next build",
+    "build:cf": "node scripts/validate-env.mjs && node scripts/prisma-with-sqlite-url.mjs generate && opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "node scripts/d1-migrate-diff.mjs",
@@ -62,6 +66,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.1",
     "@sentry/webpack-plugin": "^5.3.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.15.29",

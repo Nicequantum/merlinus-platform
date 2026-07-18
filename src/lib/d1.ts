@@ -12,9 +12,8 @@ import 'server-only';
  * 3. globalThis.DB (some CF/OpenNext shims)
  * 4. Otherwise null → local file SQLite via DATABASE_URL=file:./prisma/dev.db
  *
- * Do not import @opennextjs/cloudflare or @cloudflare/next-on-pages here —
- * those packages are optional and break Next.js production builds when absent.
- * CF adapters should inject __MERLIN_D1__ (or expose env.DB on the workers module).
+ * Prefer injecting __MERLIN_D1__ or using Workers env.DB. OpenNext runtime may
+ * also expose bindings on globalThis / cloudflare:workers.
  */
 
 export type D1DatabaseLike = {

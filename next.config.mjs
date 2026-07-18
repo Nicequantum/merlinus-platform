@@ -54,9 +54,6 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       'pdfjs-dist': path.resolve(__dirname, 'node_modules/pdfjs-dist/legacy/build/pdf.mjs'),
-      // Optional CF packages — not installed; prevent "Module not found" during Next build.
-      '@opennextjs/cloudflare': false,
-      '@cloudflare/next-on-pages': false,
     };
     return config;
   },

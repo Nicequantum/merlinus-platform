@@ -33,4 +33,5 @@ prisma/dev.db-journal
 tsconfig.tsbuildinfo
 
 .wrangler
+.open-next
 
