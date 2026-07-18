@@ -83,6 +83,15 @@ jobs:
         env:
           DATABASE_URL: file:./prisma/dev.db
 
+      # P0: OpenNext may bake .env secrets into .open-next/cloudflare/next-env.mjs.
+      # Strip runtime-only keys, then fail the job if any remain (must use Wrangler secrets).
+      - name: Strip and verify OpenNext has no baked secrets
+        run: |
+          node scripts/strip-opennext-secrets.mjs
+          node scripts/verify-opennext-no-secrets.mjs
+        env:
+          DATABASE_URL: file:./prisma/dev.db
+
       - name: Ready to deploy
         run: npm run ready-to-deploy
         env:
