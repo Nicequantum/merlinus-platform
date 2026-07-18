@@ -949,6 +949,22 @@
   font-size: 0.8rem;
   margin: 0.25rem 0 0;
 }
+[data-platform='apex'] .apex-onboard-fieldset {
+  border: 1px solid color-mix(in srgb, var(--apex-border, #334) 80%, transparent);
+  border-radius: 10px;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 1rem 0.25rem;
+}
+[data-platform='apex'] .apex-onboard-legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+[data-platform='apex'] .apex-onboard-cred-heading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 1rem 0 0.35rem;
+}
 [data-platform='apex'] .apex-onboard-cred-list {
   margin: 0.75rem 0;
   padding-left: 1.1rem;

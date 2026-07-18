@@ -126,6 +126,9 @@ describe('provisionDealer naming + security helpers', () => {
       dealerId: 'dealer-id-1',
       dealershipId: 'rooftop-id-1',
       managerTechnicianId: 'mgr-id-1',
+      ownerTechnicianId: 'owner-id-1',
+      dealerGroupId: 'group-id-1',
+      ownerOutcome: 'created',
       actor: { type: 'script', id: 'ci-runner' },
       ifExistsMode: 'fail',
       outcome: 'created',
@@ -139,6 +142,9 @@ describe('provisionDealer naming + security helpers', () => {
     assert.equal('password' in meta, false);
     assert.equal('rooftopName' in meta, false);
     assert.equal('dealerName' in meta, false);
+    assert.equal(meta.ownerTechnicianId, 'owner-id-1');
+    assert.equal(meta.dealerGroupId, 'group-id-1');
+    assert.equal(meta.ownerOutcome, 'created');
     assert.equal(typeof meta.dealerCodeHash, 'string');
     assert.equal((meta.dealerCodeHash as string).length, 64);
     assert.notEqual(meta.dealerCodeHash, 'NEWPORT');
@@ -200,18 +206,30 @@ describe('HTTP provision endpoint guards', () => {
       dealerId: 'd1',
       dealershipId: 'r1',
       managerId: 'm1',
+      ownerId: 'o1',
+      dealerGroupId: 'g1',
+      ownerCreated: true,
+      ownerLinked: false,
       templateId: 'mercedes-rooftop-v1',
       rooftopName: 'Mercedes-Benz of Newport',
       dealerCode: 'NEWPORT',
       auditLogId: 'a1',
       mustChangePassword: true,
-      logins: [{ role: 'manager', identifierType: 'd7', identifier: 'D7SECRET' }],
+      logins: [
+        { role: 'manager', identifierType: 'd7', identifier: 'D7SECRET' },
+        { role: 'owner', identifierType: 'email', identifier: 'owner@secret.com' },
+      ],
     });
     const json = JSON.stringify(safe);
     assert.doesNotMatch(json, /"password"/i);
     assert.doesNotMatch(json, /D7SECRET/);
+    assert.doesNotMatch(json, /owner@secret\.com/);
     assert.equal(safe.mustChangePassword, true);
     assert.equal(safe.logins[0]?.identifierType, 'd7');
+    assert.equal(safe.logins[1]?.role, 'owner');
+    assert.equal(safe.ownerId, 'o1');
+    assert.equal(safe.ownerCreated, true);
+    assert.equal(safe.ownerLinked, false);
     assert.equal('identifier' in (safe.logins[0] as object), false);
   });
 
@@ -264,6 +282,49 @@ describe('HTTP provision endpoint guards', () => {
       assert.equal(ok.data.ifExists, 'fail');
       assert.equal(ok.data.dryRun, false);
     }
+
+    const sameEmail = parseBody(provisionDealerHttpSchema, {
+      dealerCode: 'NEWPORT',
+      confirmDealerCode: 'NEWPORT',
+      dealerName: 'Franchise Group',
+      rooftopName: 'Mercedes-Benz of Newport',
+      templateId: 'mercedes-rooftop-v1',
+      manager: {
+        name: 'Alex Rivera',
+        email: 'same@example.com',
+        password: 'strong-temp-pass-99',
+        d7Number: 'D7NEWPORT1',
+      },
+      owner: {
+        name: 'Jordan Lee',
+        email: 'same@example.com',
+        password: 'strong-owner-pass-99',
+      },
+    });
+    assert.ok('error' in sameEmail);
+
+    const withOwner = parseBody(provisionDealerHttpSchema, {
+      dealerCode: 'NEWPORT',
+      confirmDealerCode: 'NEWPORT',
+      dealerName: 'Franchise Group',
+      rooftopName: 'Mercedes-Benz of Newport',
+      templateId: 'mercedes-rooftop-v1',
+      manager: {
+        name: 'Alex Rivera',
+        email: 'manager@example.com',
+        password: 'strong-temp-pass-99',
+        d7Number: 'D7NEWPORT1',
+      },
+      owner: {
+        name: 'Jordan Lee',
+        email: 'owner@example.com',
+        password: 'strong-owner-pass-99',
+      },
+    });
+    assert.ok('data' in withOwner);
+    if ('data' in withOwner) {
+      assert.equal(withOwner.data.owner?.email, 'owner@example.com');
+    }
   });
 
   it('route uses fortress owner national guards and shared provisionDealer', () => {
@@ -277,7 +338,25 @@ describe('HTTP provision endpoint guards', () => {
     assert.match(src, /type:\s*'owner_api'/);
     assert.match(src, /rateLimitKey:\s*'owner\.provision-dealer'/);
     assert.match(src, /useRls:\s*false/);
+    assert.match(src, /owner:/);
     assert.doesNotMatch(src, /password:\s*result/);
     assert.doesNotMatch(src, /logger\.[a-z]+\([^)]*password/i);
+  });
+
+  it('onboard form includes optional owner fields and provision engine supports owner path', () => {
+    const form = readFileSync(
+      resolve(root, 'src/components/apex/OwnerOnboardDealershipForm.tsx'),
+      'utf8'
+    );
+    assert.match(form, /ownerName/);
+    assert.match(form, /ownerEmail/);
+    assert.match(form, /owner:\s*\{/);
+    assert.match(form, /Dealership owner \(optional\)/);
+
+    const engine = readFileSync(resolve(root, 'src/lib/apex/provisionDealer.ts'), 'utf8');
+    assert.match(engine, /ProvisionOwnerInput/);
+    assert.match(engine, /dealerGroupMembership\.create/);
+    assert.match(engine, /OWNER_EMAIL_CONFLICT/);
+    assert.match(engine, /ownerOutcome/);
   });
 });
