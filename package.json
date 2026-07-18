@@ -15,6 +15,8 @@
     "build:opennext": "opennextjs-cloudflare build --skipNextBuild",
     "build": "npm run build:next && npm run build:opennext",
     "build:cf": "npm run build",
+    "build:diagnostic": "echo '=== GROK DIAGNOSTIC BUILD START ===' && npm run build:opennext 2>&1 | tee build.log && echo '=== BUILD COMPLETE - CHECKING FOR ERRORS ===' && if grep -i 'error\\|fail\\|exception' build.log; then echo 'BUILD ERRORS FOUND - SEE ABOVE'; else echo 'BUILD CLEAN'; fi && echo '=== STARTING LOCAL PREVIEW ===' && npm run preview",
+    "grok-build": "npm run build:diagnostic",
     "preview": "npm run build && opennextjs-cloudflare preview",
     "deploy": "npm run build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
