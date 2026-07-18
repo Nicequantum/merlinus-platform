@@ -1,4 +1,4 @@
-import '../setup/criticalPathMocks';
+﻿import '../setup/criticalPathMocks';
 
 import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -8,7 +8,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { POST as postEnterDealership } from '../../src/app/api/auth/enter-dealership/route';
 import { POST as postExitDealership } from '../../src/app/api/auth/exit-dealership/route';
 import { POST as postLogin } from '../../src/app/api/auth/login/route';
@@ -30,8 +29,9 @@ import {
 } from '../helpers/apexIntegration';
 import { readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 describe('Apex owner + multi-rooftop HTTP flows (Phase 5.10)', () => {
   let previousPlatformMode: string | undefined;

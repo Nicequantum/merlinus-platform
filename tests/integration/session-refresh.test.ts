@@ -1,4 +1,4 @@
-import '../setup/criticalPathMocks';
+﻿import '../setup/criticalPathMocks';
 
 import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -8,7 +8,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { GET as getAuthMe } from '../../src/app/api/auth/me/route';
 import { POST as postConsent } from '../../src/app/api/consent/route';
 import {
@@ -31,8 +30,9 @@ import {
 } from '../helpers/integrationCompliance';
 import { buildAuthenticatedRequest, readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 describe('JWT session refresh (H4)', () => {
   let previousPlatformMode: string | undefined;
@@ -46,7 +46,7 @@ describe('JWT session refresh (H4)', () => {
     previousPlatformMode = enableMerlinusPlatformModeForTests();
     const techD7 = (process.env.TECH_SEED_D7?.trim() || 'D7TECH001').toUpperCase();
     const technician = await prisma.technician.findUnique({ where: { d7Number: techD7 } });
-    assert.ok(technician, 'Seed technician required — run npm run db:seed first');
+    assert.ok(technician, 'Seed technician required â€” run npm run db:seed first');
     technicianId = technician.id;
     dealershipId = technician.dealershipId;
     techName = technician.name;

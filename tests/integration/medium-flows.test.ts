@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { PrismaClient } from '@prisma/client';
 import { GET as getHealth } from '../../src/app/api/health/route';
 import { GET as getSecurityStatus } from '../../src/app/api/auth/security-status/route';
 import { GET as getLogout } from '../../src/app/api/auth/logout/route';
@@ -13,8 +12,9 @@ import {
 } from '../helpers/apexIntegration';
 import { createCompliantSessionToken } from '../helpers/integrationCompliance';
 import { buildAuthenticatedRequest, readJsonResponse } from '../helpers/routeTest';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 /** M27: integration coverage for health, security-status, logout, and Customer Pay apply. */
 describe('medium-priority route flows', () => {
@@ -28,7 +28,7 @@ describe('medium-priority route flows', () => {
 
   before(async () => {
     previousPlatformMode = enableMerlinusPlatformModeForTests();
-    // Prefer the pilot seed rooftop — never pick the national sentinel (__apex_national__).
+    // Prefer the pilot seed rooftop â€” never pick the national sentinel (__apex_national__).
     const managerD7 = (process.env.ADMIN_SEED_D7?.trim() || 'D7HARRIH').toUpperCase();
     const manager = await prisma.technician.findFirst({
       where: {
@@ -39,7 +39,7 @@ describe('medium-priority route flows', () => {
       },
       include: { dealership: true },
     });
-    assert.ok(manager, 'Seed manager required — run npm run db:seed first');
+    assert.ok(manager, 'Seed manager required â€” run npm run db:seed first');
     managerId = manager.id;
     dealershipId = manager.dealershipId;
     managerToken = await createCompliantSessionToken(
