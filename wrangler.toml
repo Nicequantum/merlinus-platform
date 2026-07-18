@@ -25,7 +25,7 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "merlinus-d1"
 # Replace with your D1 database id from the Cloudflare dashboard (Workers → D1).
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "ebc1ac5c-c35c-464c-9e18-cf499c03ffba"
 migrations_dir = "migrations"
 
 # Self-reference required by OpenNext for some Next.js features
