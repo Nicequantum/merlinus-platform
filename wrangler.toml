@@ -1,8 +1,3 @@
-# Workers Observability (dashboard logs)
-[observability]
-enabled = true
-invocation_logs = true
-
 # Cloudflare Workers deploy for Merlinus (Next.js via OpenNext)
 #
 # `npm run build` runs Next.js then OpenNext (`build:opennext` → .open-next/).
@@ -22,6 +17,13 @@ name = "merlinus-platform"
 main = ".open-next/worker.js"
 compatibility_date = "2025-08-05"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# Workers Observability (dashboard logs) — must come after top-level Worker keys in TOML
+[observability]
+enabled = true
+
+[observability.logs]
+invocation_logs = true
 
 # Static assets from the OpenNext build (not .vercel/output — that is Vercel-only)
 [assets]
