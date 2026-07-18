@@ -6,14 +6,7 @@ import 'server-only';
  * Binding name must match wrangler.toml / Cloudflare dashboard: `DB`.
  * Runtime path: PrismaClient({ adapter: new PrismaD1(getD1Database()) }).
  *
- * Sources (first match wins):
- * 1. Test / adapter injection: globalThis.__MERLIN_D1__
- * 2. Cloudflare Workers module env: cloudflare:workers `env.DB` (when available)
- * 3. globalThis.DB (some CF/OpenNext shims)
- * 4. Otherwise null → local file SQLite via DATABASE_URL=file:./prisma/dev.db
- *
- * Prefer injecting __MERLIN_D1__ or using Workers env.DB. OpenNext runtime may
- * also expose bindings on globalThis / cloudflare:workers.
+ * OpenNext: prefers getCloudflareContext().env.DB (request / isolate scoped).
  */
 
 export type D1DatabaseLike = {
@@ -40,24 +33,57 @@ function isD1Database(value: unknown): value is D1DatabaseLike {
   );
 }
 
-/**
- * Read env.DB from the Cloudflare Workers module namespace when present.
- * Uses Function constructor so bundlers do not statically resolve `cloudflare:workers`.
- */
+/** True when running under Cloudflare Workers / OpenNext (not local Node). */
+export function isCloudflareWorkerRuntime(): boolean {
+  if (typeof process !== 'undefined') {
+    if (process.env.CF_PAGES === '1' || process.env.CF_PAGES === 'true') return true;
+    if (process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING) return true;
+  }
+  try {
+    // Present in workerd; throws or missing in plain Node.
+    // Avoid static import so Next build does not require cloudflare:workers.
+    // eslint-disable-next-line no-new-func
+    const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+    if (req) {
+      req('cloudflare:workers');
+      return true;
+    }
+  } catch {
+    // not workers
+  }
+  return typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined';
+}
+
+function readOpenNextContextDb(): D1DatabaseLike | null {
+  try {
+    // Dynamic require: available after OpenNext packages the worker; safe no-op in unit tests.
+    // eslint-disable-next-line no-new-func
+    const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+    if (!req) return null;
+    const mod = req('@opennextjs/cloudflare') as {
+      getCloudflareContext?: (opts?: { async?: boolean }) => { env?: Record<string, unknown> };
+    };
+    if (typeof mod.getCloudflareContext !== 'function') return null;
+    // async: false — sync binding access for module-level Prisma init paths
+    const ctx = mod.getCloudflareContext({ async: false });
+    const db = ctx?.env?.[D1_BINDING_NAME];
+    if (isD1Database(db)) return db;
+  } catch {
+    // Outside request context or package graph not present
+  }
+  return null;
+}
+
 function readWorkersModuleDb(): D1DatabaseLike | null {
   try {
-    // Avoid webpack/Next static analysis of optional runtime-only modules.
-    const dynamicRequire = Function(
-      'return typeof require !== "undefined" ? require : null'
-    )() as NodeRequire | null;
-    if (!dynamicRequire) return null;
-    const workers = dynamicRequire('cloudflare:workers') as {
-      env?: Record<string, unknown>;
-    };
+    // eslint-disable-next-line no-new-func
+    const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+    if (!req) return null;
+    const workers = req('cloudflare:workers') as { env?: Record<string, unknown> };
     const db = workers?.env?.[D1_BINDING_NAME];
     if (isD1Database(db)) return db;
   } catch {
-    // Not running on Cloudflare Workers, or module unavailable at build time.
+    // not available
   }
   return null;
 }
@@ -72,10 +98,12 @@ export function getD1Database(): D1DatabaseLike | null {
     return globalThis.DB;
   }
 
+  const fromOpenNext = readOpenNextContextDb();
+  if (fromOpenNext) return fromOpenNext;
+
   const fromWorkers = readWorkersModuleDb();
   if (fromWorkers) return fromWorkers;
 
-  // OpenNext / next-on-pages often stash request env here after middleware init.
   const cloudflareEnv = (globalThis as typeof globalThis & {
     __CLOUDFLARE_ENV__?: Record<string, unknown>;
   }).__CLOUDFLARE_ENV__;
@@ -88,7 +116,6 @@ export function getD1Database(): D1DatabaseLike | null {
 
 /**
  * Inject D1 binding for the current isolate (tests or CF request bootstrap).
- * Prefer calling this from Cloudflare adapter middleware with env.DB.
  */
 export function setD1Database(db: D1DatabaseLike | null | undefined): void {
   if (db && isD1Database(db)) {
@@ -104,5 +131,5 @@ export function isD1Runtime(): boolean {
 
 /** True when Prisma should use the native SQLite file engine (local/dev/tests). */
 export function useLocalSqliteFile(): boolean {
-  return !isD1Runtime();
+  return !isD1Runtime() && !isCloudflareWorkerRuntime();
 }

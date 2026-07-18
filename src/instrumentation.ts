@@ -20,8 +20,14 @@ export async function register() {
     const { PROMPT_VERSION } = await import('./prompts/version');
     const isProduction =
       process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+    // On Cloudflare Workers, secrets are dashboard vars — do not hard-throw during
+    // instrumentation or the entire Worker returns a blank page on cold start.
+    const onCloudflare =
+      process.env.CF_PAGES === '1' ||
+      process.env.CF_PAGES === 'true' ||
+      typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined';
     const result = validateEnvironment({
-      throwOnError: isProduction,
+      throwOnError: isProduction && !onCloudflare,
       production: isProduction,
     });
     const { logger } = await import('./lib/logger');

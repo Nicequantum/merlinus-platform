@@ -1,18 +1,25 @@
 import 'server-only';
 import { PrismaClient } from '@prisma/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
-import { getD1Database, isD1Runtime } from '@/lib/d1';
+import {
+  getD1Database,
+  isCloudflareWorkerRuntime,
+  isD1Runtime,
+  type D1DatabaseLike,
+} from '@/lib/d1';
 import { logger } from './logger';
 import { withDbConnectionRetry } from './dbRetry';
 
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
   prismaD1?: boolean;
+  /** Weak-map style: recreate client if D1 binding instance changes. */
+  prismaD1Binding?: D1DatabaseLike | null;
 };
 
 /**
  * Default local SQLite URL for prisma generate / Node without D1.
- * D1 runtime ignores this when adapter is passed to PrismaClient.
+ * Never used on Cloudflare Workers (file engine is unavailable there).
  */
 export const LOCAL_SQLITE_URL = 'file:./prisma/dev.db';
 
@@ -22,16 +29,21 @@ function ensureLocalDatabaseUrl(): void {
   }
 }
 
-function createPrismaClient(): PrismaClient {
-  const d1 = getD1Database();
+function createPrismaClient(d1: D1DatabaseLike | null): PrismaClient {
   if (d1) {
     logger.info('db.backend', { backend: 'cloudflare_d1', binding: 'DB' });
-    // PrismaD1 expects the Workers D1Database type; our helper validates .prepare().
     const adapter = new PrismaD1(d1 as ConstructorParameters<typeof PrismaD1>[0]);
     return new PrismaClient({
       adapter,
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     });
+  }
+
+  if (isCloudflareWorkerRuntime()) {
+    // Falling back to file SQLite on Workers causes blank pages / cryptic crashes.
+    throw new Error(
+      'Cloudflare Worker runtime has no D1 binding `DB`. Check wrangler.toml [[d1_databases]] binding = "DB" and redeploy.'
+    );
   }
 
   ensureLocalDatabaseUrl();
@@ -47,26 +59,45 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
- * Singleton Prisma client.
- * - Cloudflare: PrismaD1(env.DB) adapter (binding name `DB`)
- * - Local/CI: native SQLite via DATABASE_URL (default file:./prisma/dev.db)
- *
- * Note: if the process later gains a D1 binding (unlikely in same isolate),
- * restart is required to switch engines.
+ * Resolve Prisma client (D1 on Cloudflare, file SQLite locally).
+ * Prefer getPrisma() in request paths so OpenNext can attach env.DB after cold start.
  */
-export const prisma =
-  globalForPrisma.prisma && globalForPrisma.prismaD1 === isD1Runtime()
-    ? globalForPrisma.prisma
-    : createPrismaClient();
+export function getPrisma(): PrismaClient {
+  const d1 = getD1Database();
+  const wantD1 = Boolean(d1);
 
-globalForPrisma.prisma = prisma;
-globalForPrisma.prismaD1 = isD1Runtime();
+  if (
+    globalForPrisma.prisma &&
+    globalForPrisma.prismaD1 === wantD1 &&
+    globalForPrisma.prismaD1Binding === d1
+  ) {
+    return globalForPrisma.prisma;
+  }
+
+  const client = createPrismaClient(d1);
+  globalForPrisma.prisma = client;
+  globalForPrisma.prismaD1 = wantD1;
+  globalForPrisma.prismaD1Binding = d1;
+  return client;
+}
+
+/**
+ * Singleton accessor for existing call sites (`import { prisma } from '@/lib/db'`).
+ * Uses a Proxy so each property access re-resolves D1 (important on Workers).
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getPrisma();
+    const value = Reflect.get(client as object, prop, receiver);
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+});
 
 /** Health-check probe with connection retry — not used on request hot paths. */
 export async function probeDatabaseConnection(): Promise<void> {
   await withDbConnectionRetry(
     async () => {
-      await prisma.$queryRaw`SELECT 1`;
+      await getPrisma().$queryRaw`SELECT 1`;
     },
     { context: 'health.database' }
   );
@@ -76,7 +107,7 @@ export async function probeDatabaseConnection(): Promise<void> {
 export function warmDatabaseConnectionInBackground(): void {
   void withDbConnectionRetry(
     async () => {
-      await prisma.$connect();
+      await getPrisma().$connect();
     },
     { context: 'startup.warmup', maxAttempts: 3 }
   ).catch((error) => {
@@ -85,3 +116,5 @@ export function warmDatabaseConnectionInBackground(): void {
     });
   });
 }
+
+export { isD1Runtime, isCloudflareWorkerRuntime };
