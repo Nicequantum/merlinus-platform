@@ -62,7 +62,7 @@ async function findTechnicianByCredential(
       });
       if (exact) return exact;
       return db.technician.findFirst({
-        where: { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
+        where: { email: { equals: normalizedIdentifier } },
         include: technicianInclude,
       });
     }

@@ -89,7 +89,7 @@ export async function tryLinkClerkUserByEmail(params: {
   const technician = await withRlsBypass(async () =>
     getRlsDb().technician.findFirst({
       where: {
-        email: { equals: normalizedEmail, mode: 'insensitive' },
+        email: { equals: normalizedEmail },
         clerkUserId: null,
         deletedAt: null,
         isActive: true,

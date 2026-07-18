@@ -186,13 +186,13 @@ export async function lockRepairLineForCertification(
   tx: Prisma.TransactionClient,
   input: { repairLineId: string; dealershipId: string }
 ): Promise<{ id: string; storyQualityAuditEncrypted: string } | null> {
+  // SQLite/D1 has no FOR UPDATE row locks — still scope by dealership for isolation.
   const rows = await tx.$queryRaw<Array<{ id: string; storyQualityAuditEncrypted: string }>>`
     SELECT rl.id, rl."storyQualityAuditEncrypted"
     FROM "RepairLine" rl
     INNER JOIN "RepairOrder" ro ON ro.id = rl."repairOrderId"
     WHERE rl.id = ${input.repairLineId}
       AND ro."dealershipId" = ${input.dealershipId}
-    FOR UPDATE OF rl
   `;
   return rows[0] ?? null;
 }

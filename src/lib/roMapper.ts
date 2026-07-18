@@ -316,7 +316,8 @@ export function repairOrderToDbFields(
 
   return {
     roNumberEncrypted: encryptPII(roNumber),
-    roNumberSearchTokens: buildRoNumberSearchTokens(roNumber),
+    // SQLite/D1: store blind-index tokens as JSON string (no String[] / GIN).
+    roNumberSearchTokens: JSON.stringify(buildRoNumberSearchTokens(roNumber)),
     vinEncrypted: encryptPII(input.vehicle.vin),
     year: input.vehicle.year,
     make: input.vehicle.make,

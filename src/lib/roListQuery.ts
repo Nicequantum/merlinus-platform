@@ -55,14 +55,15 @@ export function buildRepairOrderListWhere(
   if (params.q) {
     const term = params.q;
     const roSearchTokens = buildRoNumberSearchQueryTokens(term);
+    // SQLite/D1: no mode:'insensitive' and no String[] hasSome — use contains on JSON token blob.
     const orClauses: Prisma.RepairOrderWhereInput[] = [
-      { year: { contains: term, mode: 'insensitive' } },
-      { make: { contains: term, mode: 'insensitive' } },
-      { model: { contains: term, mode: 'insensitive' } },
+      { year: { contains: term } },
+      { make: { contains: term } },
+      { model: { contains: term } },
     ];
 
-    if (roSearchTokens.length > 0) {
-      orClauses.unshift({ roNumberSearchTokens: { hasSome: roSearchTokens } });
+    for (const token of roSearchTokens) {
+      orClauses.unshift({ roNumberSearchTokens: { contains: token } });
     }
 
     return {

@@ -76,9 +76,12 @@ describe('repair order list query', () => {
       { scope: 'today', limit: 50, q: 'WDD' }
     );
     assert.ok(Array.isArray(where.OR));
-    assert.equal(where.OR?.length, 4);
-    const firstClause = where.OR?.[0] as { roNumberSearchTokens?: { hasSome: string[] } };
-    assert.ok(firstClause.roNumberSearchTokens?.hasSome?.length);
+    // Vehicle fields + one or more token contains clauses (SQLite JSON blob, not hasSome).
+    assert.ok((where.OR?.length ?? 0) >= 4);
+    const tokenClauses = (where.OR ?? []).filter(
+      (c) => (c as { roNumberSearchTokens?: { contains?: string } }).roNumberSearchTokens?.contains
+    );
+    assert.ok(tokenClauses.length >= 1);
   });
 
   test('isRepairOrderActiveToday respects updatedAt boundary', () => {

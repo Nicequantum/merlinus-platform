@@ -11,7 +11,7 @@ import { getSupabaseEnvConfig, isApexSupabaseProductionReady } from '@/lib/supab
 import { APP_VERSION } from '@/lib/version';
 
 const REQUIRED_ENV_VARS = [
-  'DATABASE_URL',
+  // DATABASE_URL is optional — D1 uses binding DB; local tooling defaults to file:./prisma/dev.db
   'DATA_ENCRYPTION_KEY',
   'SEARCH_HMAC_KEY',
   'SESSION_SECRET',

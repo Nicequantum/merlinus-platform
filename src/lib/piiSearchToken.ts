@@ -64,7 +64,7 @@ export function buildRoNumberSearchTokens(roNumber: string): string[] {
   return Array.from(tokens);
 }
 
-/** Build query tokens from a user search term for Prisma `hasSome` matching. */
+/** Build query tokens from a user search term for SQLite/D1 `contains` matching on the JSON token blob. */
 export function buildRoNumberSearchQueryTokens(term: string): string[] {
   const normalized = normalizeRoNumberForSearch(term);
   if (!normalized) return [];

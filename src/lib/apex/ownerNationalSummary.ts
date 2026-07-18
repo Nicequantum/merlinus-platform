@@ -214,20 +214,21 @@ async function loadDailyActivityBuckets(
   const db = getRlsDb();
   const idList = Prisma.join(rooftopIds.map((id) => Prisma.sql`${id}`));
 
+  // SQLite/D1: date(col) returns UTC day string; avoid Postgres date_trunc / AT TIME ZONE.
   const [roBuckets, certBuckets] = await Promise.all([
-    db.$queryRaw<Array<{ dealershipId: string; day: Date; count: number }>>`
+    db.$queryRaw<Array<{ dealershipId: string; day: string; count: number }>>`
       SELECT "dealershipId",
-             (date_trunc('day', "updatedAt" AT TIME ZONE 'UTC'))::date AS day,
-             COUNT(*)::int AS count
+             date("updatedAt") AS day,
+             COUNT(*) AS count
       FROM "RepairOrder"
       WHERE "dealershipId" IN (${idList})
         AND "updatedAt" >= ${since}
       GROUP BY 1, 2
     `,
-    db.$queryRaw<Array<{ dealershipId: string; day: Date; count: number }>>`
+    db.$queryRaw<Array<{ dealershipId: string; day: string; count: number }>>`
       SELECT "dealershipId",
-             (date_trunc('day', "certifiedAt" AT TIME ZONE 'UTC'))::date AS day,
-             COUNT(*)::int AS count
+             date("certifiedAt") AS day,
+             COUNT(*) AS count
       FROM "TechnicianCertifiedStory"
       WHERE "dealershipId" IN (${idList})
         AND "certifiedAt" >= ${since}
@@ -235,10 +236,10 @@ async function loadDailyActivityBuckets(
     `,
   ]);
 
-  const toRows = (rows: Array<{ dealershipId: string; day: Date; count: number }>) =>
+  const toRows = (rows: Array<{ dealershipId: string; day: string | Date; count: number }>) =>
     rows.map((r) => ({
       dealershipId: r.dealershipId,
-      day: dayKey(r.day instanceof Date ? r.day : new Date(r.day)),
+      day: dayKey(r.day instanceof Date ? r.day : new Date(String(r.day))),
       count: Number(r.count) || 0,
     }));
 

@@ -31,3 +31,6 @@ prisma/dev.db-journal
 .env
 .env.local
 tsconfig.tsbuildinfo
+
+.wrangler
+

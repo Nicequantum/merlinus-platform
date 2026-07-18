@@ -142,7 +142,7 @@ export async function seedVitiAutomotiveGroup(): Promise<VitiAutoGroupSeedResult
   });
 
   const existingByEmail = await prisma.technician.findFirst({
-    where: { email: { equals: email, mode: 'insensitive' } },
+    where: { email: { equals: email } },
     select: { id: true },
   });
 

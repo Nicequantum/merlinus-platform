@@ -6,9 +6,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { applyApexDatabaseEnv } from './resolve-apex-database-env.mjs';
-
-const REQUIRED = ['DATABASE_URL', 'DATA_ENCRYPTION_KEY', 'SEARCH_HMAC_KEY', 'SESSION_SECRET'];
+const REQUIRED = ['DATA_ENCRYPTION_KEY', 'SEARCH_HMAC_KEY', 'SESSION_SECRET'];
 /** Must never be set — exposes xAI keys to the browser bundle. Use GROK_API_KEY only. */
 const FORBIDDEN_PUBLIC_GROK_KEYS = [
   'NEXT_PUBLIC_GROK_API_KEY',
@@ -48,11 +46,21 @@ if (apexEnvEnabled) {
   console.log('[merlin:build] APEX_ENV active — loaded .env.apex.local');
 }
 
-// APEX NATIONAL PLATFORM — resolve Supabase Postgres URLs before build/migrate checks.
-const apexDb = applyApexDatabaseEnv({ loadApexEnvFile: false });
-if (apexDb.applied) {
-  console.log('[merlin:build] Apex Supabase Postgres active (DATABASE_URL resolved)');
+// Cloudflare D1 is the sole database — no DATABASE_URL / DIRECT_URL required at build.
+// Prisma generate uses a local file URL if DATABASE_URL is unset (see below).
+if (!process.env.DATABASE_URL?.trim()) {
+  process.env.DATABASE_URL = 'file:./prisma/dev.db';
+  console.log('[merlin:build] DATABASE_URL unset — using file:./prisma/dev.db for prisma generate only');
+} else if (/^postgres(ql)?:\/\//i.test(process.env.DATABASE_URL)) {
+  console.error(
+    '[merlin:build] DATABASE_URL points at PostgreSQL, but Merlinus uses Cloudflare D1 (sqlite).'
+  );
+  console.error(
+    '[merlin:build] Remove DATABASE_URL or set DATABASE_URL=file:./prisma/dev.db for local tooling.'
+  );
+  process.exit(1);
 }
+console.log('[merlin:build] Database: Cloudflare D1 (binding DB) / local sqlite file for generate');
 
 const isProduction =
   process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';

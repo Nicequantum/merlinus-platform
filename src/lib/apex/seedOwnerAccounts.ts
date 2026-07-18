@@ -152,7 +152,7 @@ async function ensureNationalOwnerAccount(
   const email = account.email.trim().toLowerCase();
 
   const existing = await getRlsDb().technician.findFirst({
-    where: { email: { equals: email, mode: 'insensitive' } },
+    where: { email: { equals: email } },
     select: { id: true, email: true, role: true },
   });
 

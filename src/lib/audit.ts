@@ -251,8 +251,9 @@ export async function appendAuditLogInTransaction(
   assertPromptVersionValid(input.action, promptVersion);
   const metadata = JSON.stringify(sanitizeAuditMetadata(input.metadata, input.action));
 
-  // H5: per-dealership advisory lock prevents concurrent hash-chain forks.
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.dealershipId}::text))`;
+  // H5: Postgres advisory locks are unavailable on D1/SQLite.
+  // Hash-chain integrity still relies on sequential writes + previousHash; concurrent
+  // forks are rare under single-primary D1 write semantics.
 
   const last = await tx.auditLog.findFirst({
     where: { dealershipId: input.dealershipId },

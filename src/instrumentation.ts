@@ -12,7 +12,7 @@ export async function register() {
     const { loadApexEnvFile, isApexPlatformEnvActive } = await import('./lib/apex/loadApexEnv');
     loadApexEnvFile({ override: true });
 
-    // Force Supabase DATABASE_URL when Apex is active (before any Prisma use).
+    // D1 binding at runtime; local file URL for tooling (never Postgres).
     const { applyResolvedDatabaseEnv } = await import('./lib/apex/databaseConfig');
     const dbConfig = applyResolvedDatabaseEnv();
 

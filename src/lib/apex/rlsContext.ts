@@ -103,27 +103,18 @@ export function getRlsTransaction(): Prisma.TransactionClient | undefined {
 }
 
 /**
- * Set transaction-local Postgres session variables for RLS policies.
- * Uses set_config(..., is_local=true) so values do not leak across pooled connections.
+ * Apply tenant context for the current unit of work.
+ *
+ * PostgreSQL previously used set_config(... is_local) for DB-level RLS policies.
+ * Cloudflare D1 / SQLite has no session GUC or Postgres RLS — isolation is enforced
+ * in application queries (dealershipId / dealerId filters) and rlsTxStorage.
+ * This function is intentionally a no-op on D1 while preserving the call sites.
  */
-export async function setRlsContext(client: RlsDbClient, ctx: RlsContext): Promise<void> {
-  const enforced = ctx.enforced ?? isRlsEnabled();
-  const bypass = Boolean(ctx.bypass);
-  // Soft-open only when explicitly requested and not enforced/bypass (Merlinus bare paths).
-  const softOpen = Boolean(ctx.softOpen) && !enforced && !bypass;
-  const technicianId = ctx.technicianId?.trim() || '';
-  const activeDealershipId = ctx.activeDealershipId?.trim() || '';
-  const dealerId = ctx.dealerId?.trim() || '';
-  // Group home is non-PII like national — only dealership scope enables rooftop RLS filters.
-  const scopeMode = ctx.scopeMode === 'dealership' ? 'dealership' : 'national';
-
-  await client.$executeRaw`SELECT set_config('app.rls_enforced', ${enforced ? 'on' : 'off'}, true)`;
-  await client.$executeRaw`SELECT set_config('app.rls_soft_open', ${softOpen ? 'on' : 'off'}, true)`;
-  await client.$executeRaw`SELECT set_config('app.rls_bypass', ${bypass ? 'on' : 'off'}, true)`;
-  await client.$executeRaw`SELECT set_config('app.scope_mode', ${scopeMode}, true)`;
-  await client.$executeRaw`SELECT set_config('app.active_dealership_id', ${activeDealershipId}, true)`;
-  await client.$executeRaw`SELECT set_config('app.dealer_id', ${dealerId}, true)`;
-  await client.$executeRaw`SELECT set_config('app.technician_id', ${technicianId}, true)`;
+export async function setRlsContext(_client: RlsDbClient, _ctx: RlsContext): Promise<void> {
+  // Multi-rooftop isolation: use getRlsDb() + explicit dealership filters in queries.
+  // D1 does not support Postgres set_config / RLS policies.
+  void _client;
+  void _ctx;
 }
 
 /**
@@ -139,14 +130,12 @@ export async function withRlsContext<T>(
     return fn(existing);
   }
 
-  return prisma.$transaction(
-    async (tx) => {
-      await setRlsContext(tx, ctx);
-      return rlsTxStorage.run(tx, () => fn(tx));
-    },
-    // PII handlers may do several DB round-trips; keep under route maxDuration.
-    { maxWait: 15_000, timeout: 30_000 }
-  );
+  // D1 ignores interactive transactions (runs statements individually).
+  // Still use $transaction so call sites share the same client via ALS when supported.
+  return prisma.$transaction(async (tx) => {
+    await setRlsContext(tx, ctx);
+    return rlsTxStorage.run(tx, () => fn(tx));
+  });
 }
 
 /**

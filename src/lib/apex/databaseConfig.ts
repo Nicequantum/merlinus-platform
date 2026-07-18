@@ -1,34 +1,36 @@
 /**
- * APEX NATIONAL PLATFORM — Prisma/Postgres connection resolution (Phase 1.5).
- * MERLINUS SINGLE-DEALER: when Apex Supabase Postgres is not configured, DATABASE_URL is unchanged.
+ * Database backend resolution — Cloudflare D1 only.
+ *
+ * Runtime: PrismaD1(env.DB) via src/lib/db.ts + src/lib/d1.ts.
+ * Local tooling: DATABASE_URL=file:./prisma/dev.db for prisma generate / optional file SQLite.
  */
 
-import { isApexEnvEnabled, loadApexEnvFile } from '@/lib/apex/loadApexEnv';
+import { loadApexEnvFile } from '@/lib/apex/loadApexEnv';
+import { isD1Runtime } from '@/lib/d1';
 
-// Load .env.apex.local before reading any Apex/Supabase env vars.
+// Load .env.apex.local for non-DB Apex secrets when present.
 loadApexEnvFile();
 
-export type DatabaseBackend = 'merlinus_legacy' | 'apex_supabase';
+export type DatabaseBackend = 'cloudflare_d1' | 'sqlite_file';
 
 export interface ResolvedDatabaseConfig {
   backend: DatabaseBackend;
+  /** Local file URL for prisma generate / Node fallback — never a Postgres URL. */
   databaseUrl: string | null;
+  /** @deprecated D1 has no directUrl; always null. */
   directUrl: string | null;
+  /** @deprecated Postgres Supabase ref unused for Prisma. */
   supabaseProjectRef: string | null;
 }
+
+const LOCAL_SQLITE = 'file:./prisma/dev.db';
 
 function trimEnv(key: string): string | null {
   const value = process.env[key]?.trim();
   return value || null;
 }
 
-function isTruthyEnv(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
-}
-
-/** Extract project ref from https://<ref>.supabase.co */
+/** @deprecated Supabase Postgres is no longer used for Prisma — kept for call-site compatibility. */
 export function extractSupabaseProjectRef(supabaseUrl: string): string | null {
   try {
     const host = new URL(supabaseUrl).hostname;
@@ -39,113 +41,63 @@ export function extractSupabaseProjectRef(supabaseUrl: string): string | null {
   }
 }
 
-/** Build Supabase pooler URLs from project ref + database password (dashboard → Database). */
-export function buildSupabasePostgresUrls(input: {
+/** @deprecated Always returns false — D1 is the sole database. */
+export function isApexSupabasePostgresConfigured(): boolean {
+  return false;
+}
+
+/** @deprecated Always returns false — D1 is the sole database. */
+export function shouldUseApexSupabaseDatabase(): boolean {
+  return false;
+}
+
+/** @deprecated No-op builder retained so older scripts import cleanly. */
+export function buildSupabasePostgresUrls(_input: {
   projectRef: string;
   password: string;
   region?: string;
 }): { databaseUrl: string; directUrl: string } {
-  const region = input.region?.trim() || trimEnv('SUPABASE_DB_REGION') || 'us-east-1';
-  const encodedPassword = encodeURIComponent(input.password);
-  const host = `aws-0-${region}.pooler.supabase.com`;
-  const user = `postgres.${input.projectRef}`;
-
-  return {
-    databaseUrl: `postgresql://${user}:${encodedPassword}@${host}:6543/postgres?pgbouncer=true&connection_limit=1`,
-    directUrl: `postgresql://${user}:${encodedPassword}@${host}:5432/postgres`,
-  };
-}
-
-function resolveApexPostgresUrls(): { databaseUrl: string | null; directUrl: string | null } {
-  const explicitDatabaseUrl =
-    trimEnv('SUPABASE_DATABASE_URL') || trimEnv('APEX_DATABASE_URL');
-  const explicitDirectUrl =
-    trimEnv('SUPABASE_DIRECT_DATABASE_URL') || trimEnv('APEX_DIRECT_DATABASE_URL');
-
-  if (explicitDatabaseUrl) {
-    return {
-      databaseUrl: explicitDatabaseUrl,
-      directUrl: explicitDirectUrl || explicitDatabaseUrl,
-    };
-  }
-
-  const password = trimEnv('SUPABASE_DB_PASSWORD') || trimEnv('APEX_DB_PASSWORD');
-  const supabaseUrl = trimEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const projectRef = supabaseUrl ? extractSupabaseProjectRef(supabaseUrl) : trimEnv('SUPABASE_PROJECT_REF');
-
-  if (!password || !projectRef) {
-    return { databaseUrl: null, directUrl: null };
-  }
-
-  const built = buildSupabasePostgresUrls({ projectRef, password });
-  return built;
-}
-
-/** True when Apex can route Prisma to live Supabase Postgres (URL or password + project ref). */
-export function isApexSupabasePostgresConfigured(): boolean {
-  return resolveApexPostgresUrls().databaseUrl !== null;
-}
-
-/** True when we should prefer Supabase Postgres over legacy DATABASE_URL. */
-export function shouldUseApexSupabaseDatabase(): boolean {
-  if (!isApexSupabasePostgresConfigured()) return false;
-  if (isTruthyEnv(process.env.APEX_USE_SUPABASE_DB)) return true;
-  if (isApexEnvEnabled()) return true;
-
-  // National Apex UI must hit Supabase owners DB — not Merlinus DATABASE_URL (db.prisma.io).
-  const platformMode =
-    process.env.PLATFORM_MODE?.trim().toLowerCase() ||
-    process.env.NEXT_PUBLIC_PLATFORM_MODE?.trim().toLowerCase();
-  if (platformMode === 'apex') return true;
-
-  const isProduction =
-    process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-  const supabaseUrl = trimEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const serviceKey = trimEnv('SUPABASE_SERVICE_ROLE_KEY');
-
-  // APEX NATIONAL PLATFORM — auto-select Supabase Postgres in production when fully configured.
-  return Boolean(isProduction && supabaseUrl && serviceKey);
+  throw new Error(
+    'PostgreSQL/Supabase is no longer supported. Merlinus uses Cloudflare D1 (binding DB).'
+  );
 }
 
 export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
-  const legacyDatabaseUrl = trimEnv('DATABASE_URL');
-  const legacyDirectUrl = trimEnv('DIRECT_URL') || legacyDatabaseUrl;
-  const supabaseUrl = trimEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const projectRef = supabaseUrl ? extractSupabaseProjectRef(supabaseUrl) : null;
-
-  if (shouldUseApexSupabaseDatabase()) {
-    const apex = resolveApexPostgresUrls();
-    if (apex.databaseUrl) {
-      return {
-        backend: 'apex_supabase',
-        databaseUrl: apex.databaseUrl,
-        directUrl: apex.directUrl || apex.databaseUrl,
-        supabaseProjectRef: projectRef,
-      };
-    }
+  const rawUrl = trimEnv('DATABASE_URL');
+  if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
+    throw new Error(
+      'DATABASE_URL is a PostgreSQL URL but Merlinus uses Cloudflare D1. Remove it or set file:./prisma/dev.db for local tooling.'
+    );
   }
 
-  // MERLINUS SINGLE-DEALER — existing DATABASE_URL/DIRECT_URL behavior.
+  if (isD1Runtime()) {
+    return {
+      backend: 'cloudflare_d1',
+      databaseUrl: rawUrl || LOCAL_SQLITE,
+      directUrl: null,
+      supabaseProjectRef: null,
+    };
+  }
+
   return {
-    backend: 'merlinus_legacy',
-    databaseUrl: legacyDatabaseUrl,
-    directUrl: legacyDirectUrl,
+    backend: 'sqlite_file',
+    databaseUrl: rawUrl || LOCAL_SQLITE,
+    directUrl: null,
     supabaseProjectRef: null,
   };
 }
 
 /**
- * Apply resolved Apex database URLs to process.env before Prisma client initialization.
- * Safe to call multiple times; only mutates env when Apex Supabase Postgres is active.
+ * Ensure a non-Postgres DATABASE_URL exists for prisma generate / local file engine.
+ * Does not configure D1 (that uses the env.DB binding).
  */
 export function applyResolvedDatabaseEnv(): ResolvedDatabaseConfig {
   const config = resolveDatabaseConfig();
-  if (config.backend === 'apex_supabase' && config.databaseUrl) {
-    process.env.DATABASE_URL = config.databaseUrl;
-    if (config.directUrl) {
-      process.env.DIRECT_URL = config.directUrl;
-    }
+  if (!process.env.DATABASE_URL?.trim()) {
+    process.env.DATABASE_URL = config.databaseUrl || LOCAL_SQLITE;
   }
+  // Never set DIRECT_URL for D1.
+  delete process.env.DIRECT_URL;
   return config;
 }
 
@@ -153,10 +105,12 @@ export function applyResolvedDatabaseEnv(): ResolvedDatabaseConfig {
 export function getDatabaseBackendSummary(): {
   backend: DatabaseBackend;
   supabaseProjectRef: string | null;
+  d1Binding: 'DB';
 } {
   const config = resolveDatabaseConfig();
   return {
     backend: config.backend,
-    supabaseProjectRef: config.supabaseProjectRef,
+    supabaseProjectRef: null,
+    d1Binding: 'DB',
   };
 }

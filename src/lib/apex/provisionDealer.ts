@@ -495,7 +495,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
 
     // Uniqueness of manager identity
     const emailTaken = await tx.technician.findFirst({
-      where: { email: { equals: managerNorm.email, mode: 'insensitive' } },
+      where: { email: { equals: managerNorm.email } },
       select: { id: true },
     });
     if (emailTaken) {

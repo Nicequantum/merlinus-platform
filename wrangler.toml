@@ -1,0 +1,22 @@
+# Cloudflare Workers / Pages — D1 binding for Merlinus
+# Binding name MUST stay `DB` (matches src/lib/d1.ts D1_BINDING_NAME and PrismaD1(env.DB)).
+#
+# After creating a D1 database in the Cloudflare dashboard (or via
+# `npx wrangler d1 create merlinus-d1`), paste the database_id below.
+#
+# Migrations: use Wrangler, not prisma migrate deploy:
+#   npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > migrations/0001_init.sql
+#   npx wrangler d1 migrations apply merlinus-d1 --local
+#   npx wrangler d1 migrations apply merlinus-d1 --remote
+
+name = "merlinus-platform"
+compatibility_date = "2025-08-05"
+# Node.js APIs used by Next/Prisma tooling when running under Workers.
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "merlinus-d1"
+# Replace with your D1 database id from the Cloudflare dashboard (Workers → D1).
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

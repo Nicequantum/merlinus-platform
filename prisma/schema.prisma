@@ -1,14 +1,15 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Cloudflare D1 requires the driverAdapters preview (Prisma 6) + @prisma/adapter-d1 at runtime.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  // MERLINUS SINGLE-DEALER: Neon/Prisma Postgres via DATABASE_URL (+ DIRECT_URL for migrations).
-  // APEX NATIONAL PLATFORM (Phase 1.5): Supabase pooler on DATABASE_URL, DIRECT_URL for migrations.
-  // Set SUPABASE_DATABASE_URL or SUPABASE_DB_PASSWORD — resolved in src/lib/apex/databaseConfig.ts.
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // Cloudflare D1 is SQLite-compatible. Runtime uses PrismaD1(env.DB) — see src/lib/db.ts.
+  // DATABASE_URL is only for prisma generate / local file fallback (file:./prisma/dev.db).
+  // Schema changes: wrangler d1 migrations + `prisma migrate diff` (not prisma migrate deploy).
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ─── PII ENCRYPTION AT REST (Merlinus v2.0 — Phase 5 complete) ───────────────
@@ -821,8 +822,11 @@ model RepairOrder {
   id                         String       @id @default(cuid())
   /** Encrypted RO number — sole source of truth at rest. */
   roNumberEncrypted          String       @default("")
-  /** HMAC blind-index tokens for RO search without decrypting roNumberEncrypted. */
-  roNumberSearchTokens       String[]     @default([])
+  /**
+   * HMAC blind-index tokens for RO search without decrypting roNumberEncrypted.
+   * Stored as JSON string array on SQLite/D1 (Postgres used String[] + GIN).
+   */
+  roNumberSearchTokens       String       @default("[]")
   technicianId               String
   technician                 Technician   @relation(fields: [technicianId], references: [id])
   dealerId                   String?      @map("dealer_id")
@@ -854,7 +858,6 @@ model RepairOrder {
   @@index([technicianId])
   @@index([dealerId])
   @@index([dealershipId])
-  @@index([roNumberSearchTokens], type: Gin)
   @@index([serviceAdvisorId])
   @@index([dealerId, dealershipId])
   /** RLS prep — composite tenant + recency for national platform list queries. */
@@ -1028,7 +1031,7 @@ model Template {
   id           String    @id @default(cuid())
   title        String
   category     String
-  contentEncrypted String @db.Text
+  contentEncrypted String
   /** Customer Pay templates bypass Merlin AI — instant pre-written stories. */
   isCustomerPay Boolean  @default(false)
   templateType  String   @default("Warranty")
@@ -1054,9 +1057,9 @@ model KnowledgeBase {
   id               String   @id @default(cuid())
   title            String
   category         String
-  generatedTextEncrypted    String? @db.Text
-  fullOriginalTextEncrypted String  @db.Text
-  cleanTemplateEncrypted    String  @db.Text
+  generatedTextEncrypted    String?
+  fullOriginalTextEncrypted String
+  cleanTemplateEncrypted    String
   tags             String   @default("[]")
   source           String   @default("seed")
   dealerId         String?  @map("dealer_id")
