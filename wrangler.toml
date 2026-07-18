@@ -39,10 +39,11 @@ head_sampling_rate = 1
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# Prisma / app code expects binding name "DB" (src/lib/d1.ts).
+# Dashboard name may show as "apex"; uuid is authoritative.
 [[d1_databases]]
 binding = "DB"
 database_name = "merlinus-d1"
-# Replace with your D1 database id from the Cloudflare dashboard (Workers → D1).
 database_id = "ebc1ac5c-c35c-464c-9e18-cf499c03ffba"
 migrations_dir = "migrations"
 
@@ -50,3 +51,14 @@ migrations_dir = "migrations"
 [[services]]
 binding = "WORKER_SELF_REFERENCE"
 service = "merlinus-platform"
+
+# Object storage for images, video MPI, voice media (replaces Vercel Blob).
+# Cloudflare R2 bucket names must be lowercase (API rejects "Apex" → use "apex").
+[[r2_buckets]]
+binding = "APEX_R2"
+bucket_name = "apex"
+
+# Distributed rate limiting — merlinus-rate-limit namespace (native Workers KV)
+[[kv_namespaces]]
+binding = "KV_STORE"
+id = "95aae52266f74a31bf715071664b24b9"

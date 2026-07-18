@@ -1,5 +1,7 @@
 import 'server-only';
-import { PrismaClient } from '@prisma/client';
+// Prefer WASM / workerd client so Workers never load the Node query engine
+// (which calls fs.readdir and throws under unenv). Falls back to default for local Node.
+import { PrismaClient } from '@prisma/client/wasm';
 import { PrismaD1 } from '@prisma/adapter-d1';
 import {
   getD1Database,
@@ -107,7 +109,9 @@ export async function probeDatabaseConnection(): Promise<void> {
 export function warmDatabaseConnectionInBackground(): void {
   void withDbConnectionRetry(
     async () => {
-      await getPrisma().$connect();
+      // Prefer a real query over $connect(): on Workers/unenv, $connect can touch
+      // fs APIs that are not implemented, while D1 SELECT 1 validates the binding.
+      await getPrisma().$queryRaw`SELECT 1`;
     },
     { context: 'startup.warmup', maxAttempts: 3 }
   ).catch((error) => {
