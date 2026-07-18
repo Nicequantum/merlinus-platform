@@ -1,3 +1,8 @@
+# Workers Observability (dashboard logs)
+[observability]
+enabled = true
+invocation_logs = true
+
 # Cloudflare Workers deploy for Merlinus (Next.js via OpenNext)
 #
 # `npm run build` runs Next.js then OpenNext (`build:opennext` → .open-next/).
