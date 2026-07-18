@@ -84,13 +84,18 @@ describe('Dealer provision system (PR-P4)', () => {
     previousHttpFlag = process.env.APEX_ALLOW_HTTP_PROVISION;
     applyApexIntegrationSeedEnv();
 
-    // Ensure provision migration is present on integration DB (idempotent).
-    await prisma.$executeRawUnsafe(
-      'ALTER TABLE "Technician" ADD COLUMN IF NOT EXISTS "must_change_password" BOOLEAN NOT NULL DEFAULT false'
-    );
-    await prisma.$executeRawUnsafe(
-      'ALTER TABLE "Technician" ADD COLUMN IF NOT EXISTS "password_changed_at" TIMESTAMP(3)'
-    );
+    // Ensure provision columns exist. Postgres supports IF NOT EXISTS; SQLite/D1 does not.
+    // Current Prisma schema already includes these fields — skip raw DDL on SQLite.
+    const dbUrl = process.env.DATABASE_URL ?? '';
+    const isSqlite = dbUrl.startsWith('file:') || dbUrl.includes('sqlite') || !dbUrl.includes('postgres');
+    if (!isSqlite) {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "Technician" ADD COLUMN IF NOT EXISTS "must_change_password" BOOLEAN NOT NULL DEFAULT false'
+      );
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "Technician" ADD COLUMN IF NOT EXISTS "password_changed_at" TIMESTAMP(3)'
+      );
+    }
 
     await prisma.dealership.upsert({
       where: { id: 'seed-dealership' },
