@@ -7,7 +7,8 @@ describe('manual story audit workflow', () => {
   test('LineView exposes Audit Story button wired to score handler', () => {
     const lineView = readFileSync(join(process.cwd(), 'src/components/LineView.tsx'), 'utf8');
     assert.match(lineView, /onScoreStory/);
-    assert.match(lineView, /Audit Story/);
+    // UI copy is i18n: line.auditStory / line.auditing
+    assert.match(lineView, /t\(['"]auditStory['"]\)|t\(['"]auditing['"]\)/);
     assert.match(lineView, /isScoring/);
   });
 
@@ -43,7 +44,8 @@ describe('manual story audit workflow', () => {
   test('quality loading panel separates generation from audit scoring', () => {
     const panel = readFileSync(join(process.cwd(), 'src/components/StoryQualityPanel.tsx'), 'utf8');
     assert.match(panel, /mode === 'scoring'/);
-    assert.match(panel, /Writing your warranty narrative/);
+    // i18n key for generation status (en: "Writing your warranty narrative…")
+    assert.match(panel, /loadingWriting|t\(['"]loadingWriting['"]\)/);
     assert.doesNotMatch(panel, /Generating story and scoring/i);
   });
 
@@ -51,8 +53,9 @@ describe('manual story audit workflow', () => {
     const panel = readFileSync(join(process.cwd(), 'src/components/StoryQualityPanel.tsx'), 'utf8');
     assert.match(panel, /onApplyTechnicianDetail/);
     assert.match(panel, /onApplyAllTechnicianDetails/);
-    assert.match(panel, /Add All Tech Details/);
-    assert.match(panel, /technicianDetailActionLabel/);
+    // i18n key (en: "Add All Tech Details")
+    assert.match(panel, /addAllTechDetails|t\(['"]addAllTechDetails['"]\)/);
+    assert.match(panel, /detailActionLabel|technicianDetailActionLabel/);
   });
 
   test('LineView wires tech-detail apply handlers into quality panel', () => {
@@ -60,7 +63,7 @@ describe('manual story audit workflow', () => {
     assert.match(lineView, /handleApplyTechnicianDetail/);
     assert.match(lineView, /handleApplyAllTechnicianDetails/);
     assert.match(lineView, /onApplyAllTechnicianDetails/);
-    assert.match(lineView, /GENERATE_STORY_BUTTON_LABEL|MI_PRODUCT_LABEL/);
+    assert.match(lineView, /generateMi|MI_PRODUCT_LABEL/);
     assert.doesNotMatch(lineView, /Generate MI 4\.3/);
   });
 });
