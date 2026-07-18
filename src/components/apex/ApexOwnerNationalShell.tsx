@@ -25,11 +25,12 @@ import type {
 } from '@/lib/ownerSummaryClient';
 import { fetchOwnerNationalSummary } from '@/lib/ownerSummaryClient';
 import { formatTrendPct, OwnerSparkline } from '@/components/apex/OwnerSparkline';
+import { OwnerOnboardDealershipForm } from '@/components/apex/OwnerOnboardDealershipForm';
 import { clientLog } from '@/lib/clientLog';
 import type { TechnicianSession } from '@/types';
 import { toast } from 'sonner';
 
-type NationalView = 'dashboard' | 'enter-dealership';
+type NationalView = 'dashboard' | 'enter-dealership' | 'onboard';
 
 interface ApexOwnerNationalShellProps {
   session: TechnicianSession;
@@ -516,6 +517,33 @@ export function ApexOwnerNationalShell({
       </header>
 
       <main className="apex-national-main">
+        {!isGroupHome ? (
+          <nav className="apex-national-tabs" aria-label="National console sections">
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'dashboard' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('dashboard')}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'onboard' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('onboard')}
+            >
+              Onboard New Dealership
+            </button>
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'enter-dealership' ? ' apex-national-tab--active' : ''}`}
+              disabled={loadingDealerships || actionLoading}
+              onClick={() => void openEnterDealership()}
+            >
+              Enter rooftop
+            </button>
+          </nav>
+        ) : null}
+
         {view === 'enter-dealership' ? (
           <section className="apex-national-panel apex-card apex-card-accent apex-national-panel--wide">
             <div className="apex-national-panel-head">
@@ -561,6 +589,14 @@ export function ApexOwnerNationalShell({
               />
             )}
           </section>
+        ) : view === 'onboard' && !isGroupHome ? (
+          <section className="apex-national-panel apex-national-panel--wide">
+            <OwnerOnboardDealershipForm
+              onCompleted={() => {
+                void loadSummary();
+              }}
+            />
+          </section>
         ) : (
           <>
             <section className="apex-national-hero apex-card apex-card-accent">
@@ -599,6 +635,15 @@ export function ApexOwnerNationalShell({
                   Video Inspection: enter a rooftop to record bay videos and send customer
                   reports.
                 </p>
+                {!isGroupHome ? (
+                  <button
+                    type="button"
+                    className="apex-btn-secondary touch-target"
+                    onClick={() => setView('onboard')}
+                  >
+                    Onboard New Dealership
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="apex-btn-secondary touch-target"
