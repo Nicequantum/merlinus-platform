@@ -58,7 +58,8 @@ export function resolveLocalSqliteFilePath(databaseUrl: string): string {
  * Dynamic require keeps native better-sqlite3 out of the Workers/OpenNext bundle.
  */
 function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // Dynamic require keeps native better-sqlite3 out of the Workers/OpenNext graph.
+  // eslint-disable-next-line -- require() is intentional for optional Node-only native dep
   const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3');
   const filePath = resolveLocalSqliteFilePath(databaseUrl);
   // Factory adapter (engineType=client) — PrismaClient calls connect() internally.
