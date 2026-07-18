@@ -138,10 +138,15 @@ describe('High priority audit fixes (H1–H15)', () => {
 
   it('H15: build runs gated D1 migrate via migrate-deploy.mjs (Wrangler, not prisma migrate)', () => {
     const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
-      scripts?: { build?: string; 'db:migrate:deploy'?: string };
+      scripts?: { build?: string; 'build:next'?: string; 'build:opennext'?: string; 'db:migrate:deploy'?: string };
     };
+    const buildNext = pkg.scripts?.['build:next'] ?? '';
     const buildScript = pkg.scripts?.build ?? '';
-    assert.ok(buildScript.includes('migrate-deploy.mjs'));
+    // build:next runs migrate-deploy + next; build chains OpenNext packaging for Wrangler
+    assert.ok(buildNext.includes('migrate-deploy.mjs'));
+    assert.ok(buildNext.includes('next build'));
+    assert.ok(buildScript.includes('build:opennext') || buildScript.includes('opennext'));
+    assert.ok(pkg.scripts?.['build:opennext']?.includes('opennextjs-cloudflare build'));
     assert.ok(pkg.scripts?.['db:migrate:deploy']?.includes('migrate-deploy.mjs'));
     const migrateScript = readSrc('scripts/migrate-deploy.mjs');
     // D1: wrangler d1 migrations — not prisma migrate deploy

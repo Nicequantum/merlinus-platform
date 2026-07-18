@@ -1,8 +1,10 @@
 # Cloudflare Workers deploy for Merlinus (Next.js via OpenNext)
 #
-# Build first so .open-next/ exists:
-#   npm run deploy
-#   # or: npx opennextjs-cloudflare build && npx wrangler deploy
+# `npm run build` runs Next.js then OpenNext (`build:opennext` → .open-next/).
+# Deploy: `npm run deploy`  OR  `npm run build && npx wrangler deploy`
+#
+# Cloudflare dashboard build command should be: npm run build
+# (Do not use plain `next build` alone — Wrangler needs .open-next/worker.js.)
 #
 # D1 binding name MUST stay `DB` (matches src/lib/d1.ts + PrismaD1(env.DB)).
 #
@@ -11,7 +13,7 @@
 #   npx wrangler d1 migrations apply merlinus-d1 --remote
 
 name = "merlinus-platform"
-# OpenNext Worker entry (produced by `opennextjs-cloudflare build`)
+# OpenNext Worker entry (produced by `npm run build` / `build:opennext`)
 main = ".open-next/worker.js"
 compatibility_date = "2025-08-05"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
