@@ -102,8 +102,9 @@ jobs:
     name: OpenNext secret bake gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Intentionally no job-level NODE_ENV=production — that makes `npm ci` omit
+    # devDependencies (e.g. tailwindcss) and breaks next build.
     env:
-      NODE_ENV: production
       SESSION_SECRET: ci-test-session-secret-min-32-chars-long
       DATA_ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       SEARCH_HMAC_KEY: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -134,6 +135,9 @@ jobs:
 
       - name: OpenNext build (includes next build)
         run: npm run build
+        env:
+          # next build optimizes for production; deps already installed with devDependencies.
+          NODE_ENV: production
 
       - name: Strip runtime secrets from next-env.mjs
         run: node scripts/strip-opennext-secrets.mjs
