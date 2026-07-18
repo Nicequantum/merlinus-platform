@@ -118,8 +118,9 @@ describe('Phase 6.1/6.2 RLS context', () => {
     assert.match(src, /export async function setRlsContext/);
     assert.match(src, /export async function withRlsContext/);
     assert.match(src, /export async function withRlsBypass/);
-    assert.match(src, /rls_soft_open/);
     assert.match(src, /isApexPlatformMode/);
-    assert.match(src, /set_config/);
+    // D1: no live Postgres GUC calls — isolation is application-level.
+    assert.equal(src.includes("$executeRaw`SELECT set_config"), false);
+    assert.match(src, /rlsTxStorage|getRlsDb/);
   });
 });

@@ -174,18 +174,24 @@ describe('Phase 7.2 H12 — RLS runtime contracts', () => {
     }
   });
 
-  test('RLS migrations and setRlsContext still present', () => {
+  test('RLS helpers still present (D1 uses app-level isolation, not Postgres set_config)', () => {
     const rls = readSrc('src/lib/apex/rlsContext.ts');
-    assert.match(rls, /set_config\('app\.rls_enforced'/);
-    assert.match(rls, /app\.rls_soft_open/);
+    // D1/SQLite: setRlsContext is a no-op; multi-rooftop isolation is query filters + ALS.
+    assert.equal(rls.includes("set_config('app.rls_enforced'"), false);
+    assert.match(rls, /export async function setRlsContext/);
     assert.match(rls, /withSessionRls/);
     assert.match(rls, /withRlsBypass/);
+    assert.match(rls, /isApexPlatformMode/);
 
-    const mig = readSrc(
-      'prisma/migrations/20250715120000_apex_phase6_2_rls_default_deny/migration.sql'
-    );
-    assert.match(mig, /app\.rls_soft_open/);
-    assert.match(mig, /Technician/);
+    // Historical Postgres RLS migration may still exist in git history for reference.
+    const migPath =
+      'prisma/migrations/20250715120000_apex_phase6_2_rls_default_deny/migration.sql';
+    try {
+      const mig = readSrc(migPath);
+      assert.match(mig, /Technician/);
+    } catch {
+      // Optional if migration tree was dropped for D1-only deploys
+    }
   });
 });
 

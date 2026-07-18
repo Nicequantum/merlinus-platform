@@ -43,9 +43,11 @@ describe('High priority audit fixes (H1–H15)', () => {
     assert.ok(pdfSrc.includes("action: 'customerPayStory.pdf_export'"));
   });
 
-  it('H5: audit advisory lock', () => {
+  it('H5: audit chain still sequential on D1 (no Postgres advisory lock)', () => {
     const auditSrc = readSrc('src/lib/audit.ts');
-    assert.ok(auditSrc.includes('pg_advisory_xact_lock'));
+    // Cloudflare D1/SQLite has no pg_advisory_xact_lock — hash chain uses previousHash.
+    assert.equal(auditSrc.includes('pg_advisory_xact_lock'), false);
+    assert.ok(auditSrc.includes('previousHash') || auditSrc.includes('entryHash'));
   });
 
   it('H6/H7: encryption loud decrypt and derived salt', () => {
@@ -134,15 +136,16 @@ describe('High priority audit fixes (H1–H15)', () => {
     assert.ok(src.includes('if (!template.isCustomerPay)'));
   });
 
-  it('H15: build runs gated migrate deploy via migrate-deploy.mjs', () => {
+  it('H15: build runs gated D1 migrate via migrate-deploy.mjs (Wrangler, not prisma migrate)', () => {
     const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       scripts?: { build?: string; 'db:migrate:deploy'?: string };
     };
     const buildScript = pkg.scripts?.build ?? '';
     assert.ok(buildScript.includes('migrate-deploy.mjs'));
-    assert.ok(pkg.scripts?.['db:migrate:deploy']?.includes('prisma migrate deploy'));
+    assert.ok(pkg.scripts?.['db:migrate:deploy']?.includes('migrate-deploy.mjs'));
     const migrateScript = readSrc('scripts/migrate-deploy.mjs');
-    assert.ok(migrateScript.includes('VERCEL'));
-    assert.equal(migrateScript.includes('prisma migrate deploy'), true);
+    // D1: wrangler d1 migrations — not prisma migrate deploy
+    assert.ok(migrateScript.includes('wrangler d1') || migrateScript.includes('D1'));
+    assert.equal(migrateScript.includes('npx prisma migrate deploy'), false);
   });
 });

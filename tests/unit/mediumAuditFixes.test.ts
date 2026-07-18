@@ -17,7 +17,7 @@ function readSrc(relativePath: string): string {
 describe('Medium audit fixes (M1–M30)', () => {
   it('M1: clear Customer Pay API and UI', () => {
     assert.ok(readSrc('src/app/api/repair-orders/[id]/lines/[lineId]/clear-customer-pay/route.ts').includes('clearCustomerPayMode'));
-    assert.ok(readSrc('src/components/LineView.tsx').includes('Switch to warranty AI'));
+    assert.ok(readSrc('src/components/LineView.tsx').includes("t('switchToWarrantyAi')"));
   });
 
   it('M2/M3: transactional idempotent Customer Pay apply', () => {

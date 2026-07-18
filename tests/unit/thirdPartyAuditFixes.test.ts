@@ -240,7 +240,10 @@ describe('Third-party audit hardening', () => {
     assert.ok(schema.includes('roNumberEncrypted'));
     assert.ok(schema.includes('descriptionEncrypted'));
     assert.ok(roMapper.includes('roNumberEncrypted: encryptPII'));
-    assert.ok(roMapper.includes('roNumberSearchTokens: buildRoNumberSearchTokens'));
+    assert.ok(
+      roMapper.includes('roNumberSearchTokens: JSON.stringify(buildRoNumberSearchTokens') ||
+        roMapper.includes('JSON.stringify(buildRoNumberSearchTokens(roNumber))')
+    );
     assert.equal(roMapper.includes("roNumber: ''"), false);
     assert.ok(resolveAdvisor.includes('displayNameEncrypted: encryptPII'));
     assert.ok(readSrc('src/lib/roListQuery.ts').includes('roNumberSearchTokens'));

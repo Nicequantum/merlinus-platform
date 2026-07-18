@@ -66,8 +66,12 @@ describe('roMapper sensitive field encryption', () => {
     assert.notEqual(fields.xentryOcrTextsEncrypted, JSON.stringify(sampleRo.xentryOcrTexts));
     assert.ok(fields.xentryOcrTextsEncrypted.length > 0);
     assert.equal('roNumber' in fields, false);
-    assert.ok(Array.isArray(fields.roNumberSearchTokens));
-    assert.ok(fields.roNumberSearchTokens.length > 0);
+    // D1/SQLite: blind-index tokens stored as JSON string (not String[])
+    assert.equal(typeof fields.roNumberSearchTokens, 'string');
+    assert.ok(fields.roNumberSearchTokens.length > 2);
+    const parsedTokens = JSON.parse(fields.roNumberSearchTokens) as unknown;
+    assert.ok(Array.isArray(parsedTokens));
+    assert.ok((parsedTokens as string[]).length > 0);
   });
 
   test('repairLineToDbFields encrypts technician notes, OCR texts, and warranty stories', () => {
@@ -247,7 +251,7 @@ describe('roMapper sensitive field encryption', () => {
     const mapped = dbToRepairOrder({
       id: 'ro-legacy',
       roNumberEncrypted: legacyRoNumber,
-      roNumberSearchTokens: [],
+      roNumberSearchTokens: '[]',
       technicianId: 'tech-1',
       dealershipId: 'dealer-1',
       serviceAdvisorId: null,

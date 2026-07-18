@@ -21,7 +21,8 @@ describe('environment validation', () => {
     };
     delete process.env.DATABASE_URL;
     const result = validateEnvironment({ throwOnError: false });
-    assert.ok(result.missing.includes('DATABASE_URL'));
+    // D1 sole DB: DATABASE_URL is optional (local prisma tooling only).
+    assert.equal(result.missing.includes('DATABASE_URL'), false);
     process.env.DATABASE_URL = saved.DATABASE_URL;
     process.env.DATA_ENCRYPTION_KEY = saved.DATA_ENCRYPTION_KEY;
     process.env.SEARCH_HMAC_KEY = saved.SEARCH_HMAC_KEY;
