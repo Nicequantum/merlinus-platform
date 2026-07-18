@@ -44,6 +44,8 @@ function resolveBuildCommit() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Required for OpenNext Cloudflare (`.next/standalone` consumed by opennextjs-cloudflare build)
+  output: 'standalone',
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version || '3.0.0',
     NEXT_PUBLIC_BUILD_COMMIT: resolveBuildCommit(),
