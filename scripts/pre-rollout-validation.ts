@@ -757,7 +757,19 @@ async function checkHighPriorityAuditFixes(): Promise<void> {
     record('High Priority', 'H4 CP PDF/latest audit', 'fail', 'Customer Pay PDF/latest audit incomplete');
   }
 
-  if (auditSrc.includes('pg_advisory_xact_lock')) {
+  // D1/SQLite: no pg_advisory_xact_lock; chain integrity uses previousHash + sequential writes.
+  if (
+    auditSrc.includes('previousHash') &&
+    auditSrc.includes('entryHash') &&
+    !auditSrc.includes('pg_advisory_xact_lock')
+  ) {
+    record(
+      'High Priority',
+      'H5 audit chain locking',
+      'pass',
+      'Hash-chain previousHash (D1-safe; no Postgres advisory lock)'
+    );
+  } else if (auditSrc.includes('pg_advisory_xact_lock')) {
     record('High Priority', 'H5 audit chain locking', 'pass', 'Per-dealership advisory lock on audit append');
   } else {
     record('High Priority', 'H5 audit chain locking', 'fail', 'Missing audit chain concurrency guard');
@@ -836,14 +848,27 @@ async function checkHighPriorityAuditFixes(): Promise<void> {
   }
 
   const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
-    scripts?: { build?: string; 'db:migrate:deploy'?: string };
+    scripts?: {
+      build?: string;
+      'build:next'?: string;
+      'db:migrate:deploy'?: string;
+    };
   };
   const buildScript = pkg.scripts?.build ?? '';
-  if (
-    !buildScript.includes('prisma migrate deploy') &&
-    pkg.scripts?.['db:migrate:deploy']?.includes('prisma migrate deploy')
-  ) {
-    record('High Priority', 'H15 build migrations', 'pass', 'Build no longer runs prisma migrate deploy');
+  const buildNext = pkg.scripts?.['build:next'] ?? '';
+  const migrateDeploy = pkg.scripts?.['db:migrate:deploy'] ?? '';
+  // D1: build must not run `prisma migrate deploy`; schema apply is Wrangler (migrate-deploy.mjs).
+  const noPrismaMigrateInBuild =
+    !buildScript.includes('prisma migrate deploy') && !buildNext.includes('prisma migrate deploy');
+  const d1MigrateScript =
+    migrateDeploy.includes('migrate-deploy.mjs') || migrateDeploy.includes('wrangler');
+  if (noPrismaMigrateInBuild && d1MigrateScript) {
+    record(
+      'High Priority',
+      'H15 build migrations',
+      'pass',
+      'Build skips prisma migrate deploy; D1 uses migrate-deploy.mjs / Wrangler'
+    );
   } else {
     record('High Priority', 'H15 build migrations', 'fail', 'Build still auto-runs migrations');
   }

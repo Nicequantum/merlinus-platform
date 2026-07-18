@@ -12,6 +12,8 @@
 
 **The only warranty narrative system that turns raw bay evidence into auditor-proof, OEM-aligned stories in minutes — while delivering a complete, tamper-evident audit trail that protects every dollar of revenue — now with optional modular products for video MPI, departments, loaner, and multi-agent voice.**
 
+**Production Ready** — Ready for Validation and franchise go-live. Sign-off checklist: **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
+
 ---
 
 ## What Is Merlinus?

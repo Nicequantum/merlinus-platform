@@ -40,7 +40,12 @@ const PII_WRITE_GUARDS = [
   {
     file: 'src/lib/roMapper.ts',
     region: 'repairOrderToDbFields',
-    requiredSnippets: ['roNumberEncrypted: encryptPII', 'roNumberSearchTokens: buildRoNumberSearchTokens'],
+    // D1/SQLite: search tokens are JSON.stringify(buildRoNumberSearchTokens(...))
+    requiredSnippets: [
+      'roNumberEncrypted: encryptPII',
+      'buildRoNumberSearchTokens',
+      'JSON.stringify(buildRoNumberSearchTokens',
+    ],
     forbiddenSnippets: ["roNumber: ''", 'roNumber: roNumber'],
   },
   {
@@ -236,7 +241,13 @@ function checkPlaintextPiiWriteGuards() {
   const roMapper = readSrc('src/lib/roMapper.ts');
   const undocumentedPatterns = [
     { label: 'roNumber encrypted write in repairOrderToDbFields', ok: roMapper.includes('roNumberEncrypted: encryptPII(roNumber)') },
-    { label: 'roNumber search tokens in repairOrderToDbFields', ok: roMapper.includes('roNumberSearchTokens: buildRoNumberSearchTokens') },
+    {
+      label: 'roNumber search tokens in repairOrderToDbFields',
+      ok:
+        roMapper.includes('JSON.stringify(buildRoNumberSearchTokens(roNumber))') ||
+        (roMapper.includes('roNumberSearchTokens:') &&
+          roMapper.includes('JSON.stringify(buildRoNumberSearchTokens')),
+    },
     { label: 'description encrypted write in repairLineToDbFields', ok: roMapper.includes('descriptionEncrypted: encryptSensitiveText(line.description)') },
   ];
   for (const pattern of undocumentedPatterns) {
