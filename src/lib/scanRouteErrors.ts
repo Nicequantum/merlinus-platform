@@ -31,7 +31,7 @@ export function sanitizeScanErrorDetail(value: string, maxLen = 280): string {
   let detail = value
     .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
     .replace(/xai-[a-zA-Z0-9_-]+/gi, 'xai-[redacted]')
-    .replace(/vercel_blob_rw_\S+/gi, 'vercel_blob_rw_[redacted]')
+    .replace(/\bR2_SECRET_ACCESS_KEY\b/g, '[redacted]')
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .trim();
 
@@ -72,7 +72,13 @@ export function mapBlobRouteError(error: unknown, operation: 'upload' | 'fetch')
   const raw = error instanceof Error ? error.message : String(error);
   const logDetail = sanitizeScanErrorDetail(raw, 500);
 
-  if (raw.includes('BLOB_READ_WRITE_TOKEN')) {
+  if (
+    raw.includes('APEX_R2') ||
+    raw.includes('object storage') ||
+    raw.includes('R2 binding') ||
+    // Legacy Vercel Blob misconfig string (still redacted in public messages)
+    raw.includes('BLOB_READ_WRITE_TOKEN')
+  ) {
     return {
       // Phase 7.2 — no env var names in technician-facing copy
       message: 'Photo storage is not configured. Contact your service manager.',
@@ -213,7 +219,12 @@ export function mapScanRouteError(error: unknown, context: string): RouteErrorMa
   const raw = error instanceof Error ? error.message : String(error);
   const logDetail = sanitizeScanErrorDetail(raw, 500);
 
-  if (raw.includes('BLOB_READ_WRITE_TOKEN') || /blob/i.test(raw)) {
+  if (
+    raw.includes('APEX_R2') ||
+    raw.includes('object storage') ||
+    raw.includes('BLOB_READ_WRITE_TOKEN') ||
+    /r2 binding|blob storage|blob upload/i.test(raw)
+  ) {
     const operation = context === 'upload' ? 'upload' : 'fetch';
     return mapBlobRouteError(error, operation);
   }
