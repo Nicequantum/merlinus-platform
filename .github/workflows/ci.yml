@@ -7,6 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  # P0 security: secret scan runs in parallel and does not depend on quality/build jobs.
+  # Fails the workflow on any finding. Independent so it still runs when other jobs fail.
+  secret-scan:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so PR and push scans cover the whole commit range.
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Default action behavior fails the job when secrets are found.
+
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
