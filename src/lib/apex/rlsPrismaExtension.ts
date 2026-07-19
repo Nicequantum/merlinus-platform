@@ -327,14 +327,15 @@ export function createRlsEnforcedClient(
             const delegate = (
               base as unknown as Record<
                 string,
-                {
-                  findFirst: (a: unknown) => Promise<unknown>;
-                  findFirstOrThrow: (a: unknown) => Promise<unknown>;
-                }
+                | {
+                    findFirst: (a: unknown) => Promise<unknown>;
+                    findFirstOrThrow: (a: unknown) => Promise<unknown>;
+                  }
+                | undefined
               >
             )[modelToDelegate(model)];
 
-            if (delegate?.findFirst) {
+            if (delegate) {
               const method =
                 operation === 'findUniqueOrThrow' ? 'findFirstOrThrow' : 'findFirst';
               return delegate[method](findArgs);
