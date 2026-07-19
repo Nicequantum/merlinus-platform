@@ -98,10 +98,11 @@ async function loadPrismaClientCtor(preferWasm: boolean): Promise<PrismaClientCo
 
 function getNodeRequire(): NodeRequire {
   // Prefer createRequire so this works under tsx/ESM (global require is undefined).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node-only
-  const { createRequire } = require('node:module') as typeof import('node:module');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node-only
-  return createRequire(typeof __filename !== 'undefined' ? __filename : process.cwd() + '/package.json');
+  // Node-only — never called on Workers. Dynamic require avoids bundling node:module into workerd.
+  const nodeModule = require('node:module') as typeof import('node:module');
+  const filename =
+    typeof __filename !== 'undefined' ? __filename : `${process.cwd()}/package.json`;
+  return nodeModule.createRequire(filename);
 }
 
 function loadPrismaClientCtorSync(preferWasm: boolean): PrismaClientConstructor {
