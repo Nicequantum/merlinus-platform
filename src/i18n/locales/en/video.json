@@ -66,5 +66,19 @@
   "noVideoYet": "No video file on this inspection yet — record or upload one.",
   "roVideosTitle": "Video MPI",
   "roVideosEmpty": "No video inspections linked to this RO yet.",
-  "roVideosNew": "Record Video MPI"
+  "roVideosNew": "Record Video MPI",
+  "recorderReadyTitle": "Ready to record",
+  "recorderReadyHint": "Tap the red button to start. Use the rear camera for walkarounds when available.",
+  "tapRecordToStart": "Tap the red button to start recording",
+  "tapRecordToOpen": "Tap the red button to open the camera and start recording",
+  "openCamera": "Open camera preview",
+  "pauseRecording": "Pause",
+  "resumeRecording": "Resume",
+  "paused": "Paused",
+  "finalizingRecording": "Finalizing recording…",
+  "reviewReady": "Preview ready",
+  "playPreview": "Play",
+  "reRecord": "Re-record",
+  "saveVideo": "Save video",
+  "savingVideo": "Saving…"
 }

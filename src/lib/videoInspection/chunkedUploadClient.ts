@@ -54,7 +54,9 @@ async function putChunkWithRetry(
   signal?: AbortSignal
 ): Promise<void> {
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt < VIDEO_CHUNK_CLIENT_RETRIES; attempt++) {
+  // Extra retries help cold-start Workers + flaky bay Wi-Fi
+  const maxAttempts = Math.max(VIDEO_CHUNK_CLIENT_RETRIES, 5);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     try {
       const form = new FormData();
@@ -66,12 +68,19 @@ async function putChunkWithRetry(
         method: 'POST',
         body: form,
       }, signal);
+      // Cold-start / rate-limit soft failures
+      if (res.status === 429 || res.status === 503 || res.status === 502 || res.status === 504) {
+        throw new Error(body.error || `Temporary upload error (${res.status})`);
+      }
       assertOk(res, body, `Chunk ${index + 1} failed`);
       return;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Chunk upload failed');
-      if (attempt < VIDEO_CHUNK_CLIENT_RETRIES - 1) {
-        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      if (attempt < maxAttempts - 1) {
+        // Exponential backoff with jitter for cold starts
+        const base = 500 * Math.pow(1.6, attempt);
+        const jitter = Math.floor(Math.random() * 200);
+        await new Promise((r) => setTimeout(r, Math.min(8_000, base + jitter)));
       }
     }
   }

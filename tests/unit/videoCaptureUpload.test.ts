@@ -77,6 +77,19 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(capture.includes('assembleWithGrace') || capture.includes('triesLeft'));
     assert.ok(capture.includes('normalizeVideoMime') || capture.includes('formatRecordingTimer'));
     assert.ok(capture.includes('onElapsed'));
+    // Enterprise: quality ladder, pause/resume, preview-only open
+    assert.ok(capture.includes('1920') || capture.includes('ideal: 1920'));
+    assert.ok(capture.includes('beginRecording') || capture.includes('previewOnly'));
+    assert.ok(capture.includes('pause()') || capture.includes('async pause') || capture.includes('pause():'));
+    assert.ok(capture.includes('supportsPause') || capture.includes('get supportsPause'));
+
+    const stage = readFileSync(
+      resolve(process.cwd(), 'src/components/videoInspection/VideoRecorderStage.tsx'),
+      'utf8'
+    );
+    assert.ok(stage.includes('review'));
+    assert.ok(stage.includes('reRecord') || stage.includes('Re-record') || stage.includes('onSave'));
+    assert.ok(stage.includes('rounded-full') && stage.includes('bg-red-600'));
 
     const queue = readFileSync(
       resolve(process.cwd(), 'src/lib/videoInspection/offlineQueue.ts'),

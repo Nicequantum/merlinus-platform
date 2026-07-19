@@ -66,5 +66,19 @@
   "noVideoYet": "Aún no hay video en esta inspección — grabe o suba uno.",
   "roVideosTitle": "Video MPI",
   "roVideosEmpty": "No hay inspecciones en video vinculadas a esta RO.",
-  "roVideosNew": "Grabar Video MPI"
+  "roVideosNew": "Grabar Video MPI",
+  "recorderReadyTitle": "Listo para grabar",
+  "recorderReadyHint": "Toque el botón rojo para comenzar. Use la cámara trasera para recorridos cuando esté disponible.",
+  "tapRecordToStart": "Toque el botón rojo para iniciar la grabación",
+  "tapRecordToOpen": "Toque el botón rojo para abrir la cámara e iniciar",
+  "openCamera": "Abrir vista previa",
+  "pauseRecording": "Pausar",
+  "resumeRecording": "Reanudar",
+  "paused": "Pausado",
+  "finalizingRecording": "Finalizando grabación…",
+  "reviewReady": "Vista previa lista",
+  "playPreview": "Reproducir",
+  "reRecord": "Volver a grabar",
+  "saveVideo": "Guardar video",
+  "savingVideo": "Guardando…"
 }
