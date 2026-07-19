@@ -86,11 +86,14 @@ export async function fetchPrivateVideoChunkAsBuffer(pathname: string): Promise<
   return result.buffer;
 }
 
-export async function streamPrivateVideoBlob(pathname: string): Promise<StoredObjectStream | null> {
+export async function streamPrivateVideoBlob(
+  pathname: string,
+  options?: { range?: import('@/lib/storage/objectStorage').ByteRangeRequest }
+): Promise<StoredObjectStream | null> {
   if (!isAllowedVideoPathname(pathname) && !isAllowedVideoFramePathname(pathname)) {
     return null;
   }
-  return getObject(pathname);
+  return getObject(pathname, options?.range ? { range: options.range } : undefined);
 }
 
 export async function fetchPrivateVideoAsBuffer(pathname: string): Promise<Buffer> {

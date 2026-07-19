@@ -5,8 +5,15 @@ import 'server-only';
  * App code should import only from this module — never @vercel/blob or raw R2.
  */
 
+import {
+  parseBytesRangeHeader,
+  type ByteRangeRequest,
+} from '@/lib/storage/byteRange';
 import { getR2Bucket, isR2Configured, requireR2Bucket } from '@/lib/storage/r2';
 import { networkRetryDelayMs, sleep } from '@/lib/networkErrors';
+
+export type { ByteRangeRequest };
+export { parseBytesRangeHeader };
 
 const PUT_MAX_ATTEMPTS = 3;
 
@@ -22,7 +29,11 @@ export interface StoredObjectMeta {
 export interface StoredObjectStream {
   stream: ReadableStream;
   contentType: string;
+  /** Full object size when known. */
   size?: number;
+  /** When a byte range was returned: inclusive start/end of this body. */
+  rangeOffset?: number;
+  rangeLength?: number;
 }
 
 export async function putObject(
@@ -74,15 +85,122 @@ export async function putObject(
   throw lastError instanceof Error ? lastError : new Error('Object storage put failed');
 }
 
-export async function getObject(key: string): Promise<StoredObjectStream | null> {
+export async function getObject(
+  key: string,
+  options?: { range?: ByteRangeRequest }
+): Promise<StoredObjectStream | null> {
   const bucket = requireR2Bucket();
-  const obj = await bucket.get(key);
+  const rangeReq = options?.range;
+  let r2Range: import('@/lib/storage/r2').R2RangeLike | undefined;
+  if (rangeReq && rangeReq.kind === 'suffix') {
+    r2Range = { suffix: rangeReq.length };
+  } else if (rangeReq && rangeReq.kind === 'bounded') {
+    r2Range = { offset: rangeReq.start, length: rangeReq.end - rangeReq.start + 1 };
+  }
+
+  const obj = r2Range ? await bucket.get(key, { range: r2Range }) : await bucket.get(key);
   if (!obj || !obj.body) return null;
+
+  const contentType = obj.httpMetadata?.contentType || 'application/octet-stream';
+  const fullSize = typeof obj.size === 'number' ? obj.size : undefined;
+  if (obj.range && typeof obj.range.offset === 'number' && typeof obj.range.length === 'number') {
+    return {
+      stream: obj.body,
+      contentType,
+      size: fullSize,
+      rangeOffset: obj.range.offset,
+      rangeLength: obj.range.length,
+    };
+  }
   return {
     stream: obj.body,
-    contentType: obj.httpMetadata?.contentType || 'application/octet-stream',
-    size: obj.size,
+    contentType,
+    size: fullSize,
   };
+}
+
+/**
+ * Build a streaming Response for video playback with HTTP Range support.
+ * Safari / Chrome require 206 Partial Content for progressive inline video.
+ */
+export function buildRangedObjectResponse(
+  result: StoredObjectStream,
+  request: Request,
+  options: {
+    contentType: string;
+    fallbackSize?: number;
+  }
+): Response {
+  const totalSize =
+    (typeof result.size === 'number' && result.size > 0 ? result.size : undefined) ??
+    (typeof options.fallbackSize === 'number' && options.fallbackSize > 0
+      ? options.fallbackSize
+      : undefined);
+
+  const baseHeaders: Record<string, string> = {
+    'Content-Type': options.contentType || result.contentType || 'application/octet-stream',
+    'Cache-Control': 'private, no-store',
+    'Content-Disposition': 'inline',
+    'Accept-Ranges': 'bytes',
+  };
+
+  if (typeof totalSize !== 'number') {
+    if (typeof result.rangeLength === 'number') {
+      baseHeaders['Content-Length'] = String(result.rangeLength);
+    }
+    return new Response(result.stream, { status: 200, headers: baseHeaders });
+  }
+
+  const rangeHeader = request.headers.get('range') || request.headers.get('Range');
+  const parsed = parseBytesRangeHeader(rangeHeader, totalSize);
+
+  if (parsed === 'unsatisfiable') {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        ...baseHeaders,
+        'Content-Range': `bytes */${totalSize}`,
+      },
+    });
+  }
+
+  // If the caller already applied a range get, honor that body as 206.
+  if (
+    typeof result.rangeOffset === 'number' &&
+    typeof result.rangeLength === 'number' &&
+    result.rangeLength > 0
+  ) {
+    const start = result.rangeOffset;
+    const end = result.rangeOffset + result.rangeLength - 1;
+    return new Response(result.stream, {
+      status: 206,
+      headers: {
+        ...baseHeaders,
+        'Content-Length': String(result.rangeLength),
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+      },
+    });
+  }
+
+  if (parsed.kind === 'full') {
+    return new Response(result.stream, {
+      status: 200,
+      headers: {
+        ...baseHeaders,
+        'Content-Length': String(totalSize),
+      },
+    });
+  }
+
+  // Range requested but object was fetched fully — still advertise full body.
+  // Callers should re-fetch with range when possible; fallback is 200 full.
+  return new Response(result.stream, {
+    status: 200,
+    headers: {
+      ...baseHeaders,
+      'Content-Length': String(totalSize),
+    },
+  });
 }
 
 export async function getObjectBuffer(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {

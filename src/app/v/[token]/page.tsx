@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { VideoCustomerViewer } from '@/components/videoInspection/VideoCustomerViewer';
 
 export const metadata: Metadata = {
-  title: 'Video Inspection Report',
+  title: 'Your Video Inspection Report',
+  description: 'Secure multipoint inspection video and written report from your service team.',
   robots: { index: false, follow: false },
 };
 

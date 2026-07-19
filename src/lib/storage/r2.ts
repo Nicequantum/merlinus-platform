@@ -7,6 +7,12 @@ import 'server-only';
 
 export const R2_BINDING_NAME = 'APEX_R2' as const;
 
+/** R2 byte range (matches Workers R2Range). */
+export type R2RangeLike =
+  | { offset: number; length?: number }
+  | { offset?: number; length: number }
+  | { suffix: number };
+
 /** Minimal R2 bucket surface used by objectStorage (Workers R2 API). */
 export type R2BucketLike = {
   put: (
@@ -17,7 +23,10 @@ export type R2BucketLike = {
       customMetadata?: Record<string, string>;
     }
   ) => Promise<unknown>;
-  get: (key: string) => Promise<R2ObjectBodyLike | null>;
+  get: (
+    key: string,
+    options?: { range?: R2RangeLike | Headers }
+  ) => Promise<R2ObjectBodyLike | null>;
   delete: (keys: string | string[]) => Promise<void>;
   list: (options?: {
     prefix?: string;
@@ -29,9 +38,12 @@ export type R2BucketLike = {
 
 export type R2ObjectBodyLike = {
   key?: string;
+  /** Full object size (even when a range was requested). */
   size?: number;
   body: ReadableStream | null;
   httpMetadata?: { contentType?: string | null } | null;
+  /** Present when a range get was used. */
+  range?: { offset: number; length: number };
   arrayBuffer: () => Promise<ArrayBuffer>;
   text?: () => Promise<string>;
 };

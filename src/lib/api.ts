@@ -254,10 +254,15 @@ export const api = {
     ),
 
   generateVideoInspectionReport: (id: string) =>
-    apiFetch<{ inspection: import('@/types').VideoInspectionDetail }>(
-      `/api/video-inspections/${id}/generate-report`,
-      { method: 'POST', timeoutMs: 140_000, maxRetries: 0 }
-    ),
+    apiFetch<{
+      inspection: import('@/types').VideoInspectionDetail;
+      reportSource?: 'grok' | 'fallback';
+      warning?: string;
+    }>(`/api/video-inspections/${id}/generate-report`, {
+      method: 'POST',
+      timeoutMs: 140_000,
+      maxRetries: 0,
+    }),
 
   patchVideoInspection: (
     id: string,
@@ -306,10 +311,16 @@ export const api = {
     ),
 
   sendVideoInspectionSms: (id: string, phone: string) =>
-    apiFetch<{ ok: boolean; shareUrl: string; phoneLast4: string }>(
-      `/api/video-inspections/${id}/send-sms`,
-      { method: 'POST', body: JSON.stringify({ phone }) }
-    ),
+    apiFetch<{
+      ok: boolean;
+      smsSent?: boolean;
+      shareUrl: string;
+      phoneLast4: string;
+      error?: string;
+    }>(`/api/video-inspections/${id}/send-sms`, {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
 
   listRepairOrders: (
     params?: {

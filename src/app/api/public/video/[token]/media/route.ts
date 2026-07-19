@@ -1,6 +1,8 @@
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { parseBytesRangeHeader } from '@/lib/storage/byteRange';
+import { buildRangedObjectResponse } from '@/lib/storage/objectStorage';
 import {
   hashShareToken,
   isValidRawShareToken,
@@ -12,6 +14,7 @@ import { isAllowedVideoPathname, streamPrivateVideoBlob } from '@/lib/videoBlob'
  * Public customer video media stream.
  * Intentionally NOT wrapped with withAuth — access is share-token gated
  * (opaque token → SHA-256 lookup, expiry, optional passcode, revoke, path allowlist).
+ * Supports HTTP Range so Safari/Chrome can play progressive video inline.
  */
 export async function GET(
   request: Request,
@@ -49,25 +52,35 @@ export async function GET(
     return apiError(NOT_FOUND_ERROR, 404);
   }
 
+  const fallbackSize =
+    share.videoInspection.sizeBytes > 0 ? share.videoInspection.sizeBytes : undefined;
+  const rangeHeader = request.headers.get('range') || request.headers.get('Range');
+  const rangePlan =
+    typeof fallbackSize === 'number'
+      ? parseBytesRangeHeader(rangeHeader, fallbackSize)
+      : ({ kind: 'full' } as const);
+
+  if (rangePlan === 'unsatisfiable') {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        'Content-Range': `bytes */${fallbackSize}`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
+
   try {
-    const result = await streamPrivateVideoBlob(pathname);
+    const result = await streamPrivateVideoBlob(
+      pathname,
+      rangePlan.kind === 'full' ? undefined : { range: rangePlan }
+    );
     if (!result) return apiError(NOT_FOUND_ERROR, 404);
-    const headers: Record<string, string> = {
-      'Content-Type':
+    return buildRangedObjectResponse(result, request, {
+      contentType:
         share.videoInspection.contentType || result.contentType || 'video/webm',
-      'Cache-Control': 'private, no-store',
-      'Content-Disposition': 'inline',
-      'Accept-Ranges': 'bytes',
-    };
-    const size =
-      result.size ??
-      (share.videoInspection.sizeBytes > 0 ? share.videoInspection.sizeBytes : undefined);
-    if (typeof size === 'number' && size > 0) {
-      headers['Content-Length'] = String(size);
-    }
-    return new Response(result.stream, {
-      status: 200,
-      headers,
+      fallbackSize,
     });
   } catch {
     return apiError(NOT_FOUND_ERROR, 404);

@@ -472,9 +472,16 @@ export function VideoInspectionView({
       if (transcript !== selected.transcript) {
         await api.patchVideoInspection(selected.id, { transcript });
       }
-      const { inspection } = await api.generateVideoInspectionReport(selected.id);
-      applyDetail(inspection);
-      toast.success('Customer report ready');
+      const result = await api.generateVideoInspectionReport(selected.id);
+      applyDetail(result.inspection);
+      if (result.reportSource === 'fallback' || result.warning) {
+        toast.message(
+          result.warning ||
+            'Report saved from technician notes (AI report service unavailable).'
+        );
+      } else {
+        toast.success('Customer report ready');
+      }
       void refreshList();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Report generation failed');
@@ -567,8 +574,20 @@ export function VideoInspectionView({
     setBusy(true);
     try {
       const result = await api.sendVideoInspectionSms(selected.id, phone.trim());
-      setShareUrl(result.shareUrl);
-      toast.success(`Text sent (…${result.phoneLast4})`);
+      if (result.shareUrl) setShareUrl(result.shareUrl);
+      if (result.ok === false || result.smsSent === false) {
+        toast.message(
+          result.error ||
+            'SMS is not configured on this server — customer link is ready to copy below.'
+        );
+        try {
+          if (result.shareUrl) await navigator.clipboard.writeText(result.shareUrl);
+        } catch {
+          // ignore
+        }
+      } else {
+        toast.success(`Text sent (…${result.phoneLast4})`);
+      }
       void refreshList();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t('smsDisabled'));

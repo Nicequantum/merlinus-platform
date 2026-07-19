@@ -10,10 +10,13 @@ import {
   isValidRawShareToken,
   verifyPasscodeHash,
 } from '../../src/lib/videoInspection/shareTokens';
+import { buildFallbackCustomerVideoReport } from '../../src/lib/videoInspection/fallbackCustomerReport';
+import { buildVideoInspectionSmsBody } from '../../src/lib/videoInspection/smsBody';
 import { CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT } from '../../src/prompts/customerVideoReport/systemPrompt';
 import { buildCustomerVideoReportUserMessage } from '../../src/prompts/customerVideoReport/buildUserMessage';
 import { isAllowedVideoPathname } from '../../src/lib/videoBlob';
 import { normalizeE164, isSmsEnabled } from '../../src/lib/sms/twilio';
+import { parseBytesRangeHeader } from '../../src/lib/storage/byteRange';
 
 const root = resolve(process.cwd());
 
@@ -118,6 +121,70 @@ describe('SMS helpers', () => {
     // Without SMS_ENABLED=true this is false in test env
     assert.equal(typeof isSmsEnabled(), 'boolean');
   });
+
+  it('SMS body includes production share URL and report preview', () => {
+    const body = buildVideoInspectionSmsBody({
+      dealershipName: 'Tiverton Benz',
+      shareUrl: 'https://merlinus-platform.hombre3536.workers.dev/v/tok123TOKEN_tok123TOKEN_tok123TOK',
+      report:
+        '## Summary\nBrakes need attention soon.\n\n## What We Found\n- Front pads low\n',
+      vehicleLabel: '2020 C300',
+    });
+    assert.match(body, /Tiverton Benz/);
+    assert.match(body, /2020 C300/);
+    assert.match(body, /workers\.dev\/v\//);
+    assert.ok(!body.includes('localhost'));
+    assert.match(body, /Watch the video/);
+    assert.match(body, /Brakes need attention/);
+    assert.ok(body.length <= 1500);
+  });
+});
+
+describe('fallback customer video report', () => {
+  it('builds structured markdown from transcript without inventing findings', () => {
+    const report = buildFallbackCustomerVideoReport({
+      transcript: 'Front brake pads are low. Tires look good.',
+      vehicleLabel: '2021 E350',
+      dealershipName: 'Premier Motors',
+      title: 'MPI Walkthrough',
+      frameCount: 2,
+    });
+    assert.match(report, /## Summary/);
+    assert.match(report, /## What We Found/);
+    assert.match(report, /Front brake pads are low/);
+    assert.match(report, /Premier Motors/);
+    assert.match(report, /2021 E350/);
+    assert.match(report, /## Recommended Next Steps/);
+  });
+
+  it('handles missing transcript and frames gracefully', () => {
+    const report = buildFallbackCustomerVideoReport({
+      dealershipName: 'Service Team',
+    });
+    assert.match(report, /## Summary/);
+    assert.match(report, /limited/i);
+  });
+});
+
+describe('HTTP Range for video media', () => {
+  it('parses bounded and suffix ranges', () => {
+    assert.deepEqual(parseBytesRangeHeader('bytes=0-1023', 5000), {
+      kind: 'bounded',
+      start: 0,
+      end: 1023,
+    });
+    assert.deepEqual(parseBytesRangeHeader('bytes=100-', 5000), {
+      kind: 'bounded',
+      start: 100,
+      end: 4999,
+    });
+    assert.deepEqual(parseBytesRangeHeader('bytes=-500', 5000), {
+      kind: 'suffix',
+      length: 500,
+    });
+    assert.equal(parseBytesRangeHeader('bytes=9000-9010', 5000), 'unsatisfiable');
+    assert.deepEqual(parseBytesRangeHeader(null, 5000), { kind: 'full' });
+  });
 });
 
 describe('golden path isolation', () => {
@@ -176,9 +243,17 @@ describe('must-do security hardening', () => {
     assert.match(blob, /randomUUID/);
   });
 
-  it('public video media uses no-store cache', () => {
+  it('public video media uses no-store cache and range streaming', () => {
     const media = readSrc('src/app/api/public/video/[token]/media/route.ts');
-    assert.match(media, /Cache-Control': 'private, no-store'/);
+    assert.match(media, /private, no-store/);
+    assert.match(media, /buildRangedObjectResponse|Accept-Ranges/);
+    assert.match(media, /parseBytesRangeHeader/);
+  });
+
+  it('generate-report falls back when Grok fails', () => {
+    const route = readSrc('src/app/api/video-inspections/[id]/generate-report/route.ts');
+    assert.match(route, /buildFallbackCustomerVideoReport/);
+    assert.match(route, /reportSource/);
   });
 
   it('public video routes stay unauthenticated but enforce share token gates', () => {

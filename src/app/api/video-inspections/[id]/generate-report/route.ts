@@ -12,6 +12,7 @@ import {
   findInspectionForSession,
   resolveVideoDealershipId,
 } from '@/lib/videoInspection/access';
+import { buildFallbackCustomerVideoReport } from '@/lib/videoInspection/fallbackCustomerReport';
 import { fetchPrivateVideoAsBuffer } from '@/lib/videoBlob';
 import { CUSTOMER_VIDEO_REPORT_PROMPT_VERSION } from '@/prompts/customerVideoReport/version';
 import { parseRouteParams } from '@/lib/validation';
@@ -34,52 +35,75 @@ export async function POST(
   return withAuth(
     request,
     async (session) => {
-      const existing = await findInspectionForSession(session, routeParams.data.id);
-      if (!existing) return apiError(NOT_FOUND_ERROR, 404);
-      if (!existing.videoPathname?.trim()) {
-        return apiError('Upload a video before generating a report.', 400);
-      }
-
-      const dealershipId = resolveVideoDealershipId(session);
-      const db = getRlsDb();
-
-      await db.videoInspection.update({
-        where: { id: existing.id },
-        data: { status: 'processing', errorMessage: null },
-      });
-
-      const transcript = decryptSensitiveText(existing.transcriptEncrypted || '');
-      const framePaths = parseFramePathnames(existing.framePathnames);
-      const frameDataUrls: string[] = [];
-
-      for (const path of framePaths.slice(0, 8)) {
-        try {
-          const buf = await fetchPrivateVideoAsBuffer(path);
-          frameDataUrls.push(await bufferToVisionDataUrl(buf, 'image/jpeg'));
-        } catch {
-          // skip frame — report still works from transcript alone
-        }
-      }
-
-      // If no frames and empty transcript, still allow a short structured report
-      const effectiveTranscript =
-        transcript.trim() ||
-        (frameDataUrls.length > 0
-          ? '(Technician recorded video; limited spoken notes.)'
-          : '(Video inspection on file; limited spoken notes.)');
-
       try {
-        const report = await generateCustomerVideoReport({
-          transcript: effectiveTranscript,
-          transcriptLanguage: existing.transcriptLanguage,
-          vehicleLabel: existing.vehicleLabel,
-          dealershipName: existing.dealership?.name ?? session.dealershipName,
-          title: existing.title,
-          frameDataUrls,
+        const existing = await findInspectionForSession(session, routeParams.data.id);
+        if (!existing) return apiError(NOT_FOUND_ERROR, 404);
+        if (!existing.videoPathname?.trim()) {
+          return apiError('Upload a video before generating a report.', 400);
+        }
+
+        const dealershipId = resolveVideoDealershipId(session);
+        const db = getRlsDb();
+
+        await db.videoInspection.update({
+          where: { id: existing.id },
+          data: { status: 'processing', errorMessage: null },
         });
 
-        if (!report?.trim()) {
-          throw new Error('AI returned an empty customer report');
+        const transcript = decryptSensitiveText(existing.transcriptEncrypted || '');
+        const framePaths = parseFramePathnames(existing.framePathnames);
+        const frameDataUrls: string[] = [];
+
+        for (const path of framePaths.slice(0, 8)) {
+          try {
+            const buf = await fetchPrivateVideoAsBuffer(path);
+            frameDataUrls.push(await bufferToVisionDataUrl(buf, 'image/jpeg'));
+          } catch {
+            // frames optional
+          }
+        }
+
+        const effectiveTranscript =
+          transcript.trim() ||
+          (frameDataUrls.length > 0
+            ? '(Technician recorded video; limited spoken notes.)'
+            : '(Video inspection on file; limited spoken notes.)');
+
+        const dealershipName = existing.dealership?.name ?? session.dealershipName;
+        let report = '';
+        let reportSource: 'grok' | 'fallback' = 'grok';
+        let grokError: string | undefined;
+
+        try {
+          report = await generateCustomerVideoReport({
+            transcript: effectiveTranscript,
+            transcriptLanguage: existing.transcriptLanguage,
+            vehicleLabel: existing.vehicleLabel,
+            dealershipName,
+            title: existing.title,
+            frameDataUrls,
+          });
+          if (!report?.trim()) {
+            throw new Error('AI returned an empty customer report');
+          }
+        } catch (error) {
+          grokError = error instanceof Error ? error.message : String(error);
+          logger.warn('video.report_grok_fallback', {
+            inspectionId: existing.id,
+            dealershipId,
+            error: grokError,
+            frameCount: frameDataUrls.length,
+            hasTranscript: Boolean(transcript.trim()),
+          });
+          // Keep pipeline green when Grok key is missing/invalid or xAI is down.
+          report = buildFallbackCustomerVideoReport({
+            transcript: effectiveTranscript,
+            vehicleLabel: existing.vehicleLabel,
+            dealershipName,
+            title: existing.title,
+            frameCount: frameDataUrls.length,
+          });
+          reportSource = 'fallback';
         }
 
         const { inspectionInclude } = await import('@/lib/videoInspection/access');
@@ -88,7 +112,10 @@ export async function POST(
           data: {
             status: 'ready',
             reportEncrypted: encryptSensitiveText(report),
-            reportPromptVersion: CUSTOMER_VIDEO_REPORT_PROMPT_VERSION,
+            reportPromptVersion:
+              reportSource === 'grok'
+                ? CUSTOMER_VIDEO_REPORT_PROMPT_VERSION
+                : `${CUSTOMER_VIDEO_REPORT_PROMPT_VERSION}+fallback`,
             errorMessage: null,
           },
           include: inspectionInclude,
@@ -106,28 +133,42 @@ export async function POST(
             frameCount: frameDataUrls.length,
             transcriptLanguage: existing.transcriptLanguage,
             hasTranscript: Boolean(transcript.trim()),
+            reportSource,
+            grokError: grokError?.slice(0, 200),
           },
           ipAddress: getRequestIp(request),
         });
 
-        return { inspection: mapVideoInspectionDetail(row, { includeMediaUrls: true }) };
+        return {
+          inspection: mapVideoInspectionDetail(row, { includeMediaUrls: true }),
+          reportSource,
+          ...(reportSource === 'fallback'
+            ? {
+                warning:
+                  'AI report service was unavailable — a clear template report was saved from the technician notes. Re-run generate when Grok is configured.',
+              }
+            : {}),
+        };
       } catch (error) {
+        // Always JSON — never OpenNext HTML 500 for this route
         logger.error('video.report_generate_failed', {
-          inspectionId: existing.id,
-          dealershipId,
           error: error instanceof Error ? error.message : String(error),
         });
-        await db.videoInspection
-          .update({
-            where: { id: existing.id },
-            data: {
-              status: 'failed',
-              errorMessage:
-                error instanceof Error ? error.message.slice(0, 500) : 'Report generation failed',
-            },
-          })
-          .catch(() => undefined);
-
+        try {
+          const id = routeParams.data.id;
+          await getRlsDb()
+            .videoInspection.update({
+              where: { id },
+              data: {
+                status: 'failed',
+                errorMessage:
+                  error instanceof Error ? error.message.slice(0, 500) : 'Report generation failed',
+              },
+            })
+            .catch(() => undefined);
+        } catch {
+          // ignore
+        }
         const mapped = mapGrokRouteError(error, 'Customer video report');
         return reportMappedRouteError(mapped, error, 'video.report_generate');
       }
