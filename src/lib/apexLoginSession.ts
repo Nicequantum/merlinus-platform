@@ -1,4 +1,5 @@
 import type { ApexDealershipOption } from '@/lib/apexDealershipOptions';
+import { fetchJsonWithClientRetry, warmOwnerIsolate } from '@/lib/clientFetchRetry';
 import type { TechnicianSession } from '@/types';
 
 /** Minimal Apex auth fetch helpers — kept separate from @/lib/api (login shell bundle). */
@@ -26,6 +27,8 @@ export async function loginWithIdentifier(
   identifier: string,
   password: string
 ): Promise<ApexLoginResult> {
+  // Login is not auto-retried on 500 (credential attempts must not stampede).
+  // Transport-only retries stay available via one manual re-click.
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -65,6 +68,11 @@ export async function loginWithIdentifier(
         }
       : data.session;
 
+  // Best-effort: warm D1 right after successful owner login so national dashboard is hot.
+  if (session.role === 'owner') {
+    void warmOwnerIsolate();
+  }
+
   return { status: 'success', session };
 }
 
@@ -73,17 +81,12 @@ export async function selectDealershipSession(
   dealershipId: string,
   rememberAsDefault = false
 ): Promise<TechnicianSession> {
-  const res = await fetch('/api/auth/select-dealership', {
+  const data = await fetchJsonWithClientRetry<LoginResponseBody>('/api/auth/select-dealership', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ pendingToken, dealershipId, rememberAsDefault }),
+    timeoutMs: 20_000,
+    retryPostServerError: true,
   });
-
-  const data = (await res.json().catch(() => ({}))) as LoginResponseBody;
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Dealership selection failed');
-  }
 
   if (!data.session) {
     throw new Error('Dealership selected but no session was returned');
@@ -99,14 +102,10 @@ type OwnerDealershipsResponse = {
 };
 
 export async function fetchOwnerDealerships(): Promise<ApexDealershipOption[]> {
-  const res = await fetch('/api/owner/dealerships', {
-    credentials: 'include',
-    cache: 'no-store',
+  const data = await fetchJsonWithClientRetry<OwnerDealershipsResponse>('/api/owner/dealerships', {
+    method: 'GET',
+    timeoutMs: 20_000,
   });
-  const data = (await res.json().catch(() => ({}))) as OwnerDealershipsResponse;
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not load dealerships');
-  }
   return data.dealerships ?? [];
 }
 
@@ -123,19 +122,15 @@ export async function fetchOwnerDealerGroups(): Promise<{
   groups: OwnerDealerGroupOption[];
   activeDealerGroupId: string | null;
 }> {
-  const res = await fetch('/api/owner/dealer-groups', {
-    credentials: 'include',
-    cache: 'no-store',
-  });
-  const data = (await res.json().catch(() => ({}))) as {
+  const data = await fetchJsonWithClientRetry<{
     groups?: OwnerDealerGroupOption[];
     activeDealerGroupId?: string | null;
     error?: string;
     message?: string;
-  };
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not load dealer groups');
-  }
+  }>('/api/owner/dealer-groups', {
+    method: 'GET',
+    timeoutMs: 15_000,
+  });
   return {
     groups: data.groups ?? [],
     activeDealerGroupId: data.activeDealerGroupId ?? null,
@@ -146,20 +141,16 @@ export async function fetchOwnerDealerGroups(): Promise<{
 export async function selectOwnerDealerGroup(
   dealerGroupId: string | null
 ): Promise<TechnicianSession> {
-  const res = await fetch('/api/owner/select-dealer-group', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ dealerGroupId }),
-  });
-  const data = (await res.json().catch(() => ({}))) as {
+  const data = await fetchJsonWithClientRetry<{
     session?: TechnicianSession;
     error?: string;
     message?: string;
-  };
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not switch dealer group');
-  }
+  }>('/api/owner/select-dealer-group', {
+    method: 'POST',
+    body: JSON.stringify({ dealerGroupId }),
+    timeoutMs: 20_000,
+    retryPostServerError: true,
+  });
   if (!data.session) {
     throw new Error('Group selected but no session was returned');
   }
@@ -195,26 +186,24 @@ export async function enterOwnerDealership(
     body.viewAsServiceAdvisorId = options.viewAsServiceAdvisorId.trim();
   }
 
-  const res = await fetch('/api/auth/enter-dealership', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  });
-
-  const data = (await res.json().catch(() => ({}))) as {
+  const data = await fetchJsonWithClientRetry<{
     session?: TechnicianSession;
     error?: string;
     message?: string;
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not enter dealership');
-  }
+  }>('/api/auth/enter-dealership', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    timeoutMs: 25_000,
+    // Enter is safe to retry — same rooftop re-entry is idempotent for session mint.
+    retryPostServerError: true,
+  });
 
   if (!data.session) {
     throw new Error('Dealership entered but no session was returned');
   }
+
+  // Warm dealership-scoped isolate path after enter (RO list is next).
+  void warmOwnerIsolate();
 
   return data.session;
 }
@@ -230,40 +219,41 @@ export async function fetchOwnerDealershipAdvisors(
   dealershipId: string
 ): Promise<OwnerDealershipAdvisorOption[]> {
   const params = new URLSearchParams({ dealershipId });
-  const res = await fetch(`/api/owner/dealership-advisors?${params.toString()}`, {
-    credentials: 'include',
-    cache: 'no-store',
-  });
-  const data = (await res.json().catch(() => ({}))) as {
+  const data = await fetchJsonWithClientRetry<{
     advisors?: OwnerDealershipAdvisorOption[];
     error?: string;
     message?: string;
-  };
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not load service advisors');
-  }
+  }>(`/api/owner/dealership-advisors?${params.toString()}`, {
+    method: 'GET',
+    timeoutMs: 15_000,
+  });
   return data.advisors ?? [];
 }
 
 export async function exitOwnerDealership(): Promise<TechnicianSession> {
-  const res = await fetch('/api/auth/exit-dealership', {
-    method: 'POST',
-    credentials: 'include',
-  });
-
-  const data = (await res.json().catch(() => ({}))) as {
+  const data = await fetchJsonWithClientRetry<{
     session?: TechnicianSession;
     error?: string;
     message?: string;
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not exit dealership');
-  }
+  }>('/api/auth/exit-dealership', {
+    method: 'POST',
+    timeoutMs: 20_000,
+    retryPostServerError: true,
+  });
 
   if (!data.session) {
     throw new Error('Dealership exited but no session was returned');
   }
 
+  void warmOwnerIsolate();
   return data.session;
+}
+
+/** Prefetch enterable rooftops so the first “View as / enter” click is warm. */
+export async function prefetchOwnerDealerships(): Promise<ApexDealershipOption[]> {
+  try {
+    return await fetchOwnerDealerships();
+  } catch {
+    return [];
+  }
 }

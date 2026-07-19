@@ -1,5 +1,5 @@
-/**
- * Phase 6.x — security fortress integration tests (6.3–6.4).
+﻿/**
+ * Phase 6.x â€” security fortress integration tests (6.3â€“6.4).
  * Covers owner least-privilege, national console lock, scope-switch, multi-rooftop select.
  */
 import '../setup/criticalPathMocks';
@@ -12,7 +12,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { POST as postEnterDealership } from '../../src/app/api/auth/enter-dealership/route';
 import { POST as postExitDealership } from '../../src/app/api/auth/exit-dealership/route';
 import { POST as postLogin } from '../../src/app/api/auth/login/route';
@@ -35,10 +34,11 @@ import {
 } from '../helpers/apexIntegration';
 import { readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
-describe('Security fortress (Phase 6.3–6.4)', () => {
+describe('Security fortress (Phase 6.3â€“6.4)', () => {
   let previousPlatformMode: string | undefined;
   let ownerAccessToken = '';
   let primaryDealershipId = 'seed-dealership';
@@ -146,7 +146,7 @@ describe('Security fortress (Phase 6.3–6.4)', () => {
     assert.equal(summary.status, 403, 'dealership-scope owner must not use national summary');
     assert.equal(summary.body.code, 'DEALERSHIP_CONTEXT_REQUIRED');
 
-    // Phase 6.4 — cannot re-enter from dealership scope (must exit first)
+    // Phase 6.4 â€” cannot re-enter from dealership scope (must exit first)
     const reEnter = await runWithNextRouteContext(
       buildApexAuthenticatedRequest('http://localhost/api/auth/enter-dealership', dealershipToken, {
         method: 'POST',

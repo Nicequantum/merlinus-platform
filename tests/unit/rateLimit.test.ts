@@ -85,6 +85,7 @@ describe('rate limiting', () => {
     assert.ok(src.includes('rate_limit.check'));
     assert.ok(src.includes('isLocalhostRequest'));
     assert.ok(src.includes('memoryRateLimitConfig'));
+    assert.ok(src.includes('KV_STORE') || src.includes('Workers KV'));
     assert.equal(src.includes('FAIL_CLOSED_ROUTE_KEYS'), false);
     assert.equal(src.includes('NEVER_FAIL_CLOSED_ROUTE_KEYS'), false);
     assert.equal(src.includes('fail_closed_kv_unavailable'), false);
@@ -199,7 +200,7 @@ describe('rate limiting', () => {
     }
   });
 
-  it('falls back to memory for all routes on Vercel production when KV is unreachable', async () => {
+  it('falls back to memory for non-auth routes on Vercel production when KV is unreachable', async () => {
     const saved = saveRateLimitEnv();
     setVercelProductionEnv();
     process.env.KV_REST_API_URL = 'https://example.upstash.io';
@@ -210,7 +211,6 @@ describe('rate limiting', () => {
         'dashboard.summary',
         'ros.list',
         'legal_disclaimer',
-        'auth.login',
         'story.generate',
         'ro.extract',
         'upload',
@@ -224,6 +224,73 @@ describe('rate limiting', () => {
         assert.equal(result, null, `expected ${routeKey} to fall back to memory`);
       }
     } finally {
+      restoreRateLimitEnv(saved);
+    }
+  });
+
+  it('fail-closes auth routes on production when KV_STORE is configured but unreachable (P0)', async () => {
+    const saved = saveRateLimitEnv();
+    setVercelProductionEnv();
+    // Workers KV path: binding present but get/put throw (simulate store outage).
+    const g = globalThis as typeof globalThis & {
+      KV_STORE?: {
+        get: (key: string) => Promise<string | null>;
+        put: (key: string, value: string, opts?: { expirationTtl?: number }) => Promise<void>;
+        delete: (key: string) => Promise<void>;
+      };
+    };
+    const previousKv = g.KV_STORE;
+    g.KV_STORE = {
+      get: async () => {
+        throw new Error('KV_STORE temporarily unavailable');
+      },
+      put: async () => {
+        throw new Error('KV_STORE temporarily unavailable');
+      },
+      delete: async () => {},
+    };
+
+    try {
+      assert.equal(isKvConfigured(), true, 'expected Workers KV binding mock to count as configured');
+      const result = await checkRateLimit(
+        makeRequest('203.0.113.10', 'https://merlinus.vercel.app'),
+        'auth.login',
+        RATE_LIMITS.auth
+      );
+      assert.ok(result, 'expected auth.login to fail closed when KV is down');
+      assert.equal(result.status, 503);
+    } finally {
+      if (previousKv === undefined) {
+        delete g.KV_STORE;
+      } else {
+        g.KV_STORE = previousKv;
+      }
+      restoreRateLimitEnv(saved);
+    }
+  });
+
+  it('fail-closes auth on Apex production when KV_STORE binding is missing (P0)', async () => {
+    const saved = saveRateLimitEnv();
+    setVercelProductionEnv({ apex: true });
+    const g = globalThis as typeof globalThis & { KV_STORE?: unknown };
+    const previousKv = g.KV_STORE;
+    delete g.KV_STORE;
+
+    try {
+      assert.equal(isKvConfigured(), false);
+      const result = await checkRateLimit(
+        makeRequest('203.0.113.10', 'https://merlinus.workers.dev'),
+        'auth.login',
+        RATE_LIMITS.auth
+      );
+      assert.ok(result, 'expected Apex production without KV_STORE to fail closed');
+      assert.equal(result!.status, 503);
+    } finally {
+      if (previousKv === undefined) {
+        delete g.KV_STORE;
+      } else {
+        g.KV_STORE = previousKv as typeof g.KV_STORE;
+      }
       restoreRateLimitEnv(saved);
     }
   });

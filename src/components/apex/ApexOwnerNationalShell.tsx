@@ -12,6 +12,7 @@ import {
   fetchOwnerDealerGroups,
   fetchOwnerDealershipAdvisors,
   fetchOwnerDealerships,
+  prefetchOwnerDealerships,
   selectOwnerDealerGroup,
   type OwnerDealerGroupOption,
   type OwnerDealershipAdvisorOption,
@@ -25,11 +26,16 @@ import type {
 } from '@/lib/ownerSummaryClient';
 import { fetchOwnerNationalSummary } from '@/lib/ownerSummaryClient';
 import { formatTrendPct, OwnerSparkline } from '@/components/apex/OwnerSparkline';
+import { OwnerOnboardDealershipForm } from '@/components/apex/OwnerOnboardDealershipForm';
+import { keepAlivePublicStatus, warmOwnerIsolate } from '@/lib/clientFetchRetry';
 import { clientLog } from '@/lib/clientLog';
 import type { TechnicianSession } from '@/types';
 import { toast } from 'sonner';
 
-type NationalView = 'dashboard' | 'enter-dealership';
+/** Soft keep-alive while national console is open — prevents Workers isolate sleep. */
+const OWNER_ISOLATE_KEEPALIVE_MS = 3 * 60 * 1000;
+
+type NationalView = 'dashboard' | 'enter-dealership' | 'onboard';
 
 interface ApexOwnerNationalShellProps {
   session: TechnicianSession;
@@ -263,6 +269,9 @@ export function ApexOwnerNationalShell({
     setSummaryLoading(true);
     setSummaryError(null);
     try {
+      // Warm isolate + D1 before the heavy multi-query summary so the first
+      // real data fetch is not the cold-start path (classic three-click failure).
+      await warmOwnerIsolate();
       const data = await fetchOwnerNationalSummary();
       setSummary(data);
     } catch (error: unknown) {
@@ -276,6 +285,42 @@ export function ApexOwnerNationalShell({
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  // Prefetch enterable rooftops after first paint so “View as / enter” is instant.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const list = await prefetchOwnerDealerships();
+      if (!cancelled && list.length > 0) {
+        setDealerships(list);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Keep Worker isolate + D1 warm while the national console stays open.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled || typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      void warmOwnerIsolate();
+      void keepAlivePublicStatus();
+    };
+    const id = window.setInterval(tick, OWNER_ISOLATE_KEEPALIVE_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   // Phase 7.3 — multi-group switcher options
   useEffect(() => {
@@ -325,11 +370,26 @@ export function ApexOwnerNationalShell({
     openEnterInFlightRef.current = true;
     // Switch view on the same tick as the click so first tap always feels instant
     setView('enter-dealership');
-    setLoadingDealerships(true);
     setAdvisors([]);
     setSelectedAdvisorId('');
     setAdvisorRooftopId(null);
+
+    // Prefetch may already have rooftops — show them immediately, refresh in background.
+    if (dealerships.length > 0) {
+      openEnterInFlightRef.current = false;
+      // Soft refresh list without blocking the UI
+      void fetchOwnerDealerships()
+        .then((list) => setDealerships(list))
+        .catch((error: unknown) => {
+          clientLog.warn('owner.dealerships_soft_refresh_failed', error);
+        });
+      return;
+    }
+
+    setLoadingDealerships(true);
     try {
+      // Ensure isolate is warm before first list hit if prefetch missed.
+      await warmOwnerIsolate();
       const list = await fetchOwnerDealerships();
       setDealerships(list);
     } catch (error: unknown) {
@@ -340,7 +400,7 @@ export function ApexOwnerNationalShell({
       setLoadingDealerships(false);
       openEnterInFlightRef.current = false;
     }
-  }, [loadingDealerships, actionLoading]);
+  }, [actionLoading, dealerships.length, loadingDealerships]);
 
   const handleEnterDealership = useCallback(
     async (dealershipId: string) => {
@@ -516,6 +576,33 @@ export function ApexOwnerNationalShell({
       </header>
 
       <main className="apex-national-main">
+        {!isGroupHome ? (
+          <nav className="apex-national-tabs" aria-label="National console sections">
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'dashboard' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('dashboard')}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'onboard' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('onboard')}
+            >
+              Onboard New Dealership
+            </button>
+            <button
+              type="button"
+              className={`apex-national-tab touch-target${view === 'enter-dealership' ? ' apex-national-tab--active' : ''}`}
+              disabled={loadingDealerships || actionLoading}
+              onClick={() => void openEnterDealership()}
+            >
+              Enter rooftop
+            </button>
+          </nav>
+        ) : null}
+
         {view === 'enter-dealership' ? (
           <section className="apex-national-panel apex-card apex-card-accent apex-national-panel--wide">
             <div className="apex-national-panel-head">
@@ -561,6 +648,14 @@ export function ApexOwnerNationalShell({
               />
             )}
           </section>
+        ) : view === 'onboard' && !isGroupHome ? (
+          <section className="apex-national-panel apex-national-panel--wide">
+            <OwnerOnboardDealershipForm
+              onCompleted={() => {
+                void loadSummary();
+              }}
+            />
+          </section>
         ) : (
           <>
             <section className="apex-national-hero apex-card apex-card-accent">
@@ -599,6 +694,15 @@ export function ApexOwnerNationalShell({
                   Video Inspection: enter a rooftop to record bay videos and send customer
                   reports.
                 </p>
+                {!isGroupHome ? (
+                  <button
+                    type="button"
+                    className="apex-btn-secondary touch-target"
+                    onClick={() => setView('onboard')}
+                  >
+                    Onboard New Dealership
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="apex-btn-secondary touch-target"

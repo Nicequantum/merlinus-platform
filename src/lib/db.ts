@@ -1,4 +1,8 @@
 import 'server-only';
+// engineType=client (schema.prisma): always requires a driver adapter — no native query engine.
+// Workers: PrismaD1(env.DB). Plain Node/CI: PrismaBetterSQLite3(file SQLite).
+// Default @prisma/client (not /wasm) — OpenNext patches this package for workerd.
+import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
 import {
@@ -29,13 +33,57 @@ function ensureLocalDatabaseUrl(): void {
   }
 }
 
+function prismaLogLevel(): Array<'error' | 'warn'> {
+  return process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'];
+}
+
+/**
+ * Prisma CLI resolves relative `file:` URLs against the schema directory (`prisma/`).
+ * better-sqlite3 resolves against process.cwd() — normalize so both hit the same file.
+ */
+export function resolveLocalSqliteFilePath(databaseUrl: string): string {
+  const stripped = databaseUrl.trim().replace(/^file:/i, '');
+  if (!stripped) {
+    return path.resolve(process.cwd(), 'prisma', 'dev.db');
+  }
+  if (path.isAbsolute(stripped)) {
+    return stripped;
+  }
+  const schemaDir = path.join(process.cwd(), 'prisma');
+  return path.resolve(schemaDir, stripped);
+}
+
+/**
+ * Local/CI file SQLite adapter for plain Node.
+ * Dynamic require keeps native better-sqlite3 out of the Workers/OpenNext bundle.
+ */
+function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
+  // Dynamic require keeps native better-sqlite3 out of the Workers/OpenNext graph.
+  // eslint-disable-next-line -- require() is intentional for optional Node-only native dep
+  const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3');
+  const filePath = resolveLocalSqliteFilePath(databaseUrl);
+  // Factory adapter (engineType=client) — PrismaClient calls connect() internally.
+  // Pass absolute path (no file: prefix) so better-sqlite3 opens the Prisma CLI DB file.
+  const adapter = new PrismaBetterSQLite3({ url: filePath });
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    logger.info('db.backend', {
+      backend: 'sqlite_file_adapter',
+      path: filePath.endsWith('dev.db') ? filePath : '***',
+    });
+  }
+  return new PrismaClient({
+    adapter,
+    log: prismaLogLevel(),
+  });
+}
+
 function createPrismaClient(d1: D1DatabaseLike | null): PrismaClient {
   if (d1) {
     logger.info('db.backend', { backend: 'cloudflare_d1', binding: 'DB' });
     const adapter = new PrismaD1(d1 as ConstructorParameters<typeof PrismaD1>[0]);
     return new PrismaClient({
       adapter,
-      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+      log: prismaLogLevel(),
     });
   }
 
@@ -47,17 +95,10 @@ function createPrismaClient(d1: D1DatabaseLike | null): PrismaClient {
   }
 
   ensureLocalDatabaseUrl();
-  if (process.env.NODE_ENV === 'development') {
-    logger.info('db.backend', {
-      backend: 'sqlite_file',
-      url: process.env.DATABASE_URL?.startsWith('file:') ? process.env.DATABASE_URL : 'file:***',
-    });
-  }
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
+  const databaseUrl = process.env.DATABASE_URL!.trim();
+  // engineType=client: WASM client cannot run without a driver adapter on Node either.
+  return createFileSqlitePrismaClient(databaseUrl);
 }
-
 /**
  * Resolve Prisma client (D1 on Cloudflare, file SQLite locally).
  * Prefer getPrisma() in request paths so OpenNext can attach env.DB after cold start.
@@ -107,7 +148,9 @@ export async function probeDatabaseConnection(): Promise<void> {
 export function warmDatabaseConnectionInBackground(): void {
   void withDbConnectionRetry(
     async () => {
-      await getPrisma().$connect();
+      // Prefer a real query over $connect(): on Workers/unenv, $connect can touch
+      // fs APIs that are not implemented, while D1 SELECT 1 validates the binding.
+      await getPrisma().$queryRaw`SELECT 1`;
     },
     { context: 'startup.warmup', maxAttempts: 3 }
   ).catch((error) => {

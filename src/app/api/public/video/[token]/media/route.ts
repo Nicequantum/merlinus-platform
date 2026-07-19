@@ -56,7 +56,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type':
-          share.videoInspection.contentType || result.blob.contentType || 'video/webm',
+          share.videoInspection.contentType || result.contentType || 'video/webm',
         'Cache-Control': 'private, no-store',
         'Content-Disposition': 'inline',
       },

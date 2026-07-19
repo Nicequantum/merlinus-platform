@@ -59,11 +59,13 @@ describe('Phase 6.3 medium security hardening', () => {
     const src = readSrc('src/lib/rate-limit.ts');
     assert.match(src, /isAuthRateLimitRoute/);
     assert.match(src, /auth_kv_required/);
-    assert.match(src, /auth_kv_unavailable_fallback/);
+    // Auth routes fail closed when KV_STORE is configured but unavailable (Workers KV).
+    assert.match(src, /auth_kv_unavailable_fail_closed|auth_kv_unavailable_fallback/);
     assert.match(src, /apex_kv_required/);
-    // Apex: missing KV → 503; configured-but-down → memory fallback (not total outage).
+    // Apex: missing KV → 503; non-auth can still fall back to memory when store is down.
     assert.match(src, /apex_kv_unavailable_fallback/);
     assert.match(src, /apexProductionRequiresKv/);
+    assert.match(src, /KV_STORE/);
     assert.equal(isAuthRateLimitRoute('auth.login'), true);
     assert.equal(isAuthRateLimitRoute('ros.list'), false);
   });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/api';
+import { networkRetryDelayMs, NETWORK_RETRY_MAX_ATTEMPTS, sleep } from '@/lib/networkErrors';
 import type { RepairOrderSummary, TechnicianSession } from '@/types';
 import {
   filterTodayRepairOrders,
@@ -76,34 +77,57 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
     }
 
     setListError(null);
-    try {
-      const { repairOrders, todayStart } = await api.listRepairOrders({ scope: 'today' });
-      setAllROs(repairOrders);
-      if (todayStart) setTodayStartIso(todayStart);
-      setPreviousROs([]);
-      setPreviousCursor(null);
-      setPreviousHasMore(false);
-      previousLoadedRef.current = false;
-      setPreviousExpanded(false);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        setAllROs([]);
-        setListError(null);
-        return;
+    let lastError: unknown;
+    // Extra application-level retries on top of api.ts network retries — covers
+    // cold-start 500s that surface as ApiError after transport succeeded.
+    for (let attempt = 0; attempt <= NETWORK_RETRY_MAX_ATTEMPTS; attempt++) {
+      try {
+        const { repairOrders, todayStart } = await api.listRepairOrders({ scope: 'today' });
+        setAllROs(repairOrders);
+        if (todayStart) setTodayStartIso(todayStart);
+        setPreviousROs([]);
+        setPreviousCursor(null);
+        setPreviousHasMore(false);
+        previousLoadedRef.current = false;
+        setPreviousExpanded(false);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof ApiError && error.status === 401) {
+          setAllROs([]);
+          setListError(null);
+          lastError = null;
+          break;
+        }
+        if (error instanceof ApiError && isComplianceBlockedError(error)) {
+          setAllROs([]);
+          setListError(null);
+          onComplianceRequiredRef.current?.();
+          lastError = null;
+          break;
+        }
+        const retriable =
+          !(error instanceof ApiError) ||
+          error.status === 408 ||
+          error.status === 429 ||
+          error.status === 500 ||
+          error.status === 502 ||
+          error.status === 503 ||
+          error.status === 504;
+        if (!retriable || attempt === NETWORK_RETRY_MAX_ATTEMPTS) {
+          break;
+        }
+        setListRetrying(true);
+        await sleep(networkRetryDelayMs(attempt));
       }
-      if (error instanceof ApiError && isComplianceBlockedError(error)) {
-        setAllROs([]);
-        setListError(null);
-        onComplianceRequiredRef.current?.();
-        return;
-      }
+    }
+    if (lastError) {
       setListError('Could not load repair orders. Check your connection and try again.');
       // Do not rethrow — effect-driven loads must not produce unhandled rejections.
-      // retryListLoad can call refreshList and still see listError.
-    } finally {
-      setLoading(false);
-      setListRetrying(false);
     }
+    setLoading(false);
+    setListRetrying(false);
   }, [onComplianceRequiredRef, session]);
 
   const loadPreviousPage = useCallback(

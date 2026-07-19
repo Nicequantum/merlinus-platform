@@ -1,11 +1,10 @@
-import { webcrypto } from 'node:crypto';
+﻿import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
 if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { POST as postConsent } from '../../src/app/api/consent/route';
 import { POST as postExtract } from '../../src/app/api/repair-orders/extract/route';
@@ -22,8 +21,9 @@ import {
 } from '../helpers/apexIntegration';
 import { createCompliantSessionToken } from '../helpers/integrationCompliance';
 import { buildAuthenticatedRequest, readJsonResponse } from '../helpers/routeTest';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 const integrationOnboarding = {
   consentAt: new Date(),
@@ -48,7 +48,7 @@ describe('tenant isolation (route handlers)', () => {
 
   before(async () => {
     previousPlatformMode = enableMerlinusPlatformModeForTests();
-    // Synthetic tenant fixtures — never use seed/default passwords in source (H11).
+    // Synthetic tenant fixtures â€” never use seed/default passwords in source (H11).
     const integrationPassword =
       process.env.INTEGRATION_TEST_PASSWORD?.trim() || `tenant-isolation-${Date.now()}`;
     const passwordHash = await bcrypt.hash(integrationPassword, 12);
@@ -147,7 +147,7 @@ describe('tenant isolation (route handlers)', () => {
       },
     });
 
-    // H13: JWT claims require isAdmin + full compliance shape — use shared helper.
+    // H13: JWT claims require isAdmin + full compliance shape â€” use shared helper.
     techAToken = await createCompliantSessionToken(prisma, techA, dealershipA.name);
     techBToken = await createCompliantSessionToken(prisma, techB, dealershipB.name);
     managerBToken = await createCompliantSessionToken(prisma, managerB, dealershipB.name);

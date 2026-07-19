@@ -21,7 +21,7 @@ export const APEX_SEED_PRIMARY_DEALERSHIP_ID = 'seed-dealership';
  * Clean team test environments (seed pilots, not provisioned franchise codes).
  * Templates are operational intent — not stored on Dealership rows.
  */
-export const APEX_TEST_PLATFORM_ROOFTOP_NAME = 'Apex Test Platform';
+export const APEX_TEST_PLATFORM_ROOFTOP_NAME = 'Staging - Mercedes-Benz Dealers';
 /** Operational template for the primary seed rooftop (D7 / Xentry testing). */
 export const APEX_TEST_PLATFORM_TEMPLATE_ID = 'mercedes-rooftop-v1' as const;
 
@@ -330,9 +330,19 @@ export async function runApexOwnerSeedIfConfigured(): Promise<ApexOwnerSeedResul
  * Ensure platform owners from env exist (create-only).
  * Never rewrites passwords. Safe for instrumentation startup.
  * Must NOT be called from login failure paths to "heal" wrong passwords.
+ *
+ * P0 ops: OWNER_SEED_* secrets are one-time bootstrap only. After owners exist,
+ * remove OWNER_SEED_PASSWORD (and related) from the Cloudflare Worker secrets store.
  */
 export async function ensureApexPlatformOwners(): Promise<ApexOwnerSeedResult | null> {
   try {
+    if (process.env.OWNER_SEED_PASSWORD?.trim() && process.env.NODE_ENV === 'production') {
+      const { logger } = await import('@/lib/logger');
+      logger.warn('apex.owner_seed_secret_still_set', {
+        message:
+          'OWNER_SEED_PASSWORD is set in production — delete seed secrets from Worker after bootstrap (one-time use only).',
+      });
+    }
     const result = await runApexOwnerSeedIfConfigured();
     if (result) {
       const created = result.owners.filter((o) => o.created).map((o) => o.email);
