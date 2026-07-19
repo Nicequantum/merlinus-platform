@@ -1,19 +1,15 @@
 /**
- * PR-M5b — store Twilio call recordings in private blob storage.
+ * PR-M5b — store Twilio call recordings in private R2 object storage.
  */
 
 import 'server-only';
 
-import { put } from '@vercel/blob';
 import { logger } from '@/lib/logger';
 import { withRlsBypass } from '@/lib/apex/rlsContext';
-
-function getBlobToken(): string | null {
-  return process.env.BLOB_READ_WRITE_TOKEN?.trim() || null;
-}
+import { isObjectStorageConfigured, putObject } from '@/lib/storage/objectStorage';
 
 /**
- * Download recording from Twilio (basic auth) and store under private blob path.
+ * Download recording from Twilio (basic auth) and store under private R2 path.
  */
 export async function storeTwilioRecording(input: {
   dealershipId: string;
@@ -21,9 +17,8 @@ export async function storeTwilioRecording(input: {
   recordingSid: string;
   recordingUrl: string;
 }): Promise<{ pathname: string } | null> {
-  const token = getBlobToken();
-  if (!token) {
-    logger.warn('voice.recording.no_blob_token');
+  if (!isObjectStorageConfigured()) {
+    logger.warn('voice.recording.no_r2_binding');
     return null;
   }
 
@@ -49,13 +44,7 @@ export async function storeTwilioRecording(input: {
 
   const safeDealer = input.dealershipId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
   const key = `benz-tech/voice-recording/${safeDealer}/${input.callId}-${input.recordingSid}.mp3`;
-  const blob = await put(key, buf, {
-    access: 'private',
-    contentType: 'audio/mpeg',
-    token,
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  await putObject(key, buf, { contentType: 'audio/mpeg' });
 
   await withRlsBypass(async (tx) => {
     await tx.voiceCall.update({
@@ -63,11 +52,11 @@ export async function storeTwilioRecording(input: {
       data: {
         recordingSid: input.recordingSid,
         recordingUrl: input.recordingUrl,
-        recordingPathname: blob.pathname,
+        recordingPathname: key,
         recordingStatus: 'stored',
       },
     });
   });
 
-  return { pathname: blob.pathname };
+  return { pathname: key };
 }

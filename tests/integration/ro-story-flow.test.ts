@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, mock, test } from 'node:test';
-import { PrismaClient } from '@prisma/client';
 import { writeAuditLog } from '../../src/lib/audit';
 import { loginTechnician } from '../../src/lib/auth';
 import { getCanonicalSeedPassword } from '../../src/lib/seedDatabase';
@@ -11,14 +10,15 @@ import {
   enableMerlinusPlatformModeForTests,
   restorePlatformMode,
 } from '../helpers/apexIntegration';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 const TEST_RO_NUMBER = `ITEST-${Date.now().toString().slice(-6)}`;
 
 const GROK_STORY =
   'Customer Complaint: Check engine light on.\nCause: P0300 documented in technician notes.\nCorrection: Replaced ignition coil per findings.';
 
-describe('RO → story generation integration', () => {
+describe('RO -> story generation integration', () => {
   let previousPlatformMode: string | undefined;
   let technicianId = '';
   let dealershipId = '';

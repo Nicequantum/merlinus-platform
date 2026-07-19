@@ -273,7 +273,12 @@ export function mapRouteError(error: unknown, context: string): RouteErrorMappin
   const certifyMapped = mapStoryCertificationError(raw, logDetail);
   if (certifyMapped) return certifyMapped;
 
-  if (raw.includes('BLOB_READ_WRITE_TOKEN') || /blob storage|blob upload/i.test(raw)) {
+  if (
+    raw.includes('APEX_R2') ||
+    raw.includes('object storage') ||
+    raw.includes('BLOB_READ_WRITE_TOKEN') ||
+    /r2 binding|blob storage|blob upload|object storage put/i.test(raw)
+  ) {
     return mapBlobRouteError(error, context === 'upload' ? 'upload' : 'fetch');
   }
 

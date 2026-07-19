@@ -1,14 +1,13 @@
 /**
- * Distributed per-IP rate limiting for API routes (KV INCR + EXPIRE sliding window).
+ * Distributed per-IP rate limiting for API routes.
  *
- * KV configured and healthy: distributed limits via Upstash/Vercel KV.
- * Apex production without KV env: fail closed (503) — Phase 6.5.
- * Apex production with KV env but store errors: memory fallback + loud error (login stays up).
- * Merlinus / local: per-instance in-memory fallback when KV missing.
- *
- * Routes pass a stable `routeKey` plus an optional limit override through `withAuth` / `checkRateLimit`.
+ * Production (merlinus-platform Worker): native Workers KV via env.KV_STORE
+ * (namespace merlinus-rate-limit / id 95aae52266f74a31bf715071664b24b9).
+ * Local / missing binding: per-instance memory.
+ * Apex production without KV_STORE: fail closed (503).
  */
 import { isApexPlatformMode } from '@/lib/platformMode';
+import { getRateLimitKv, isWorkersKvConfigured } from '@/lib/storage/workersKv';
 import { apiError, RATE_LIMIT_ERROR } from './errors';
 import { logger } from './logger';
 
@@ -87,24 +86,38 @@ function checkMemoryRateLimit(
   return null;
 }
 
-async function checkKvRateLimit(
+/**
+ * Native Workers KV rate limit via env.KV_STORE.
+ * Not perfectly atomic under extreme concurrency; sufficient for auth windows.
+ */
+async function checkWorkersKvRateLimit(
   key: string,
   config: RateLimitConfig,
   meta?: { routeKey: string; request: Request }
 ): Promise<Response | null> {
-  const { kv } = await import('@vercel/kv');
-  const count = await kv.incr(key);
+  const ns = getRateLimitKv();
+  if (!ns) throw new Error('KV_STORE binding missing — check wrangler.toml [[kv_namespaces]]');
 
-  if (count === 1) {
-    await kv.expire(key, Math.max(1, Math.ceil(config.windowMs / 1000)));
-  }
+  const ttlSec = Math.max(1, Math.ceil(config.windowMs / 1000));
+  const raw = await ns.get(key);
+  const prev = raw ? Number.parseInt(raw, 10) : 0;
+  const count = (Number.isFinite(prev) ? prev : 0) + 1;
+  await ns.put(key, String(count), { expirationTtl: ttlSec });
 
   if (count > config.limit) {
     if (meta) logRateLimitDenied(meta.routeKey, meta.request, 'kv');
     return apiError(RATE_LIMIT_ERROR, 429);
   }
-
   return null;
+}
+
+async function checkKvRateLimit(
+  key: string,
+  config: RateLimitConfig,
+  meta?: { routeKey: string; request: Request }
+): Promise<Response | null> {
+  // Production path: native Workers KV only (no Vercel/Upstash REST).
+  return checkWorkersKvRateLimit(key, config, meta);
 }
 
 /** Test helper — clear in-memory counters between rate-limit unit tests. */
@@ -112,26 +125,9 @@ export function resetMemoryRateLimitStoreForTests(): void {
   memoryStore.clear();
 }
 
-/**
- * True when a Redis/KV REST pair is available for @vercel/kv (or Upstash REST).
- * Accepts both Vercel KV and Upstash marketplace env names.
- */
+/** True when env.KV_STORE (Workers KV) is available for distributed rate limits. */
 export function isKvConfigured(): boolean {
-  const url =
-    process.env.KV_REST_API_URL?.trim() || process.env.UPSTASH_REDIS_REST_URL?.trim();
-  const token =
-    process.env.KV_REST_API_TOKEN?.trim() || process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
-  return Boolean(url && token);
-}
-
-/** Ensure @vercel/kv sees standard env names when only Upstash marketplace vars are set. */
-function ensureVercelKvEnvAliases(): void {
-  if (!process.env.KV_REST_API_URL?.trim() && process.env.UPSTASH_REDIS_REST_URL?.trim()) {
-    process.env.KV_REST_API_URL = process.env.UPSTASH_REDIS_REST_URL.trim();
-  }
-  if (!process.env.KV_REST_API_TOKEN?.trim() && process.env.UPSTASH_REDIS_REST_TOKEN?.trim()) {
-    process.env.KV_REST_API_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN.trim();
-  }
+  return isWorkersKvConfigured();
 }
 
 /** GitHub Actions / local test runners — used for health-check and logging context. */
@@ -143,18 +139,50 @@ export function isCiOrTestRuntime(): boolean {
   );
 }
 
+function isTruthyProductionFlag(value: string | undefined): boolean {
+  const v = value?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
 /**
- * True only on a live Vercel production deployment. Local `next start` / `vercel env pull` may set
- * `VERCEL_ENV=production` without `VERCEL=1` — those runtimes must degrade to in-memory limits.
+ * True on a live production deployment (Vercel **or** Cloudflare Workers / OpenNext).
+ *
+ * - Vercel: `VERCEL=1` + `VERCEL_ENV=production`
+ * - Cloudflare: workerd / OpenNext request context, or explicit `MERLIN_PRODUCTION=1`
+ * - Local `next start` (NODE_ENV=production only) → false (weaker in-memory rate limits OK)
+ * - CI / test → false
  */
 export function isProductionEnv(): boolean {
   if (isCiOrTestRuntime() || process.env.NODE_ENV === 'development') {
     return false;
   }
-  if (process.env.VERCEL !== '1') {
-    return false;
+
+  // Explicit ops flag — set as Wrangler secret on production Workers.
+  if (isTruthyProductionFlag(process.env.MERLIN_PRODUCTION)) {
+    return true;
   }
-  return process.env.VERCEL_ENV === 'production';
+
+  // Vercel production
+  if (process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production') {
+    return true;
+  }
+
+  // Cloudflare Pages / Workers indicators (OpenNext sets OPEN_NEXT_ORIGIN per request)
+  if (process.env.CF_PAGES === '1' || process.env.CF_PAGES === 'true') {
+    return process.env.NODE_ENV === 'production';
+  }
+  if (process.env.OPEN_NEXT_ORIGIN?.trim() && process.env.NODE_ENV === 'production') {
+    return true;
+  }
+  // workerd runtime (Workers + nodejs_compat)
+  if (
+    process.env.NODE_ENV === 'production' &&
+    typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined'
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /** Loopback or RFC1918 host — local dev, next start, vercel dev, shop-floor LAN tablets. */
@@ -240,7 +268,7 @@ function apexProductionRequiresKv(): boolean {
 
 /** Public message — avoid raw env var names (client redaction turns them into noise). */
 const APEX_KV_REQUIRED_MESSAGE =
-  'Distributed rate limiting is not available. Apex production requires a configured rate-limit store (Vercel KV / Upstash). Contact your administrator.';
+  'Distributed rate limiting is not available. Production requires the KV_STORE Workers KV binding. Contact your administrator.';
 
 export async function checkRateLimit(
   request: Request,
@@ -258,7 +286,7 @@ export async function checkRateLimit(
     if (apexProd) {
       logger.error('rate_limit.apex_kv_required', {
         message:
-          'Apex production missing KV — refusing request (fail-closed). Set KV_REST_API_URL + KV_REST_API_TOKEN and redeploy.',
+          'Apex production missing KV_STORE binding — refusing request (fail-closed). Add [[kv_namespaces]] binding = "KV_STORE" and redeploy.',
         ...getRateLimitRuntimeSnapshot(request, routeKey),
       });
       return apiError(APEX_KV_REQUIRED_MESSAGE, 503);
@@ -266,7 +294,7 @@ export async function checkRateLimit(
     if (production && authSensitive) {
       logger.error('rate_limit.auth_kv_required', {
         message:
-          'KV not configured for auth rate limits in production — falling back to in-memory (weaker multi-instance protection). Set KV_REST_API_URL + KV_REST_API_TOKEN.',
+          'KV_STORE not available for auth rate limits in production — falling back to in-memory (weaker multi-instance protection).',
         ...getRateLimitRuntimeSnapshot(request, routeKey),
       });
     }
@@ -275,24 +303,25 @@ export async function checkRateLimit(
   }
 
   try {
-    ensureVercelKvEnvAliases();
     const result = await checkKvRateLimit(key, config, { routeKey, request });
     logRateLimitDecision(routeKey, request, 'kv');
     return result;
   } catch (error) {
-    // KV is configured but unhealthy (quota, network, auth). Prefer degraded login over total outage.
     logKvRateLimitError(routeKey, request, ip, error);
-    if (apexProd) {
-      logger.error('rate_limit.apex_kv_unavailable_fallback', {
+    // Auth-sensitive routes in production fail closed — no multi-isolate memory bypass.
+    if (production && authSensitive) {
+      logger.error('rate_limit.auth_kv_unavailable_fail_closed', {
         message:
-          'Apex production KV unavailable — falling back to in-memory rate limits so auth stays available. Investigate Upstash/Vercel KV health or quota.',
+          'KV_STORE unavailable for auth rate limits in production — refusing request (fail-closed). Check wrangler.toml [[kv_namespaces]] binding = "KV_STORE".',
         error: error instanceof Error ? error.message : 'unknown',
         ...getRateLimitRuntimeSnapshot(request, routeKey),
       });
-    } else if (production && authSensitive) {
-      logger.error('rate_limit.auth_kv_unavailable_fallback', {
+      return apiError(APEX_KV_REQUIRED_MESSAGE, 503);
+    }
+    if (apexProd) {
+      logger.error('rate_limit.apex_kv_unavailable_fallback', {
         message:
-          'KV unavailable for auth rate limits in production — falling back to in-memory. Investigate Upstash/Vercel KV health.',
+          'Apex production KV_STORE unavailable — non-auth routes fall back to in-memory. Auth stays fail-closed.',
         error: error instanceof Error ? error.message : 'unknown',
         ...getRateLimitRuntimeSnapshot(request, routeKey),
       });

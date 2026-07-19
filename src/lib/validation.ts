@@ -351,6 +351,20 @@ export const provisionDealerHttpSchema = z
       d7Number: z.string().trim().min(5).max(16).optional().nullable(),
       apexUsername: z.string().trim().min(3).max(80).optional().nullable(),
     }),
+    /**
+     * Optional dealership owner (email login). When provided, provision creates/links
+     * an owner-level DealerGroup membership so the owner can enter this rooftop immediately.
+     * Manager remains the primary D7 rooftop login.
+     */
+    owner: z
+      .object({
+        name: z.string().trim().min(2).max(80),
+        email: z.string().trim().email().max(254),
+        /** Temporary password for new owners — ignored when linking an existing owner. */
+        password: z.string().min(12).max(128),
+      })
+      .optional()
+      .nullable(),
     ifExists: z.enum(['fail', 'skip', 'update-metadata']).optional().default('fail'),
     dryRun: z.boolean().optional().default(false),
   })
@@ -360,6 +374,16 @@ export const provisionDealerHttpSchema = z
         code: 'custom',
         message: 'confirmDealerCode must match dealerCode',
         path: ['confirmDealerCode'],
+      });
+    }
+    if (
+      data.owner &&
+      data.owner.email.trim().toLowerCase() === data.manager.email.trim().toLowerCase()
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Owner email must be different from the service manager email',
+        path: ['owner', 'email'],
       });
     }
   });

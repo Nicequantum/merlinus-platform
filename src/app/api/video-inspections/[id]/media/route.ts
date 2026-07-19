@@ -28,7 +28,7 @@ export async function GET(
         return new Response(result.stream, {
           status: 200,
           headers: {
-            'Content-Type': row.contentType || result.blob.contentType || 'video/webm',
+            'Content-Type': row.contentType || result.contentType || 'video/webm',
             'Cache-Control': 'private, no-store',
             'Content-Disposition': 'inline',
           },

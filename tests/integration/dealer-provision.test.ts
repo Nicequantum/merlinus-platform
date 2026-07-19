@@ -1,5 +1,5 @@
-/**
- * PR-P4 — dealer provision integration (CLI core + HTTP owner API + forced password gate).
+﻿/**
+ * PR-P4 â€” dealer provision integration (CLI core + HTTP owner API + forced password gate).
  */
 import '../setup/criticalPathMocks';
 
@@ -11,7 +11,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { POST as postChangePassword } from '../../src/app/api/auth/change-password/route';
 import { POST as postLogin } from '../../src/app/api/auth/login/route';
 import { POST as postProvisionDealer } from '../../src/app/api/owner/provision-dealer/route';
@@ -32,8 +31,9 @@ import {
 } from '../helpers/apexIntegration';
 import { readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 const TEMP_PASSWORD = 'Integ-Temp-Pass-9x7k';
 const NEW_PASSWORD = 'Integ-New-Pass-4m2q';
@@ -85,7 +85,7 @@ describe('Dealer provision system (PR-P4)', () => {
     applyApexIntegrationSeedEnv();
 
     // Ensure provision columns exist. Postgres supports IF NOT EXISTS; SQLite/D1 does not.
-    // Current Prisma schema already includes these fields — skip raw DDL on SQLite.
+    // Current Prisma schema already includes these fields â€” skip raw DDL on SQLite.
     const dbUrl = process.env.DATABASE_URL ?? '';
     const isSqlite = dbUrl.startsWith('file:') || dbUrl.includes('sqlite') || !dbUrl.includes('postgres');
     if (!isSqlite) {

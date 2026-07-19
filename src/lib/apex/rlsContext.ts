@@ -118,7 +118,11 @@ export async function setRlsContext(_client: RlsDbClient, _ctx: RlsContext): Pro
 }
 
 /**
- * Run work inside a transaction with RLS session vars applied (SET LOCAL).
+ * Run work with tenant context applied.
+ *
+ * Postgres used SET LOCAL inside interactive `$transaction`. D1/SQLite has neither
+ * session GUCs nor interactive transactions (PrismaD1 throws). On D1/Workers we
+ * run on the root client and bind it via ALS so getRlsDb() stays consistent.
  */
 export async function withRlsContext<T>(
   ctx: RlsContext,
@@ -130,12 +134,12 @@ export async function withRlsContext<T>(
     return fn(existing);
   }
 
-  // D1 ignores interactive transactions (runs statements individually).
-  // Still use $transaction so call sites share the same client via ALS when supported.
-  return prisma.$transaction(async (tx) => {
-    await setRlsContext(tx, ctx);
-    return rlsTxStorage.run(tx, () => fn(tx));
-  });
+  // Always use root client + ALS. Interactive $transaction is unsupported on
+  // PrismaD1 and unnecessary on SQLite (setRlsContext is a no-op; isolation is
+  // application-level dealershipId / dealerId filters).
+  const client = prisma as unknown as Prisma.TransactionClient;
+  await setRlsContext(client, ctx);
+  return rlsTxStorage.run(client, () => fn(client));
 }
 
 /**

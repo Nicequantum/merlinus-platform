@@ -1,4 +1,4 @@
-import '../setup/criticalPathMocks';
+﻿import '../setup/criticalPathMocks';
 
 import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -8,7 +8,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { POST as postLogin } from '../../src/app/api/auth/login/route';
 import { POST as postConsent } from '../../src/app/api/consent/route';
 import { POST as postLegalDisclaimer } from '../../src/app/api/legal-disclaimer/route';
@@ -30,8 +29,9 @@ import {
 } from '../helpers/integrationCompliance';
 import { buildAuthenticatedRequest, readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 const GROK_RO_EXTRACTION = `RO Number: 771234
 Customer Name: JANE TECH JOURNEY
@@ -61,7 +61,7 @@ function pickSessionToken(response: Response, fallback: string): string {
   return cookie ?? fallback;
 }
 
-/** End-to-end technician workflow: login → compliance → scan → story → audit → certify. */
+/** End-to-end technician workflow: login â†’ compliance â†’ scan â†’ story â†’ audit â†’ certify. */
 describe('technician journey (E2E integration)', () => {
   let previousPlatformMode: string | undefined;
   let technicianId = '';
@@ -102,7 +102,7 @@ describe('technician journey (E2E integration)', () => {
 
     const seedD7 = (process.env.TECH_SEED_D7?.trim() || 'D7TECH001').toUpperCase();
     const seedTechnician = await prisma.technician.findUnique({ where: { d7Number: seedD7 } });
-    assert.ok(seedTechnician, 'Seed technician required — run npm run db:seed first');
+    assert.ok(seedTechnician, 'Seed technician required â€” run npm run db:seed first');
 
     const journeyTechnician = await provisionJourneyTechnician(prisma, {
       dealershipId: seedTechnician.dealershipId,

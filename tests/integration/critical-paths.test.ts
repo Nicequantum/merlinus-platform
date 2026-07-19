@@ -1,4 +1,4 @@
-import '../setup/criticalPathMocks';
+﻿import '../setup/criticalPathMocks';
 
 import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -8,7 +8,6 @@ if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as Crypto;
 }
 
-import { PrismaClient } from '@prisma/client';
 import { POST as postLogin } from '../../src/app/api/auth/login/route';
 import { POST as postExtract } from '../../src/app/api/repair-orders/extract/route';
 import { POST as postGenerateStory } from '../../src/app/api/repair-orders/[id]/lines/[lineId]/generate-story/route';
@@ -27,8 +26,9 @@ import {
 } from '../helpers/apexIntegration';
 import { buildAuthenticatedRequest, readJsonResponse } from '../helpers/routeTest';
 import { clearCriticalPathMocks, runWithNextRouteContext } from '../setup/criticalPathMocks';
+import { createTestPrismaClient } from '../setup/prismaNode.mjs';
 
-const prisma = new PrismaClient();
+const prisma = createTestPrismaClient();
 
 const GROK_RO_EXTRACTION = `RO Number: 482910
 Customer Name: JOHN SMITH
@@ -80,7 +80,7 @@ describe('critical path HTTP routes', () => {
     const techPassword = process.env.TECH_SEED_PASSWORD?.trim() || getCanonicalSeedPassword();
 
     const technician = await prisma.technician.findUnique({ where: { d7Number: techD7 } });
-    assert.ok(technician, 'Seed technician required — run npm run db:seed first');
+    assert.ok(technician, 'Seed technician required â€” run npm run db:seed first');
     technicianId = technician.id;
     dealershipId = technician.dealershipId;
     originalCompliance = captureTechnicianCompliance(technician);
@@ -161,7 +161,7 @@ describe('critical path HTTP routes', () => {
       process.env.ADMIN_SEED_PASSWORD?.trim() || getCanonicalSeedPassword();
 
     const manager = await prisma.technician.findUnique({ where: { d7Number: managerD7 } });
-    assert.ok(manager, 'Seed service manager required — run npm run db:seed first');
+    assert.ok(manager, 'Seed service manager required â€” run npm run db:seed first');
     assert.equal(manager.role, 'manager');
 
     const response = await runWithNextRouteContext(

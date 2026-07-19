@@ -2,7 +2,7 @@
 /**
  * One-shot / idempotent rename of the two seed pilot rooftops into clean team test envs.
  *
- *   seed-dealership     → Apex Test Platform   (mercedes-rooftop-v1 ops intent, D7/Xentry)
+ *   seed-dealership     → Staging - Mercedes-Benz Dealers   (mercedes-rooftop-v1 ops intent, D7/Xentry)
  *   seed-dealership-2   → Apex Generic Test    (generic-rooftop-v1 ops intent, neutral)
  *
  * Templates are not stored on Dealership rows; this only updates display names and prints
@@ -46,7 +46,7 @@ if (!process.env.NEXT_PUBLIC_PLATFORM_MODE?.trim()) {
 const TARGETS = [
   {
     id: 'seed-dealership',
-    name: 'Apex Test Platform',
+    name: 'Staging - Mercedes-Benz Dealers',
     templateId: 'mercedes-rooftop-v1',
     storyBrand: 'mercedes' as const,
     notes: 'Mercedes-specific testing (D7 login, Xentry). Original pilot without franchise code.',
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
 
     if (!dryRun) {
       console.log('Done. Team test rooftops:');
-      console.log('  • Apex Test Platform  (seed-dealership)   → mercedes story pack');
+      console.log('  • Staging - Mercedes-Benz Dealers  (seed-dealership)   → mercedes story pack');
       console.log('  • Apex Generic Test   (seed-dealership-2) → generic story pack');
       console.log('');
       console.log('Sign in as national owner and refresh the rooftop list to see new names.');

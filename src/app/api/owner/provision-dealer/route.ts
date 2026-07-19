@@ -51,8 +51,9 @@ export async function POST(request: Request) {
       if ('error' in parsed) return parsed.error;
 
       const body = parsed.data;
-      // Hold password only for the provision call; never put it on session/result objects.
+      // Hold passwords only for the provision call; never put them on session/result objects.
       let managerPassword = body.manager.password;
+      let ownerPassword = body.owner?.password ?? '';
 
       try {
         assertNotProductionWithoutProvisionUrl();
@@ -69,6 +70,13 @@ export async function POST(request: Request) {
             d7Number: body.manager.d7Number ?? null,
             apexUsername: body.manager.apexUsername ?? null,
           },
+          owner: body.owner
+            ? {
+                name: body.owner.name,
+                email: body.owner.email,
+                password: ownerPassword,
+              }
+            : null,
           ifExists: body.ifExists,
           dryRun: body.dryRun,
           actor: {
@@ -78,6 +86,7 @@ export async function POST(request: Request) {
         });
 
         managerPassword = '';
+        ownerPassword = '';
 
         logger.info('apex.http_dealer_provision', {
           outcome: result.skipped ? 'skipped' : result.dryRun ? 'dry_run' : result.created ? 'created' : 'ok',
@@ -87,12 +96,14 @@ export async function POST(request: Request) {
           actorTechnicianId: session.technicianId,
           ipAddress: getRequestIp(request),
           dryRun: result.dryRun,
+          ownerOutcome: result.ownerCreated ? 'created' : result.ownerLinked ? 'linked' : 'none',
           // Never log password, email, D7, rooftopName, or plain dealerCode
         });
 
         return toSafeProvisionHttpResponse(result);
       } catch (error) {
         managerPassword = '';
+        ownerPassword = '';
 
         if (error instanceof ProvisionDealerError) {
           logger.warn('apex.http_dealer_provision_failed', {

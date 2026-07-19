@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import { ApexOwnerDealershipBar } from '@/components/apex/ApexOwnerDealershipBar';
 import { viewAsRoleLabel } from '@/lib/apex/viewAs';
 import { exitOwnerDealership } from '@/lib/apexLoginSession';
+import { warmOwnerIsolate } from '@/lib/clientFetchRetry';
 import { clientLog } from '@/lib/clientLog';
 import type { TechnicianSession } from '@/types';
 import { toast } from 'sonner';
@@ -43,6 +44,11 @@ export function ApexOwnerDealershipWorkspace({
   const exitLabel = session.activeDealerGroupId
     ? 'Return to Group Owner'
     : 'Return to National Owner';
+
+  // First rooftop open: keep isolate hot so RO list / dashboard tabs do not cold-start.
+  useEffect(() => {
+    void warmOwnerIsolate();
+  }, [session.dealershipId, session.activeDealershipId]);
 
   const handleExit = async () => {
     if (exiting || exitInFlightRef.current) return;

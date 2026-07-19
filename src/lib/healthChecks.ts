@@ -1,5 +1,5 @@
-import { list } from '@vercel/blob';
 import { VOICE_INPUT_SETTINGS } from './constants';
+import { isObjectStorageConfigured, probeObjectStorage } from '@/lib/storage/objectStorage';
 import { isMaintenanceModeEnabled, validateEnvironment } from './env';
 import { getExposedPublicGrokEnvKeys, getGrokApiKey } from './grokApiKey.shared';
 import { encryptPII, decryptPII } from './encryption';
@@ -138,24 +138,23 @@ export async function checkSessionSecret(): Promise<DependencyCheck> {
 }
 
 export async function checkBlobStorage(): Promise<DependencyCheck> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
+  if (!isObjectStorageConfigured()) {
     const detail =
-      'BLOB_READ_WRITE_TOKEN not configured — RO and Xentry photo scanning disabled';
+      'Cloudflare R2 binding APEX_R2 not available — RO and Xentry photo scanning disabled';
     return isProductionEnv()
       ? { status: 'error', detail }
       : { status: 'warn', detail };
   }
   try {
     const { latencyMs } = await timed(async () => {
-      await list({ token, limit: 1 });
+      await probeObjectStorage();
       return true;
     });
     return { status: 'ok', latencyMs };
   } catch (error) {
     return {
       status: 'error',
-      detail: error instanceof Error ? error.message : 'blob storage unreachable',
+      detail: error instanceof Error ? error.message : 'object storage (R2) unreachable',
     };
   }
 }

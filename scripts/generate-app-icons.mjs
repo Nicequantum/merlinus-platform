@@ -8,7 +8,45 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import toIco from 'to-ico';
+
+/**
+ * Build a multi-size .ico from PNG buffers (no third-party to-ico dependency).
+ * Modern ICO entries can embed PNG payloads directly.
+ * @param {Buffer[]} pngBuffers
+ * @returns {Buffer}
+ */
+function pngsToIco(pngBuffers) {
+  const count = pngBuffers.length;
+  const headerSize = 6;
+  const entrySize = 16;
+  const dataOffset = headerSize + entrySize * count;
+
+  const header = Buffer.alloc(headerSize);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type = icon
+  header.writeUInt16LE(count, 4);
+
+  const entries = [];
+  let offset = dataOffset;
+  for (const png of pngBuffers) {
+    // IHDR width/height are big-endian at bytes 16-23
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    const entry = Buffer.alloc(entrySize);
+    entry.writeUInt8(width >= 256 ? 0 : width, 0);
+    entry.writeUInt8(height >= 256 ? 0 : height, 1);
+    entry.writeUInt8(0, 2); // color palette
+    entry.writeUInt8(0, 3); // reserved
+    entry.writeUInt16LE(1, 4); // color planes
+    entry.writeUInt16LE(32, 6); // bits per pixel
+    entry.writeUInt32LE(png.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    entries.push(entry);
+    offset += png.length;
+  }
+
+  return Buffer.concat([header, ...entries, ...pngBuffers]);
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -71,7 +109,7 @@ async function writeFavicon() {
         .toBuffer()
     )
   );
-  const ico = await toIco(buffers);
+  const ico = pngsToIco(buffers);
   writeFileSync(join(publicDir, 'favicon.ico'), ico);
   console.log('  favicon.ico (16, 32, 48)');
 }

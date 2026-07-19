@@ -9,7 +9,10 @@ import {
   type DealerTemplate,
   type DealerTemplateId,
 } from '@/lib/apex/dealerTemplates';
-import { APEX_NATIONAL_DEALERSHIP_ID } from '@/lib/apex/platformConstants';
+import {
+  APEX_NATIONAL_DEALERSHIP_ID,
+  APEX_NATIONAL_DEALERSHIP_NAME,
+} from '@/lib/apex/platformConstants';
 import { withRlsBypass } from '@/lib/apex/rlsContext';
 import { isValidD7Number, normalizeD7Number } from '@/lib/d7Number';
 import { isApexUsernameCredential, normalizeApexUsername, normalizeEmailIdentifier } from '@/lib/apex/credentialType';
@@ -63,6 +66,14 @@ export interface ProvisionManagerInput {
   apexUsername?: string | null;
 }
 
+/** Optional dealership owner — email login + DealerGroup membership for dashboard access. */
+export interface ProvisionOwnerInput {
+  name: string;
+  email: string;
+  /** Plain password for new owners — never logged; ignored when linking an existing owner. */
+  password: string;
+}
+
 export interface ProvisionDealerInput {
   dealerCode: string;
   dealerName: string;
@@ -70,13 +81,19 @@ export interface ProvisionDealerInput {
   rooftopName: string;
   templateId: string;
   manager: ProvisionManagerInput;
+  /**
+   * Optional owner path. When set, creates (or links) an owner technician and a
+   * DealerGroup + membership so the owner can enter this rooftop without waiting
+   * for the manager to grant access later. Manager remains the primary D7 login.
+   */
+  owner?: ProvisionOwnerInput | null;
   ifExists?: ProvisionIfExists;
   dryRun?: boolean;
   actor: ProvisionDealerActor;
 }
 
 export interface ProvisionDealerLoginHint {
-  role: 'manager';
+  role: 'manager' | 'owner';
   identifierType: 'd7' | 'email' | 'username';
   /** Present only when caller opts into credential reveal (CLI --show-credentials). */
   identifier?: string;
@@ -89,6 +106,14 @@ export interface ProvisionDealerResult {
   dealerId: string;
   dealershipId: string;
   managerId: string;
+  /** Owner technician id when owner path ran; null when omitted or skip paths. */
+  ownerId: string | null;
+  /** DealerGroup created/used for owner membership; null when owner omitted. */
+  dealerGroupId: string | null;
+  /** True when a new owner account was created (temp password applies). */
+  ownerCreated: boolean;
+  /** True when an existing owner account was linked to this dealer group. */
+  ownerLinked: boolean;
   templateId: DealerTemplateId;
   /** Full rooftop display name as stored (UI header / national list). */
   rooftopName: string;
@@ -212,6 +237,9 @@ export const DEALER_PROVISION_METADATA_ALLOWED_KEYS = new Set([
   'dealerId',
   'dealershipId',
   'managerTechnicianId',
+  'ownerTechnicianId',
+  'dealerGroupId',
+  'ownerOutcome',
   'loginStrategy',
   'actorType',
   'actorIdHash',
@@ -226,6 +254,9 @@ export function buildDealerProvisionAuditMetadata(input: {
   dealerId: string;
   dealershipId: string;
   managerTechnicianId: string;
+  ownerTechnicianId?: string | null;
+  dealerGroupId?: string | null;
+  ownerOutcome?: 'created' | 'linked' | 'none';
   actor: ProvisionDealerActor;
   ifExistsMode: ProvisionIfExists;
   outcome: 'created' | 'updated_metadata';
@@ -245,6 +276,15 @@ export function buildDealerProvisionAuditMetadata(input: {
     schemaVersion: 1,
     outcome: input.outcome,
   };
+  if (input.ownerTechnicianId) {
+    meta.ownerTechnicianId = input.ownerTechnicianId;
+  }
+  if (input.dealerGroupId) {
+    meta.dealerGroupId = input.dealerGroupId;
+  }
+  if (input.ownerOutcome && input.ownerOutcome !== 'none') {
+    meta.ownerOutcome = input.ownerOutcome;
+  }
   for (const key of Object.keys(meta)) {
     if (!DEALER_PROVISION_METADATA_ALLOWED_KEYS.has(key)) {
       throw new ProvisionDealerError('AUDIT_METADATA_VIOLATION', `Forbidden audit key: ${key}`);
@@ -253,18 +293,18 @@ export function buildDealerProvisionAuditMetadata(input: {
   return meta;
 }
 
-function assertPasswordPolicy(password: string): void {
+function assertPasswordPolicy(password: string, subject: 'Manager' | 'Owner' = 'Manager'): void {
   // Align with changePasswordSchema (min 8); operators may set short temp passwords for first login.
   if (password.length < 8) {
-    throw new ProvisionDealerError('WEAK_PASSWORD', 'Manager password must be at least 8 characters.');
+    throw new ProvisionDealerError('WEAK_PASSWORD', `${subject} password must be at least 8 characters.`);
   }
   if (password.length > 128) {
-    throw new ProvisionDealerError('WEAK_PASSWORD', 'Manager password is too long.');
+    throw new ProvisionDealerError('WEAK_PASSWORD', `${subject} password is too long.`);
   }
   const lower = password.toLowerCase();
   const weak = ['password', 'changeme', 'dealer123', 'mercedes', 'password123', '123456789012'];
   if (weak.some((w) => lower.includes(w))) {
-    throw new ProvisionDealerError('WEAK_PASSWORD', 'Manager password is too weak.');
+    throw new ProvisionDealerError('WEAK_PASSWORD', `${subject} password is too weak.`);
   }
 }
 
@@ -315,6 +355,28 @@ function validateManagerForTemplate(template: DealerTemplate, manager: Provision
   return { email, name, d7Number, apexUsername };
 }
 
+function validateOwnerInput(
+  owner: ProvisionOwnerInput,
+  managerEmail: string
+): { email: string; name: string } {
+  const name = owner.name.trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 80) {
+    throw new ProvisionDealerError('INVALID_OWNER_NAME', 'Owner name must be 2–80 characters.');
+  }
+  const email = normalizeEmailIdentifier(owner.email);
+  if (!email.includes('@') || email.length > 254) {
+    throw new ProvisionDealerError('INVALID_OWNER_EMAIL', 'Owner email is invalid.');
+  }
+  if (email === managerEmail) {
+    throw new ProvisionDealerError(
+      'OWNER_EMAIL_SAME_AS_MANAGER',
+      'Owner email must be different from the service manager email.'
+    );
+  }
+  assertPasswordPolicy(owner.password, 'Owner');
+  return { email, name };
+}
+
 async function countProvisionsToday(tx: Prisma.TransactionClient): Promise<number> {
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
@@ -340,6 +402,7 @@ function getMaxDealerships(): number {
 
 /**
  * Provision a franchise Dealer + rooftop Dealership + service manager.
+ * Optionally creates/links a dealership owner with DealerGroup membership (parallel path).
  * Security: password never logged; audit metadata has zero PII; RLS bypass is transaction-local.
  */
 export async function provisionDealer(input: ProvisionDealerInput): Promise<ProvisionDealerResult> {
@@ -370,10 +433,24 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
   }
 
   const managerNorm = validateManagerForTemplate(template, input.manager);
+  const ownerNorm = input.owner ? validateOwnerInput(input.owner, managerNorm.email) : null;
   const ifExists = input.ifExists ?? 'fail';
   const dryRun = Boolean(input.dryRun);
 
+  const managerLoginType: ProvisionDealerLoginHint['identifierType'] =
+    template.loginStrategy === 'd7'
+      ? 'd7'
+      : template.loginStrategy === 'apex_username'
+        ? 'username'
+        : 'email';
+
   if (dryRun) {
+    const logins: ProvisionDealerLoginHint[] = [
+      { role: 'manager', identifierType: managerLoginType },
+    ];
+    if (ownerNorm) {
+      logins.push({ role: 'owner', identifierType: 'email' });
+    }
     return {
       created: false,
       skipped: false,
@@ -381,22 +458,16 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       dealerId: 'dry-run',
       dealershipId: 'dry-run',
       managerId: 'dry-run',
+      ownerId: ownerNorm ? 'dry-run' : null,
+      dealerGroupId: ownerNorm ? 'dry-run' : null,
+      ownerCreated: Boolean(ownerNorm),
+      ownerLinked: false,
       templateId: template.id,
       rooftopName,
       dealerCode,
       auditLogId: null,
       mustChangePassword: true,
-      logins: [
-        {
-          role: 'manager',
-          identifierType:
-            template.loginStrategy === 'd7'
-              ? 'd7'
-              : template.loginStrategy === 'apex_username'
-                ? 'username'
-                : 'email',
-        },
-      ],
+      logins,
     };
   }
 
@@ -430,6 +501,10 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
           dealerId: existingDealer.id,
           dealershipId: rooftop?.id ?? '',
           managerId: '',
+          ownerId: null,
+          dealerGroupId: existingDealer.dealerGroupId ?? null,
+          ownerCreated: false,
+          ownerLinked: false,
           templateId: template.id,
           rooftopName: rooftop?.name ?? rooftopName,
           dealerCode,
@@ -462,6 +537,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
         dealerId: existingDealer.id,
         dealershipId: rooftop?.id ?? existingDealer.id,
         managerTechnicianId: 'n/a',
+        ownerOutcome: 'none',
         actor: input.actor,
         ifExistsMode: 'update-metadata',
         outcome: 'updated_metadata',
@@ -484,6 +560,10 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
         dealerId: existingDealer.id,
         dealershipId: rooftop?.id ?? '',
         managerId: '',
+        ownerId: null,
+        dealerGroupId: existingDealer.dealerGroupId ?? null,
+        ownerCreated: false,
+        ownerLinked: false,
         templateId: template.id,
         rooftopName,
         dealerCode,
@@ -520,15 +600,73 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       }
     }
 
+    // Resolve optional owner before writes (create vs link).
+    let ownerId: string | null = null;
+    let ownerCreated = false;
+    let ownerLinked = false;
+    let existingOwnerForLink: { id: string; role: string } | null = null;
+    if (ownerNorm) {
+      const existingOwner = await tx.technician.findFirst({
+        where: { email: { equals: ownerNorm.email } },
+        select: { id: true, role: true },
+      });
+      if (existingOwner) {
+        if (existingOwner.role !== 'owner') {
+          throw new ProvisionDealerError(
+            'OWNER_EMAIL_CONFLICT',
+            'Owner email is already in use by a non-owner account.'
+          );
+        }
+        existingOwnerForLink = existingOwner;
+        ownerLinked = true;
+      }
+    }
+
+    // DealerGroup for owner portfolio (only when owner path is active).
+    let dealerGroupId: string | null = null;
+    if (ownerNorm) {
+      const groupCodeTaken = await tx.dealerGroup.findUnique({
+        where: { code: dealerCode },
+        select: { id: true },
+      });
+      if (groupCodeTaken) {
+        throw new ProvisionDealerError(
+          'DEALER_GROUP_EXISTS',
+          `A dealer group with code "${dealerCode}" already exists.`
+        );
+      }
+    }
+
     const passwordHash = await bcrypt.hash(input.manager.password, 12);
     // Reduce lifetime of plaintext in this closure (best-effort)
     (input.manager as { password: string }).password = '';
+
+    let ownerPasswordHash: string | null = null;
+    if (ownerNorm && !ownerLinked && input.owner) {
+      ownerPasswordHash = await bcrypt.hash(input.owner.password, 12);
+      (input.owner as { password: string }).password = '';
+    } else if (input.owner) {
+      (input.owner as { password: string }).password = '';
+    }
+
+    if (ownerNorm) {
+      const dealerGroup = await tx.dealerGroup.create({
+        data: {
+          code: dealerCode,
+          name: dealerName,
+          legalName: dealerName,
+          status: 'active',
+        },
+      });
+      dealerGroupId = dealerGroup.id;
+    }
 
     const dealer = await tx.dealer.create({
       data: {
         code: dealerCode,
         name: dealerName,
         status: 'active',
+        ...(dealerGroupId ? { dealerGroupId } : {}),
       },
     });
 
@@ -576,11 +714,81 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       },
     });
 
+    // Parallel owner path: national-sentinel technician + DealerGroup membership.
+    if (ownerNorm && dealerGroupId) {
+      // Ensure national sentinel exists for owner FK (idempotent).
+      await tx.dealership.upsert({
+        where: { id: APEX_NATIONAL_DEALERSHIP_ID },
+        update: { name: APEX_NATIONAL_DEALERSHIP_NAME },
+        create: {
+          id: APEX_NATIONAL_DEALERSHIP_ID,
+          name: APEX_NATIONAL_DEALERSHIP_NAME,
+        },
+      });
+
+      if (existingOwnerForLink) {
+        ownerId = existingOwnerForLink.id;
+        await tx.technician.update({
+          where: { id: existingOwnerForLink.id },
+          data: {
+            isActive: true,
+            deletedAt: null,
+            // Keep existing credentials; re-assert owner role if needed.
+            role: 'owner',
+            isAdmin: true,
+            dealershipId: APEX_NATIONAL_DEALERSHIP_ID,
+          },
+        });
+      } else {
+        if (!ownerPasswordHash) {
+          throw new ProvisionDealerError('WEAK_PASSWORD', 'Owner password is required for new accounts.');
+        }
+        const owner = await tx.technician.create({
+          data: {
+            email: ownerNorm.email,
+            name: ownerNorm.name,
+            passwordHash: ownerPasswordHash,
+            role: 'owner',
+            isAdmin: true,
+            isActive: true,
+            d7Number: null,
+            apexUsername: null,
+            dealershipId: APEX_NATIONAL_DEALERSHIP_ID,
+            dealerId: null,
+            mustChangePassword: true,
+            passwordChangedAt: null,
+            consentAt: new Date(),
+            consentVersion: CONSENT_VERSION,
+            legalDisclaimerAt: new Date(),
+            legalDisclaimerVersion: LEGAL_DISCLAIMER_VERSION,
+          },
+        });
+        ownerId = owner.id;
+        ownerCreated = true;
+      }
+
+      await tx.dealerGroupMembership.create({
+        data: {
+          dealerGroupId,
+          technicianId: ownerId,
+          role: 'owner',
+          isPrimary: true,
+          isActive: true,
+        },
+      });
+    }
+
     // Product modules: enable shippable modules; leave cdk_sync off until credentials.
     await ensureDealershipModuleDefaults(dealership.id, {
       db: tx,
       enabledById: manager.id,
     });
+
+    const ownerOutcome: 'created' | 'linked' | 'none' = ownerCreated
+      ? 'created'
+      : ownerLinked
+        ? 'linked'
+        : 'none';
 
     const meta = buildDealerProvisionAuditMetadata({
       template,
@@ -588,6 +796,9 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       dealerId: dealer.id,
       dealershipId: dealership.id,
       managerTechnicianId: manager.id,
+      ownerTechnicianId: ownerId,
+      dealerGroupId,
+      ownerOutcome,
       actor: input.actor,
       ifExistsMode: ifExists,
       outcome: 'created',
@@ -610,14 +821,16 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       dealershipId: dealership.id,
       templateId: template.id,
       dealerCodeHash: meta.dealerCodeHash,
+      ownerOutcome,
+      hasDealerGroup: Boolean(dealerGroupId),
     });
 
-    const identifierType: ProvisionDealerLoginHint['identifierType'] =
-      template.loginStrategy === 'd7'
-        ? 'd7'
-        : template.loginStrategy === 'apex_username'
-          ? 'username'
-          : 'email';
+    const logins: ProvisionDealerLoginHint[] = [
+      { role: 'manager', identifierType: managerLoginType },
+    ];
+    if (ownerNorm) {
+      logins.push({ role: 'owner', identifierType: 'email' });
+    }
 
     return {
       created: true,
@@ -626,12 +839,16 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       dealerId: dealer.id,
       dealershipId: dealership.id,
       managerId: manager.id,
+      ownerId,
+      dealerGroupId,
+      ownerCreated,
+      ownerLinked,
       templateId: template.id,
       rooftopName: dealership.name,
       dealerCode,
       auditLogId,
       mustChangePassword: true,
-      logins: [{ role: 'manager', identifierType }],
+      logins,
     };
   });
 }
@@ -676,7 +893,9 @@ export function httpStatusForProvisionError(code: string): number {
     case 'MANAGER_EMAIL_EXISTS':
     case 'MANAGER_D7_EXISTS':
     case 'MANAGER_USERNAME_EXISTS':
+    case 'OWNER_EMAIL_CONFLICT':
     case 'DEALER_EXISTS':
+    case 'DEALER_GROUP_EXISTS':
       return 409;
     case 'UNKNOWN_TEMPLATE':
     case 'INVALID_DEALER_CODE':
@@ -689,6 +908,9 @@ export function httpStatusForProvisionError(code: string): number {
     case 'INVALID_MANAGER_EMAIL':
     case 'INVALID_MANAGER_D7':
     case 'INVALID_MANAGER_USERNAME':
+    case 'INVALID_OWNER_NAME':
+    case 'INVALID_OWNER_EMAIL':
+    case 'OWNER_EMAIL_SAME_AS_MANAGER':
     case 'MANAGER_D7_REQUIRED':
     case 'MANAGER_USERNAME_REQUIRED':
     case 'WEAK_PASSWORD':
@@ -711,12 +933,16 @@ export function toSafeProvisionHttpResponse(result: ProvisionDealerResult): {
   dealerId: string;
   dealershipId: string;
   managerId: string;
+  ownerId: string | null;
+  dealerGroupId: string | null;
+  ownerCreated: boolean;
+  ownerLinked: boolean;
   templateId: DealerTemplateId;
   rooftopName: string;
   dealerCode: string;
   auditLogId: string | null;
   mustChangePassword: true;
-  logins: Array<{ role: 'manager'; identifierType: 'd7' | 'email' | 'username' }>;
+  logins: Array<{ role: 'manager' | 'owner'; identifierType: 'd7' | 'email' | 'username' }>;
 } {
   return {
     created: result.created,
@@ -725,6 +951,10 @@ export function toSafeProvisionHttpResponse(result: ProvisionDealerResult): {
     dealerId: result.dealerId,
     dealershipId: result.dealershipId,
     managerId: result.managerId,
+    ownerId: result.ownerId,
+    dealerGroupId: result.dealerGroupId,
+    ownerCreated: result.ownerCreated,
+    ownerLinked: result.ownerLinked,
     templateId: result.templateId,
     rooftopName: result.rooftopName,
     dealerCode: result.dealerCode,
