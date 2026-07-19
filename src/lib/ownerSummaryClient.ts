@@ -1,3 +1,4 @@
+import { fetchJsonWithClientRetry } from '@/lib/clientFetchRetry';
 import type {
   OwnerAttentionFlag,
   OwnerNationalSummary,
@@ -13,16 +14,10 @@ export type {
 };
 
 export async function fetchOwnerNationalSummary(): Promise<OwnerNationalSummary> {
-  const res = await fetch('/api/owner/summary', {
-    credentials: 'include',
-    cache: 'no-store',
+  return fetchJsonWithClientRetry<OwnerNationalSummary>('/api/owner/summary', {
+    method: 'GET',
+    // Summary is heavy (multi-query); allow cold-start recovery time.
+    timeoutMs: 30_000,
+    maxRetries: 3,
   });
-  const data = (await res.json().catch(() => ({}))) as OwnerNationalSummary & {
-    error?: string;
-    message?: string;
-  };
-  if (!res.ok) {
-    throw new Error(data.error || data.message || 'Could not load national summary');
-  }
-  return data;
 }
