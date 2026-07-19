@@ -7,7 +7,11 @@ import { apiError, reportMappedRouteError } from '@/lib/errors';
 import { normalizePreferredLanguage } from '@/lib/i18n/locales';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
-import { inspectionInclude } from '@/lib/videoInspection/access';
+import {
+  inspectionInclude,
+  resolveRepairOrderLink,
+  resolveVideoDealershipId,
+} from '@/lib/videoInspection/access';
 import { last8OfVin, phoneLast4 } from '@/lib/videoInspection/mpiCategories';
 import { getVideoMaxDurationSec } from '@/lib/videoInspection/shareTokens';
 import {
@@ -61,10 +65,11 @@ export async function POST(request: Request) {
       if (!sessionId) return apiError('sessionId is required', 400);
 
       const db = getRlsDb();
+      const dealershipId = resolveVideoDealershipId(session);
       const uploadSession = await db.videoUploadSession.findFirst({
         where: {
           id: sessionId,
-          dealershipId: session.dealershipId,
+          dealershipId,
           technicianId: session.technicianId,
         },
       });
@@ -142,7 +147,7 @@ export async function POST(request: Request) {
           assembled,
           `inspection.${ext}`,
           contentType,
-          session.dealershipId
+          dealershipId
         );
       } catch (error) {
         await db.videoUploadSession.update({
@@ -170,7 +175,7 @@ export async function POST(request: Request) {
             frameBuf,
             entry.name || 'frame.jpg',
             entry.type || 'image/jpeg',
-            session.dealershipId
+            dealershipId
           );
           framePathnames.push(frame.pathname);
         } catch {
@@ -192,9 +197,20 @@ export async function POST(request: Request) {
           ? meta.recordingMode
           : 'standard';
 
+      let link: { repairOrderId: string | null; repairLineId: string | null };
+      try {
+        link = await resolveRepairOrderLink(
+          session,
+          meta.repairOrderId,
+          meta.repairLineId
+        );
+      } catch (error) {
+        return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
+      }
+
       const row = await db.videoInspection.create({
         data: {
-          dealershipId: session.dealershipId,
+          dealershipId,
           dealerId: uploadSession.dealerId,
           technicianId: session.technicianId,
           title,
@@ -213,6 +229,8 @@ export async function POST(request: Request) {
           customerPhoneLast4: phoneLast4(customerPhone),
           vinEncrypted: encryptSensitiveText(vin),
           vinLast8: last8OfVin(vin),
+          repairOrderId: link.repairOrderId,
+          repairLineId: link.repairLineId,
         },
         include: inspectionInclude,
       });
@@ -224,7 +242,7 @@ export async function POST(request: Request) {
 
       await writeAuditedAccess({
         action: 'video.upload',
-        dealershipId: session.dealershipId,
+        dealershipId,
         dealerId: auditDealerIdFromSession(session),
         technicianId: session.technicianId,
         entityType: 'video_inspection',

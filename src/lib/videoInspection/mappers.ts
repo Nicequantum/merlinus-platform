@@ -82,6 +82,8 @@ export function mapVideoInspectionListItem(row: VideoInspectionRow) {
     recordingMode: row.recordingMode || 'standard',
     deliveryChannel: row.deliveryChannel ?? null,
     deliveredAt: row.deliveredAt ? row.deliveredAt.toISOString() : null,
+    repairOrderId: row.repairOrderId ?? null,
+    repairLineId: row.repairLineId ?? null,
   };
 }
 

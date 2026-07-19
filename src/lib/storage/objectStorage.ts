@@ -33,9 +33,19 @@ export async function putObject(
   const bucket = requireR2Bucket();
   let lastError: unknown;
 
+  // R2 on workerd is happiest with ArrayBuffer / Uint8Array (not Node Buffer views).
+  const payload: ArrayBuffer | Uint8Array | string =
+    typeof body === 'string'
+      ? body
+      : body instanceof ArrayBuffer
+        ? body
+        : new Uint8Array(
+            body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer
+          );
+
   for (let attempt = 0; attempt < PUT_MAX_ATTEMPTS; attempt++) {
     try {
-      await bucket.put(key, body, {
+      await bucket.put(key, payload, {
         httpMetadata: {
           contentType: options?.contentType,
           cacheControl: options?.cacheControl ?? 'private, no-store',
@@ -44,7 +54,12 @@ export async function putObject(
       return {
         key,
         contentType: options?.contentType,
-        size: typeof body === 'string' ? Buffer.byteLength(body) : body.byteLength,
+        size:
+          typeof body === 'string'
+            ? Buffer.byteLength(body)
+            : body instanceof ArrayBuffer
+              ? body.byteLength
+              : body.byteLength,
       };
     } catch (error) {
       lastError = error;

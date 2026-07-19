@@ -2,6 +2,7 @@ import { resolveDealerIdForWrite } from '@/lib/apex/dealerContext';
 import { getRlsDb } from '@/lib/apex/rlsContext';
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
+import { resolveVideoDealershipId } from '@/lib/videoInspection/access';
 import {
   VIDEO_UPLOAD_CHUNK_BYTES,
   VIDEO_UPLOAD_MAX_CHUNKS,
@@ -26,6 +27,8 @@ const initSchema = z.object({
       transcriptLanguage: z.string().max(16).optional(),
       recordingMode: z.enum(['fullscreen', 'standard', 'upload']).optional(),
       durationSec: z.number().finite().nullable().optional(),
+      repairOrderId: z.string().max(64).nullable().optional(),
+      repairLineId: z.string().max(64).nullable().optional(),
     })
     .optional(),
 });
@@ -57,15 +60,25 @@ export async function POST(request: Request) {
       }
 
       const dealerId = resolveDealerIdForWrite({ session });
+      const dealershipId = resolveVideoDealershipId(session);
       const expiresAt = new Date(Date.now() + VIDEO_UPLOAD_SESSION_TTL_MS);
       const pathnames = Array.from({ length: parsed.data.totalChunks }, () => '');
+      const rawType = (parsed.data.contentType || 'video/webm').split(';')[0]?.trim().toLowerCase() || 'video/webm';
+      const contentType =
+        rawType.includes('mp4') || rawType.includes('quicktime')
+          ? rawType.includes('quicktime')
+            ? 'video/quicktime'
+            : 'video/mp4'
+          : rawType.includes('webm')
+            ? 'video/webm'
+            : 'video/webm';
 
       const row = await getRlsDb().videoUploadSession.create({
         data: {
-          dealershipId: session.dealershipId,
+          dealershipId,
           technicianId: session.technicianId,
           dealerId: dealerId ?? null,
-          contentType: (parsed.data.contentType || 'video/webm').slice(0, 80),
+          contentType: contentType.slice(0, 80),
           totalBytes: parsed.data.totalBytes,
           totalChunks: parsed.data.totalChunks,
           receivedMask: '[]',

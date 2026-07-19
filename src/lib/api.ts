@@ -229,9 +229,10 @@ export const api = {
       body: JSON.stringify({ preferredLanguage }),
     }),
 
-  listVideoInspections: (params?: { status?: string }) => {
+  listVideoInspections: (params?: { status?: string; repairOrderId?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
+    if (params?.repairOrderId) query.set('repairOrderId', params.repairOrderId);
     const qs = query.toString();
     return apiFetch<{ inspections: import('@/types').VideoInspectionSummary[] }>(
       `/api/video-inspections${qs ? `?${qs}` : ''}`,
@@ -271,6 +272,8 @@ export const api = {
       recordingMode?: 'fullscreen' | 'standard' | 'upload';
       status?: 'draft' | 'processing' | 'ready' | 'failed' | 'sent';
       deliveryChannel?: 'sms' | 'email' | 'link' | null;
+      repairOrderId?: string | null;
+      repairLineId?: string | null;
     }
   ) =>
     apiFetch<{ inspection: import('@/types').VideoInspectionDetail }>(

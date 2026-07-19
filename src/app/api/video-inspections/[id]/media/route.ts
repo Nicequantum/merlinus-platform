@@ -25,13 +25,20 @@ export async function GET(
       try {
         const result = await streamPrivateVideoBlob(row.videoPathname);
         if (!result) return apiError(NOT_FOUND_ERROR, 404);
+        const headers: Record<string, string> = {
+          'Content-Type': row.contentType || result.contentType || 'video/webm',
+          'Cache-Control': 'private, no-store',
+          'Content-Disposition': 'inline',
+          // Helps Safari/Chrome play progressive video from authenticated routes
+          'Accept-Ranges': 'bytes',
+        };
+        const size = result.size ?? (row.sizeBytes > 0 ? row.sizeBytes : undefined);
+        if (typeof size === 'number' && size > 0) {
+          headers['Content-Length'] = String(size);
+        }
         return new Response(result.stream, {
           status: 200,
-          headers: {
-            'Content-Type': row.contentType || result.contentType || 'video/webm',
-            'Cache-Control': 'private, no-store',
-            'Content-Disposition': 'inline',
-          },
+          headers,
         });
       } catch {
         return apiError(NOT_FOUND_ERROR, 404);

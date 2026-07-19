@@ -57,5 +57,14 @@
   "uploading": "Subiendo video…",
   "videoSaved": "Video guardado",
   "processing": "Procesando…",
-  "recordingEmpty": "La grabación quedó vacía — intente de nuevo o suba un archivo"
+  "recordingEmpty": "La grabación quedó vacía — intente de nuevo o suba un archivo",
+  "recordingStarted": "Grabando — toque el botón rojo para detener",
+  "attachRepairOrder": "Vincular a orden de reparación",
+  "attachRepairOrderHint": "Opcional. Vincula este video a una RO abierta para verlo en el detalle y el informe del cliente.",
+  "noRepairOrder": "Sin orden de reparación",
+  "linkedToRo": "Orden vinculada",
+  "noVideoYet": "Aún no hay video en esta inspección — grabe o suba uno.",
+  "roVideosTitle": "Video MPI",
+  "roVideosEmpty": "No hay inspecciones en video vinculadas a esta RO.",
+  "roVideosNew": "Grabar Video MPI"
 }

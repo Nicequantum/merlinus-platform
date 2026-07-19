@@ -52,14 +52,22 @@ export async function GET(
   try {
     const result = await streamPrivateVideoBlob(pathname);
     if (!result) return apiError(NOT_FOUND_ERROR, 404);
+    const headers: Record<string, string> = {
+      'Content-Type':
+        share.videoInspection.contentType || result.contentType || 'video/webm',
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': 'inline',
+      'Accept-Ranges': 'bytes',
+    };
+    const size =
+      result.size ??
+      (share.videoInspection.sizeBytes > 0 ? share.videoInspection.sizeBytes : undefined);
+    if (typeof size === 'number' && size > 0) {
+      headers['Content-Length'] = String(size);
+    }
     return new Response(result.stream, {
       status: 200,
-      headers: {
-        'Content-Type':
-          share.videoInspection.contentType || result.contentType || 'video/webm',
-        'Cache-Control': 'private, no-store',
-        'Content-Disposition': 'inline',
-      },
+      headers,
     });
   } catch {
     return apiError(NOT_FOUND_ERROR, 404);

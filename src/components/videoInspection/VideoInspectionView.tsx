@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
+  Circle,
   ClipboardList,
   CloudOff,
   Link2,
   Loader2,
-  Mic,
   RefreshCw,
   Square,
   Upload,
@@ -18,7 +18,11 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import { localeToSpeechLang, normalizePreferredLanguage } from '@/lib/i18n/locales';
-import { isOnline, VideoCaptureSession } from '@/lib/videoInspection/captureSession';
+import {
+  formatRecordingTimer,
+  isOnline,
+  VideoCaptureSession,
+} from '@/lib/videoInspection/captureSession';
 import {
   uploadVideoInspectionResumable,
   type UploadProgress,
@@ -44,6 +48,7 @@ import {
   type PendingVideoUpload,
 } from '@/lib/videoInspection/offlineQueue';
 import type {
+  RepairOrderSummary,
   TechnicianSession,
   VideoInspectionDetail,
   VideoInspectionSummary,
@@ -52,6 +57,8 @@ import type {
 interface VideoInspectionViewProps {
   session: TechnicianSession;
   onBack: () => void;
+  /** Optional pre-linked repair order when opened from RO detail. */
+  initialRepairOrderId?: string | null;
 }
 
 type ChecklistDraftRow = {
@@ -79,7 +86,11 @@ function severityDotClass(severity: MpiSeverity): string {
   return 'bg-emerald-500';
 }
 
-export function VideoInspectionView({ session, onBack }: VideoInspectionViewProps) {
+export function VideoInspectionView({
+  session,
+  onBack,
+  initialRepairOrderId = null,
+}: VideoInspectionViewProps) {
   const { t } = useTranslation('video');
   const [list, setList] = useState<VideoInspectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +103,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const [vin, setVin] = useState('');
   const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [busy, setBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -104,6 +116,10 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
   const [online, setOnline] = useState(true);
   const [moduleDisabled, setModuleDisabled] = useState(false);
   const [immersive, setImmersive] = useState(false);
+  const [repairOrderId, setRepairOrderId] = useState(initialRepairOrderId || '');
+  const [roOptions, setRoOptions] = useState<RepairOrderSummary[]>([]);
+  const [roOptionsLoading, setRoOptionsLoading] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -180,6 +196,26 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     return counts;
   }, [list]);
 
+  useEffect(() => {
+    if (mode !== 'create' && mode !== 'detail') return;
+    let cancelled = false;
+    setRoOptionsLoading(true);
+    void api
+      .listRepairOrders({ limit: 40, scope: 'today' })
+      .then((res) => {
+        if (!cancelled) setRoOptions(res.repairOrders || []);
+      })
+      .catch(() => {
+        if (!cancelled) setRoOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRoOptionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
   const buildMeta = useCallback(
     (recordingMode: 'fullscreen' | 'standard' | 'upload', durationSec?: number) => ({
       title: 'Video inspection',
@@ -191,8 +227,17 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
       transcriptLanguage: normalizePreferredLanguage(session.preferredLanguage),
       recordingMode,
       durationSec,
+      repairOrderId: repairOrderId.trim() || undefined,
     }),
-    [vehicleLabel, customerName, customerPhone, vin, transcript, session.preferredLanguage]
+    [
+      vehicleLabel,
+      customerName,
+      customerPhone,
+      vin,
+      transcript,
+      session.preferredLanguage,
+      repairOrderId,
+    ]
   );
 
   const uploadBlob = useCallback(
@@ -378,12 +423,17 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
   const startRecording = async () => {
     try {
+      setRecordError(null);
       setTranscript('');
+      setElapsedSec(0);
       setImmersive(false);
       // Ensure previous session fully released (camera light off)
       if (captureRef.current) {
         await captureRef.current.release();
         captureRef.current = null;
+      }
+      if (!videoRef.current) {
+        throw new Error('Video preview is not ready — try again');
       }
       const capture = new VideoCaptureSession();
       captureRef.current = capture;
@@ -394,15 +444,24 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         preferFullscreen: true,
         onTranscript: (text) => setTranscript(text),
         onImmersiveChange: (on) => setImmersive(on),
-        onError: (message) => toast.error(message),
+        onElapsed: (sec) => setElapsedSec(sec),
+        onError: (message) => {
+          setRecordError(message);
+          toast.error(message);
+        },
       });
       setRecording(true);
+      toast.message(t('recordingStarted'));
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Could not access camera/microphone');
+      const message =
+        e instanceof Error ? e.message : 'Could not access camera/microphone';
+      setRecordError(message);
+      toast.error(message);
       await captureRef.current?.release();
       captureRef.current = null;
       setRecording(false);
       setImmersive(false);
+      setElapsedSec(0);
     }
   };
 
@@ -410,11 +469,14 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     const capture = captureRef.current;
     if (!capture) return;
     setBusy(true);
-    setRecording(false);
-    setImmersive(false);
+    setRecordError(null);
+    // Keep immersive UI until stop finishes so the preview is not torn mid-finalize
     try {
       const result = await capture.stop();
       captureRef.current = null;
+      setRecording(false);
+      setImmersive(false);
+      setElapsedSec(result.durationSec);
       if (result.transcript) setTranscript(result.transcript);
       await uploadBlob(result.blob, {
         durationSec: result.durationSec,
@@ -423,11 +485,15 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         mimeType: result.mimeType,
       });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Could not stop recording');
+      const message = e instanceof Error ? e.message : 'Could not stop recording';
+      setRecordError(message);
+      toast.error(message);
       await capture.release();
       captureRef.current = null;
-      setBusy(false);
+      setRecording(false);
       setImmersive(false);
+      setBusy(false);
+      setElapsedSec(0);
     }
   };
 
@@ -458,6 +524,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
     setCustomerPhone(inspection.customerPhone || '');
     setVin(inspection.vin || '');
     setPhone(inspection.customerPhone || '');
+    setRepairOrderId(inspection.repairOrderId || '');
     setChecklist(findingsToChecklist(inspection));
     setShareUrl(null);
   };
@@ -504,6 +571,7 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
         customerPhone,
         vin,
         transcript,
+        repairOrderId: repairOrderId.trim() || null,
       });
       applyDetail(inspection);
       toast.success('Saved');
@@ -607,8 +675,32 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
       </div>
     ) : null;
 
+  const roSelect = (
+    <div className="mb-4">
+      <label className="benz-label">{t('attachRepairOrder')}</label>
+      <select
+        className="benz-input"
+        value={repairOrderId}
+        onChange={(e) => setRepairOrderId(e.target.value)}
+        disabled={recording || busy || roOptionsLoading}
+      >
+        <option value="">{t('noRepairOrder')}</option>
+        {roOptions.map((ro) => (
+          <option key={ro.id} value={ro.id}>
+            {ro.roNumber || ro.id}
+            {ro.vehicle
+              ? ` · ${[ro.vehicle.year, ro.vehicle.make, ro.vehicle.model].filter(Boolean).join(' ')}`
+              : ''}
+          </option>
+        ))}
+      </select>
+      <p className="benz-hint text-xs mt-1">{t('attachRepairOrderHint')}</p>
+    </div>
+  );
+
   const customerFields = (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      <div className="sm:col-span-2">{roSelect}</div>
       <div>
         <label className="benz-label">{t('customerName')}</label>
         <input
@@ -650,6 +742,58 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
           disabled={recording || busy}
         />
       </div>
+    </div>
+  );
+
+  const recordControls = (
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      {!recording ? (
+        <button
+          type="button"
+          className="h-14 min-w-[10rem] px-6 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg touch-target disabled:opacity-50 flex items-center justify-center gap-2"
+          disabled={busy}
+          onClick={() => void startRecording()}
+          aria-label={t('startRecording')}
+        >
+          <Circle size={18} className="fill-white text-white" />
+          {t('startRecording')}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="h-14 min-w-[10rem] px-6 rounded-full bg-red-700 hover:bg-red-800 text-white font-semibold shadow-lg touch-target disabled:opacity-50 flex items-center justify-center gap-2 ring-2 ring-red-300"
+          disabled={busy}
+          onClick={() => void stopRecordingAndUpload()}
+          aria-label={t('stopRecording')}
+        >
+          <Square size={18} className="fill-white" />
+          {t('stopRecording')}
+        </button>
+      )}
+      {recording ? (
+        <div className="flex items-center gap-2 text-sm font-mono font-semibold text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-full">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+          <span>{t('recording')}</span>
+          <span className="tabular-nums">{formatRecordingTimer(elapsedSec)}</span>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="secondary-btn h-12 px-4 touch-target"
+        disabled={busy || recording}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <Upload size={16} className="inline mr-2" />
+        {t('uploadVideo')}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
+      />
     </div>
   );
 
@@ -701,13 +845,16 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             <div
               className={
                 immersive
-                  ? 'absolute top-safe top-4 left-4 right-4 flex items-center justify-between gap-3 pointer-events-none'
-                  : 'absolute top-3 left-3 flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full'
+                  ? 'absolute top-4 left-4 right-4 flex items-center justify-between gap-3 pointer-events-none'
+                  : 'absolute top-3 left-3 right-3 flex items-center justify-between gap-2'
               }
             >
-              <div className="flex items-center gap-2 bg-black/70 text-white text-xs font-semibold px-2.5 py-1.5 rounded-full pointer-events-none">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <div className="flex items-center gap-2 bg-black/75 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                 {t('recording')}
+              </div>
+              <div className="bg-black/75 text-white text-sm font-mono font-semibold px-3 py-1.5 rounded-full tabular-nums">
+                {formatRecordingTimer(elapsedSec)}
               </div>
             </div>
           ) : null}
@@ -721,12 +868,12 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
             >
               <button
                 type="button"
-                className="primary-btn h-14 px-8 text-base touch-target bg-red-700 shadow-lg"
+                className="h-16 min-w-[12rem] px-8 rounded-full bg-red-600 hover:bg-red-700 text-white text-base font-semibold shadow-xl touch-target disabled:opacity-50 flex items-center justify-center gap-2"
                 disabled={busy}
                 onClick={() => void stopRecordingAndUpload()}
               >
-                <Square size={18} className="inline mr-2" />
-                {t('stopRecording')}
+                <Square size={20} className="fill-white" />
+                {t('stopRecording')} · {formatRecordingTimer(elapsedSec)}
               </button>
             </div>
           ) : null}
@@ -734,46 +881,12 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
 
         {!immersive ? (
           <>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {!recording ? (
-                <button
-                  type="button"
-                  className="primary-btn h-12 px-4 touch-target"
-                  disabled={busy}
-                  onClick={() => void startRecording()}
-                >
-                  <Mic size={16} className="inline mr-2" />
-                  {t('startRecording')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="primary-btn h-12 px-4 touch-target bg-red-700"
-                  disabled={busy}
-                  onClick={() => void stopRecordingAndUpload()}
-                >
-                  <Square size={16} className="inline mr-2" />
-                  {t('stopRecording')}
-                </button>
-              )}
-              <button
-                type="button"
-                className="secondary-btn h-12 px-4 touch-target"
-                disabled={busy || recording}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload size={16} className="inline mr-2" />
-                {t('uploadVideo')}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
-              />
-            </div>
+            {recordControls}
+            {recordError ? (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {recordError}
+              </div>
+            ) : null}
 
             <label className="benz-label">{t('liveTranscript')}</label>
             <textarea
@@ -829,6 +942,16 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
               preload="metadata"
             />
           </div>
+        ) : (
+          <div className="benz-card p-4 mb-4 text-sm text-benz-secondary">
+            {t('noVideoYet')}
+          </div>
+        )}
+
+        {selected.repairOrderId ? (
+          <p className="text-xs text-benz-secondary mb-3">
+            {t('linkedToRo')}: <span className="font-mono">{selected.repairOrderId}</span>
+          </p>
         ) : null}
 
         {customerFields}
@@ -1021,6 +1144,9 @@ export function VideoInspectionView({ session, onBack }: VideoInspectionViewProp
               setCustomerPhone('');
               setVin('');
               setVehicleLabel('');
+              setRepairOrderId(initialRepairOrderId || '');
+              setRecordError(null);
+              setElapsedSec(0);
               setChecklist(defaultChecklistTemplate());
               setMode('create');
             }}

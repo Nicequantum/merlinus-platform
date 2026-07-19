@@ -2,7 +2,11 @@ import { getRlsDb } from '@/lib/apex/rlsContext';
 import { withAuth } from '@/lib/apiRoute';
 import { encryptSensitiveText } from '@/lib/encryption';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
-import { findInspectionForSession, inspectionInclude } from '@/lib/videoInspection/access';
+import {
+  findInspectionForSession,
+  inspectionInclude,
+  resolveRepairOrderLink,
+} from '@/lib/videoInspection/access';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import { last8OfVin, phoneLast4 } from '@/lib/videoInspection/mpiCategories';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody, parseRouteParams } from '@/lib/validation';
@@ -21,6 +25,8 @@ const patchSchema = z.object({
   recordingMode: z.enum(['fullscreen', 'standard', 'upload']).optional(),
   status: z.enum(['draft', 'processing', 'ready', 'failed', 'sent']).optional(),
   deliveryChannel: z.enum(['sms', 'email', 'link']).nullable().optional(),
+  repairOrderId: z.string().trim().max(64).nullable().optional(),
+  repairLineId: z.string().trim().max(64).nullable().optional(),
 });
 
 const VIDEO_MODULE = { requireModule: 'video_mpi' as const };
@@ -96,6 +102,29 @@ export async function PATCH(
         if (parsed.data.deliveryChannel) {
           data.deliveredAt = new Date();
           if (existing.status !== 'failed') data.status = 'sent';
+        }
+      }
+      if (parsed.data.repairOrderId !== undefined || parsed.data.repairLineId !== undefined) {
+        try {
+          const link = await resolveRepairOrderLink(
+            session,
+            parsed.data.repairOrderId === undefined
+              ? existing.repairOrderId
+              : parsed.data.repairOrderId,
+            parsed.data.repairLineId === undefined
+              ? existing.repairLineId
+              : parsed.data.repairLineId
+          );
+          // Explicit null clears the link
+          if (parsed.data.repairOrderId === null) {
+            data.repairOrderId = null;
+            data.repairLineId = null;
+          } else {
+            data.repairOrderId = link.repairOrderId;
+            data.repairLineId = link.repairLineId;
+          }
+        } catch (error) {
+          return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
         }
       }
 

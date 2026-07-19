@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronRight, ClipboardList, FileText, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronRight, ClipboardList, FileText, Plus, Sparkles, Trash2, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { BenzEmptyState } from '@/components/BenzEmptyState';
 import { XentryDiagnosticSection } from '@/components/XentryDiagnosticSection';
@@ -10,7 +11,14 @@ import { hasSoldMetrics } from '@/lib/repairLineSoldMetrics';
 import { SoldMetricsSummary } from '@/components/SoldMetricsSummary';
 import { StableInput } from '@/components/StableInput';
 import { StableTextarea } from '@/components/StableTextarea';
-import type { ExtractedData, ImageAttachment, PendingImage, RepairOrder } from '../types';
+import { api } from '@/lib/api';
+import type {
+  ExtractedData,
+  ImageAttachment,
+  PendingImage,
+  RepairOrder,
+  VideoInspectionSummary,
+} from '../types';
 
 interface ROViewProps {
   ro: RepairOrder;
@@ -39,6 +47,8 @@ interface ROViewProps {
   onAddRepairLine: () => void;
   onOpenLine: (lineId: string) => void;
   onDeleteRO: () => void;
+  /** Open Video MPI capture pre-linked to this RO. */
+  onOpenVideoInspection?: (repairOrderId: string) => void;
 }
 
 function complaintLabel(labels: string[] | undefined, index: number): string {
@@ -72,14 +82,32 @@ export function ROView({
   onAddRepairLine,
   onOpenLine,
   onDeleteRO,
+  onOpenVideoInspection,
 }: ROViewProps) {
   const { t } = useTranslation('ro');
   const { t: tCommon } = useTranslation('common');
+  const { t: tVideo } = useTranslation('video');
+  const [videos, setVideos] = useState<VideoInspectionSummary[]>([]);
   const vehicleSummary =
     [ro.vehicle.year, ro.vehicle.make, ro.vehicle.model].filter(Boolean).join(' ') || tCommon('vehicle');
   const mileageStr = ro.vehicle.mileageIn
     ? `${ro.vehicle.mileageIn} ${tCommon('mileageUnit')}`
     : '';
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .listVideoInspections({ repairOrderId: ro.id })
+      .then((res) => {
+        if (!cancelled) setVideos(res.inspections || []);
+      })
+      .catch(() => {
+        if (!cancelled) setVideos([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ro.id]);
 
   return (
     <div className="benz-page">
@@ -111,6 +139,44 @@ export function ROView({
           <div className="text-xs text-benz-secondary mt-1">{t('customer', { name: ro.customer.name })}</div>
         )}
       </div>
+
+      {onOpenVideoInspection ? (
+        <div className="benz-card p-4 mb-6">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2">
+              <Video size={18} className="text-benz-blue" />
+              <div>
+                <div className="font-semibold text-sm">{tVideo('roVideosTitle')}</div>
+                <div className="benz-hint text-xs">
+                  {videos.length > 0
+                    ? `${videos.length} linked`
+                    : tVideo('roVideosEmpty')}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="primary-btn h-10 px-3 text-xs shrink-0"
+              onClick={() => onOpenVideoInspection(ro.id)}
+            >
+              {tVideo('roVideosNew')}
+            </button>
+          </div>
+          {videos.length > 0 ? (
+            <ul className="space-y-1.5 text-xs text-benz-secondary">
+              {videos.slice(0, 5).map((v) => (
+                <li key={v.id} className="flex justify-between gap-2">
+                  <span className="truncate">
+                    {v.title || 'Video inspection'}
+                    {v.hasReport ? ` · ${tVideo('hasReport')}` : ''}
+                  </span>
+                  <span className="status-pill status-pill-warn shrink-0">{v.status}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="benz-card p-5 sm:p-6 mb-6 space-y-4 min-w-0 w-full">
         <div>

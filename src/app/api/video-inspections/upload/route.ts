@@ -8,7 +8,11 @@ import { apiError, reportMappedRouteError } from '@/lib/errors';
 import { normalizePreferredLanguage } from '@/lib/i18n/locales';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
-import { inspectionInclude } from '@/lib/videoInspection/access';
+import {
+  inspectionInclude,
+  resolveRepairOrderLink,
+  resolveVideoDealershipId,
+} from '@/lib/videoInspection/access';
 import { last8OfVin, phoneLast4 } from '@/lib/videoInspection/mpiCategories';
 import { getVideoMaxBytes, getVideoMaxDurationSec } from '@/lib/videoInspection/shareTokens';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
@@ -49,7 +53,11 @@ function isUploadFile(value: unknown): value is UploadFile {
 }
 
 function resolveVideoType(file: UploadFile): string | null {
-  if (ALLOWED_VIDEO_TYPES.has(file.type)) return file.type;
+  const baseType = (file.type || '').split(';')[0]?.trim().toLowerCase() || '';
+  if (ALLOWED_VIDEO_TYPES.has(baseType)) return baseType;
+  if (baseType.includes('webm')) return 'video/webm';
+  if (baseType.includes('mp4')) return 'video/mp4';
+  if (baseType.includes('quicktime')) return 'video/quicktime';
   const ext = file.name.split('.').pop()?.toLowerCase();
   if (ext === 'webm') return 'video/webm';
   if (ext === 'mp4') return 'video/mp4';
@@ -121,14 +129,29 @@ export async function POST(request: Request) {
         return apiError(`Video exceeds max duration (${maxDurationSec}s).`, 400);
       }
 
+      let link: { repairOrderId: string | null; repairLineId: string | null };
+      try {
+        link = await resolveRepairOrderLink(
+          session,
+          String(form.get('repairOrderId') || ''),
+          String(form.get('repairLineId') || '')
+        );
+      } catch (error) {
+        return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
+      }
+
+      const dealershipId = resolveVideoDealershipId(session);
       const buffer = Buffer.from(await file.arrayBuffer());
+      if (buffer.byteLength < 256) {
+        return apiError('Recording produced no usable video data', 400);
+      }
       let uploaded;
       try {
         uploaded = await uploadVideoToBlob(
           buffer,
           file.name || 'inspection.webm',
           contentType,
-          session.dealershipId
+          dealershipId
         );
       } catch (error) {
         const mapped = mapBlobRouteError(error, 'upload');
@@ -149,7 +172,7 @@ export async function POST(request: Request) {
             frameBuf,
             entry.name || 'frame.jpg',
             entry.type || 'image/jpeg',
-            session.dealershipId
+            dealershipId
           );
           framePathnames.push(frame.pathname);
         } catch {
@@ -160,7 +183,7 @@ export async function POST(request: Request) {
       const dealerId = resolveDealerIdForWrite({ session });
       const row = await getRlsDb().videoInspection.create({
         data: {
-          dealershipId: session.dealershipId,
+          dealershipId,
           dealerId: dealerId ?? null,
           technicianId: session.technicianId,
           title,
@@ -179,13 +202,15 @@ export async function POST(request: Request) {
           customerPhoneLast4: phoneLast4(customerPhone),
           vinEncrypted: encryptSensitiveText(vin),
           vinLast8: last8OfVin(vin),
+          repairOrderId: link.repairOrderId,
+          repairLineId: link.repairLineId,
         },
         include: inspectionInclude,
       });
 
       await writeAuditedAccess({
         action: 'video.upload',
-        dealershipId: session.dealershipId,
+        dealershipId,
         dealerId: auditDealerIdFromSession(session),
         technicianId: session.technicianId,
         entityType: 'video_inspection',

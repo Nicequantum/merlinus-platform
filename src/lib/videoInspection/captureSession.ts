@@ -21,6 +21,8 @@ export interface CaptureStartOptions {
   onError?: (message: string) => void;
   /** Fired when entering/leaving immersive capture (native FS or CSS overlay). */
   onImmersiveChange?: (immersive: boolean) => void;
+  /** Live elapsed seconds while recording (for UI timer). */
+  onElapsed?: (seconds: number) => void;
 }
 
 export interface CaptureStopResult {
@@ -54,12 +56,6 @@ type FullscreenCapable = HTMLElement & {
   msRequestFullscreen?: () => Promise<void> | void;
 };
 
-type VideoFullscreenCapable = HTMLVideoElement & {
-  webkitEnterFullscreen?: () => void;
-  webkitEnterFullScreen?: () => void;
-  webkitSupportsFullscreen?: boolean;
-};
-
 export class VideoCaptureSession {
   private stream: MediaStream | null = null;
   private recorder: MediaRecorder | null = null;
@@ -70,6 +66,7 @@ export class VideoCaptureSession {
   private recognition: SpeechRecognitionLike | null = null;
   private startedAt = 0;
   private frameTimer: number | null = null;
+  private elapsedTimer: number | null = null;
   private recording = false;
   private stopping = false;
   private finalTranscript = '';
@@ -77,6 +74,7 @@ export class VideoCaptureSession {
   private fullscreenEl: HTMLElement | null = null;
   private onTranscript: ((text: string) => void) | null = null;
   private onImmersiveChange: ((immersive: boolean) => void) | null = null;
+  private onElapsed: ((seconds: number) => void) | null = null;
   private visibilityHandler: (() => void) | null = null;
   private pageHideHandler: ((e: PageTransitionEvent) => void) | null = null;
   private beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
@@ -91,6 +89,11 @@ export class VideoCaptureSession {
 
   get isImmersive(): boolean {
     return this.usedFullscreen || this.cssImmersive;
+  }
+
+  getElapsedSec(): number {
+    if (!this.startedAt) return 0;
+    return Math.max(0, Math.floor((Date.now() - this.startedAt) / 1000));
   }
 
   async start(options: CaptureStartOptions): Promise<void> {
@@ -114,6 +117,7 @@ export class VideoCaptureSession {
     this.fullscreenEl = options.fullscreenEl ?? options.videoEl;
     this.onTranscript = options.onTranscript ?? null;
     this.onImmersiveChange = options.onImmersiveChange ?? null;
+    this.onElapsed = options.onElapsed ?? null;
     this.chunks = [];
     this.frames = [];
     this.finalTranscript = '';
@@ -151,6 +155,9 @@ export class VideoCaptureSession {
     video.srcObject = stream;
     await video.play().catch(() => undefined);
 
+    // Wait for real video frames so MediaRecorder does not start on a black stream
+    await waitForVideoReady(video, 4_000);
+
     if (options.preferFullscreen !== false) {
       await this.enterImmersive();
     }
@@ -167,9 +174,16 @@ export class VideoCaptureSession {
         ? new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000 })
         : new MediaRecorder(stream, { videoBitsPerSecond: 2_500_000 });
     } catch {
-      recorder = new MediaRecorder(stream);
+      try {
+        recorder = new MediaRecorder(stream);
+      } catch (error) {
+        await this.forceReleaseHardware();
+        throw error instanceof Error
+          ? error
+          : new Error('Could not start video recorder on this device');
+      }
     }
-    this.recorderMime = recorder.mimeType || this.recorderMime;
+    this.recorderMime = normalizeVideoMime(recorder.mimeType || this.recorderMime);
 
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -180,13 +194,23 @@ export class VideoCaptureSession {
     this.recorder = recorder;
     this.startedAt = Date.now();
 
-    // iOS/Safari often mishandles timeslice; only use it on non-iOS.
-    if (isAppleMobile()) {
-      recorder.start();
-    } else {
+    // Prefer timeslice so we always accumulate chunks during recording.
+    // Some iOS builds reject timeslice — fall back to bare start().
+    try {
       recorder.start(1000);
+    } catch {
+      try {
+        recorder.start();
+      } catch (error) {
+        await this.forceReleaseHardware();
+        throw error instanceof Error
+          ? error
+          : new Error('Could not start recording');
+      }
     }
     this.recording = true;
+    this.onElapsed?.(0);
+    this.startElapsedTimer();
 
     this.startLiveStt(options.speechLang);
     this.startFrameCapture();
@@ -202,9 +226,10 @@ export class VideoCaptureSession {
     }
     this.stopping = true;
     this.recording = false;
+    this.stopElapsedTimer();
 
     const recorder = this.recorder;
-    const mimeType = recorder.mimeType || this.recorderMime || 'video/webm';
+    const mimeType = normalizeVideoMime(recorder.mimeType || this.recorderMime || 'video/webm');
 
     // Final still before stream teardown
     await this.captureFrame().catch(() => undefined);
@@ -235,7 +260,7 @@ export class VideoCaptureSession {
     return {
       blob: typedBlob,
       durationSec,
-      mimeType: typedBlob.type || mimeType,
+      mimeType: normalizeVideoMime(typedBlob.type || mimeType),
       frames,
       transcript,
       recordingMode,
@@ -245,6 +270,7 @@ export class VideoCaptureSession {
   async cancel(): Promise<void> {
     this.recording = false;
     this.stopping = true;
+    this.stopElapsedTimer();
     try {
       const recorder = this.recorder;
       if (recorder && recorder.state !== 'inactive') {
@@ -262,8 +288,13 @@ export class VideoCaptureSession {
 
   /** Public hard release for navigation / unmount (idempotent). */
   async release(): Promise<void> {
+    // Do not interrupt an in-flight finalize — that yields empty blobs.
+    if (this.stopping && this.recorder) {
+      return;
+    }
     this.recording = false;
     this.stopping = true;
+    this.stopElapsedTimer();
     await this.forceReleaseHardware();
   }
 
@@ -280,10 +311,23 @@ export class VideoCaptureSession {
       const timeout = window.setTimeout(() => {
         // Assemble whatever chunks we have if onstop never fires
         finish(new Blob(this.chunks, { type: mimeType }));
-      }, 10_000);
+      }, 12_000);
 
       const previousOnStop = recorder.onstop;
       const previousOnError = recorder.onerror;
+
+      const assembleWithGrace = () => {
+        // Classic bug: onstop can fire before the final ondataavailable.
+        // Wait briefly for late chunks before accepting an empty assembly.
+        const attempt = (triesLeft: number) => {
+          if (this.chunks.length > 0 || triesLeft <= 0) {
+            finish(new Blob(this.chunks, { type: mimeType }));
+            return;
+          }
+          window.setTimeout(() => attempt(triesLeft - 1), 40);
+        };
+        attempt(8);
+      };
 
       recorder.onstop = (ev) => {
         try {
@@ -291,7 +335,7 @@ export class VideoCaptureSession {
         } catch {
           // ignore
         }
-        finish(new Blob(this.chunks, { type: mimeType }));
+        assembleWithGrace();
       };
 
       recorder.onerror = (ev) => {
@@ -302,11 +346,11 @@ export class VideoCaptureSession {
         }
         window.clearTimeout(timeout);
         if (!settled) {
-          settled = true;
-          // Prefer partial data over hard fail if we got any chunks
           if (this.chunks.length > 0) {
+            settled = true;
             resolve(new Blob(this.chunks, { type: mimeType }));
           } else {
+            settled = true;
             reject(new Error('Recording failed'));
           }
         }
@@ -314,7 +358,7 @@ export class VideoCaptureSession {
 
       try {
         if (recorder.state === 'inactive') {
-          finish(new Blob(this.chunks, { type: mimeType }));
+          assembleWithGrace();
           return;
         }
         // Flush buffered data then stop — order matters on Chromium
@@ -325,14 +369,35 @@ export class VideoCaptureSession {
         } catch {
           // requestData not supported or invalid state
         }
-        recorder.stop();
+        // Give requestData a tick to enqueue before stop() on slow devices
+        window.setTimeout(() => {
+          try {
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            } else if (!settled) {
+              assembleWithGrace();
+            }
+          } catch (error) {
+            window.clearTimeout(timeout);
+            if (!settled) {
+              if (this.chunks.length > 0) {
+                settled = true;
+                resolve(new Blob(this.chunks, { type: mimeType }));
+              } else {
+                settled = true;
+                reject(error instanceof Error ? error : new Error('Stop failed'));
+              }
+            }
+          }
+        }, 30);
       } catch (error) {
         window.clearTimeout(timeout);
         if (!settled) {
-          settled = true;
           if (this.chunks.length > 0) {
+            settled = true;
             resolve(new Blob(this.chunks, { type: mimeType }));
           } else {
+            settled = true;
             reject(error instanceof Error ? error : new Error('Stop failed'));
           }
         }
@@ -342,6 +407,7 @@ export class VideoCaptureSession {
 
   private async teardown(): Promise<void> {
     this.recording = false;
+    this.stopElapsedTimer();
     this.stopFrameTimer();
     this.stopRecognition();
     this.stopAllTracks();
@@ -371,6 +437,7 @@ export class VideoCaptureSession {
 
   private async forceReleaseHardware(): Promise<void> {
     this.recording = false;
+    this.stopElapsedTimer();
     this.stopFrameTimer();
     this.stopRecognition();
     this.stopAllTracks();
@@ -419,6 +486,21 @@ export class VideoCaptureSession {
     if (this.frameTimer != null) {
       window.clearInterval(this.frameTimer);
       this.frameTimer = null;
+    }
+  }
+
+  private startElapsedTimer() {
+    this.stopElapsedTimer();
+    this.elapsedTimer = window.setInterval(() => {
+      if (!this.recording) return;
+      this.onElapsed?.(this.getElapsedSec());
+    }, 250);
+  }
+
+  private stopElapsedTimer() {
+    if (this.elapsedTimer != null) {
+      window.clearInterval(this.elapsedTimer);
+      this.elapsedTimer = null;
     }
   }
 
@@ -498,7 +580,9 @@ export class VideoCaptureSession {
       return;
     }
 
-    // 1) Standard Fullscreen API on container (best on Android Chrome / desktop)
+    // Prefer Fullscreen API on the *container* — never video.webkitEnterFullscreen.
+    // iOS video fullscreen detaches the element into a native player and can
+    // produce empty MediaRecorder output even though the camera light stays on.
     try {
       if (target.requestFullscreen) {
         await target.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
@@ -525,24 +609,10 @@ export class VideoCaptureSession {
         return;
       }
     } catch {
-      // fall through
+      // fall through to CSS immersive
     }
 
-    // 2) iOS Safari video element fullscreen (legacy)
-    const video = this.videoEl as VideoFullscreenCapable | null;
-    if (video?.webkitEnterFullscreen || video?.webkitEnterFullScreen) {
-      try {
-        video.webkitEnterFullscreen?.();
-        video.webkitEnterFullScreen?.();
-        this.usedFullscreen = true;
-        this.onImmersiveChange?.(true);
-        return;
-      } catch {
-        // fall through
-      }
-    }
-
-    // 3) CSS immersive overlay (reliable on iOS when FS is blocked)
+    // CSS immersive overlay (reliable on iOS when FS is blocked)
     this.enableCssImmersive();
   }
 
@@ -608,7 +678,6 @@ export class VideoCaptureSession {
         lock?: (orientation: string) => Promise<void>;
       };
       if (orientation?.lock) {
-        // Prefer landscape for MPI walkaround; fall back to any if blocked
         try {
           await orientation.lock('landscape');
         } catch {
@@ -639,8 +708,10 @@ export class VideoCaptureSession {
     };
     document.addEventListener('visibilitychange', this.visibilityHandler);
 
-    // iOS Safari: pagehide is more reliable than unload for releasing camera
+    // iOS Safari: pagehide is more reliable than unload for releasing camera.
+    // Never kill hardware while stop() is finalizing — that yields empty videos.
     this.pageHideHandler = () => {
+      if (this.stopping) return;
       if (this.recording || this.stream) {
         void this.forceReleaseHardware();
       }
@@ -691,19 +762,42 @@ export class VideoCaptureSession {
   }
 }
 
-function isAppleMobile(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  // iPadOS 13+ desktop UA
-  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+function waitForVideoReady(video: HTMLVideoElement, timeoutMs: number): Promise<void> {
+  if (video.videoWidth > 2 && video.readyState >= 2) return Promise.resolve();
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if (video.videoWidth > 2 && video.readyState >= 2) {
+        resolve();
+        return;
+      }
+      if (Date.now() - start >= timeoutMs) {
+        resolve();
+        return;
+      }
+      window.setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+/** Strip codecs / normalize browser MediaRecorder MIME for server allowlists. */
+export function normalizeVideoMime(mime: string | undefined | null): string {
+  const raw = (mime || '').split(';')[0]?.trim().toLowerCase() || '';
+  if (raw === 'video/webm' || raw === 'video/mp4' || raw === 'video/quicktime' || raw === 'video/x-matroska') {
+    return raw;
+  }
+  if (raw.includes('mp4') || raw.includes('quicktime')) return 'video/mp4';
+  if (raw.includes('webm')) return 'video/webm';
+  if (raw.includes('matroska')) return 'video/x-matroska';
+  return raw || 'video/webm';
 }
 
 function pickRecorderMime(): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;
-  // Safari/iOS prefers mp4; Chromium prefers webm
+  // Prefer widely supported types. Avoid advertising codecs that break server allowlists.
   const candidates = isAppleMobile()
-    ? ['video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm']
+    ? ['video/mp4', 'video/webm', 'video/webm;codecs=vp8,opus']
     : [
         'video/webm;codecs=vp9,opus',
         'video/webm;codecs=vp8,opus',
@@ -720,6 +814,14 @@ function pickRecorderMime(): string | undefined {
   return undefined;
 }
 
+function isAppleMobile(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPadOS 13+ desktop UA
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
 function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
   if (typeof window === 'undefined') return null;
   const w = window as Window & {
@@ -731,4 +833,11 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
 
 export function isOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+}
+
+export function formatRecordingTimer(totalSec: number): string {
+  const sec = Math.max(0, Math.floor(totalSec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }

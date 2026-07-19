@@ -12,6 +12,8 @@ export type UploadSessionMeta = {
   transcriptLanguage?: string;
   recordingMode?: string;
   durationSec?: number | null;
+  repairOrderId?: string | null;
+  repairLineId?: string | null;
 };
 
 export function parseJsonArray(raw: string | null | undefined): string[] {

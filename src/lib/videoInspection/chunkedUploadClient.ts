@@ -78,6 +78,18 @@ async function putChunkWithRetry(
   throw lastError || new Error('Chunk upload failed');
 }
 
+/** Strip codec params so server allowlists match browser MediaRecorder types. */
+function normalizeContentType(raw: string, recordingMode?: string): string {
+  const base = (raw || '').split(';')[0]?.trim().toLowerCase() || '';
+  if (base === 'video/webm' || base === 'video/mp4' || base === 'video/quicktime' || base === 'video/x-matroska') {
+    return base;
+  }
+  if (base.includes('mp4') || base.includes('quicktime')) return 'video/mp4';
+  if (base.includes('webm')) return 'video/webm';
+  if (recordingMode === 'upload') return 'video/mp4';
+  return 'video/webm';
+}
+
 /**
  * Prefer chunked upload for reliability; falls back to single multipart when tiny.
  */
@@ -86,13 +98,7 @@ export async function uploadVideoInspectionResumable(
 ): Promise<{ inspection: VideoInspectionDetail }> {
   const { frames = [], meta, onProgress, signal } = input;
   // Ensure Blob has a usable MIME type for server content-type checks
-  const rawType = input.video.type || '';
-  const contentType =
-    rawType && rawType !== 'application/octet-stream'
-      ? rawType
-      : meta.recordingMode === 'upload'
-        ? 'video/mp4'
-        : 'video/webm';
+  const contentType = normalizeContentType(input.video.type || '', meta.recordingMode);
   const video =
     input.video.type === contentType
       ? input.video
@@ -125,6 +131,8 @@ export async function uploadVideoInspectionResumable(
     if (meta.transcriptLanguage) form.append('transcriptLanguage', meta.transcriptLanguage);
     if (meta.recordingMode) form.append('recordingMode', meta.recordingMode);
     if (meta.durationSec) form.append('durationSec', String(meta.durationSec));
+    if (meta.repairOrderId) form.append('repairOrderId', meta.repairOrderId);
+    if (meta.repairLineId) form.append('repairLineId', meta.repairLineId);
     for (const [i, frame] of frames.slice(0, 8).entries()) {
       form.append('frames', frame, `frame-${i}.jpg`);
     }
@@ -134,6 +142,9 @@ export async function uploadVideoInspectionResumable(
       signal
     );
     assertOk(res, body, 'Upload failed');
+    if (!body.inspection?.id) {
+      throw new Error(body.error || 'Upload completed but no inspection was returned');
+    }
     onProgress?.({
       phase: 'done',
       chunksTotal: 1,
@@ -173,10 +184,15 @@ export async function uploadVideoInspectionResumable(
         transcriptLanguage: meta.transcriptLanguage || 'en',
         recordingMode: meta.recordingMode || 'standard',
         durationSec: meta.durationSec ?? null,
+        repairOrderId: meta.repairOrderId || null,
+        repairLineId: meta.repairLineId || null,
       },
     }),
   }, signal);
   assertOk(initRes, initBody, 'Could not start upload session');
+  if (!initBody.sessionId) {
+    throw new Error(initBody.error || 'Could not start upload session');
+  }
 
   const sessionId = initBody.sessionId;
   const already = new Set(initBody.received || []);
@@ -227,6 +243,9 @@ export async function uploadVideoInspectionResumable(
     body: completeForm,
   }, signal);
   assertOk(completeRes, completeBody, 'Could not finalize upload');
+  if (!completeBody.inspection?.id) {
+    throw new Error(completeBody.error || 'Upload completed but no inspection was returned');
+  }
 
   onProgress?.({
     phase: 'done',

@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppFooter } from '@/components/AppFooter';
 import { AppHeader } from '@/components/AppHeader';
@@ -140,6 +140,14 @@ export function BenzTechAuthenticatedApp({
     getActivePipeline: ocr.getActivePipeline,
     onComplianceRequired: handleComplianceRequired,
   });
+  const [videoInspectionRoId, setVideoInspectionRoId] = useState<string | null>(null);
+  const openVideoInspection = useCallback(
+    (repairOrderId?: string | null) => {
+      setVideoInspectionRoId(repairOrderId?.trim() || null);
+      ro.setView('videoInspection');
+    },
+    [ro.setView]
+  );
 
   // National Owner View As: branch UI on lens; identity stays role=owner.
   const roleForUi = effectiveRole(session);
@@ -356,7 +364,14 @@ export function BenzTechAuthenticatedApp({
           />
         ) : ro.view === 'videoInspection' ? (
           <ViewErrorBoundary viewName="video inspection">
-            <VideoInspectionView session={uiSession} onBack={() => ro.setView('home')} />
+            <VideoInspectionView
+              session={uiSession}
+              initialRepairOrderId={videoInspectionRoId}
+              onBack={() => {
+                setVideoInspectionRoId(null);
+                ro.setView('home');
+              }}
+            />
           </ViewErrorBoundary>
         ) : ro.view === 'maintenance' ? (
           <ViewErrorBoundary viewName="the maintenance board">
@@ -372,7 +387,7 @@ export function BenzTechAuthenticatedApp({
             <AdvisorDashboard
               session={uiSession}
               onOpenSettings={goToSettings}
-              onOpenVideoInspection={() => ro.setView('videoInspection')}
+              onOpenVideoInspection={() => openVideoInspection(null)}
               onOpenMaintenance={() => ro.setView('maintenance')}
               onLogout={onLogout}
             />
@@ -538,7 +553,7 @@ export function BenzTechAuthenticatedApp({
             onSearchChange={ro.setSearchTerm}
             openingROId={ro.openingROId}
             onOpenRO={ro.openRO}
-            onOpenVideoInspection={() => ro.setView('videoInspection')}
+            onOpenVideoInspection={() => openVideoInspection(null)}
             onOpenParts={() => ro.setView('parts')}
             onOpenSales={() => ro.setView('sales')}
             onOpenService={() => ro.setView('service')}
@@ -577,7 +592,7 @@ export function BenzTechAuthenticatedApp({
           todayROs={ro.todayROs}
           previousROs={ro.previousROs}
           previousExpanded={ro.previousExpanded}
-          onOpenVideoInspection={() => ro.setView('videoInspection')}
+          onOpenVideoInspection={() => openVideoInspection(null)}
           onOpenMaintenance={() => ro.setView('maintenance')}
           onTogglePrevious={ro.togglePreviousExpanded}
           previousLoading={ro.previousLoading}
@@ -668,6 +683,7 @@ export function BenzTechAuthenticatedApp({
             onDeleteRO={() =>
               runAction('Delete repair order', () => ro.deleteRO(ro.currentRO!.id))
             }
+            onOpenVideoInspection={(repairOrderId) => openVideoInspection(repairOrderId)}
           />
           </div>
         </ViewErrorBoundary>
@@ -825,7 +841,14 @@ export function BenzTechAuthenticatedApp({
 
       {ro.view === 'videoInspection' && (
         <ViewErrorBoundary viewName="video inspection">
-          <VideoInspectionView session={uiSession} onBack={() => ro.setView('home')} />
+          <VideoInspectionView
+            session={uiSession}
+            initialRepairOrderId={videoInspectionRoId}
+            onBack={() => {
+              setVideoInspectionRoId(null);
+              ro.setView(ro.currentRO ? 'ro' : 'home');
+            }}
+          />
         </ViewErrorBoundary>
       )}
 

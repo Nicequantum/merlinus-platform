@@ -70,6 +70,13 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(capture.includes('stopAllTracks') || capture.includes('getTracks'));
     assert.ok(capture.includes('forceReleaseHardware') || capture.includes('async release'));
     assert.ok(capture.includes('cssImmersive') || capture.includes('onImmersiveChange'));
+    // Regression: never *call* iOS video.webkitEnterFullscreen (empty MediaRecorder blobs)
+    assert.ok(!capture.includes('webkitEnterFullscreen?.('));
+    assert.ok(!capture.includes('video.webkitEnterFullscreen()'));
+    // Late dataavailable grace period after onstop
+    assert.ok(capture.includes('assembleWithGrace') || capture.includes('triesLeft'));
+    assert.ok(capture.includes('normalizeVideoMime') || capture.includes('formatRecordingTimer'));
+    assert.ok(capture.includes('onElapsed'));
 
     const queue = readFileSync(
       resolve(process.cwd(), 'src/lib/videoInspection/offlineQueue.ts'),
@@ -77,6 +84,7 @@ describe('PR-M1b video capture / chunked upload', () => {
     );
     assert.ok(queue.includes('indexedDB'));
     assert.ok(queue.includes('enqueuePendingUpload'));
+    assert.ok(queue.includes('repairOrderId'));
 
     const client = readFileSync(
       resolve(process.cwd(), 'src/lib/videoInspection/chunkedUploadClient.ts'),
@@ -85,6 +93,27 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(client.includes('upload/init'));
     assert.ok(client.includes('upload/chunk'));
     assert.ok(client.includes('upload/complete'));
+    assert.ok(client.includes('repairOrderId'));
+    assert.ok(client.includes('normalizeContentType'));
+  });
+
+  test('upload routes accept repairOrderId and normalize content types', () => {
+    const upload = readFileSync(
+      resolve(process.cwd(), 'src/app/api/video-inspections/upload/route.ts'),
+      'utf8'
+    );
+    assert.ok(upload.includes('resolveRepairOrderLink'));
+    assert.ok(upload.includes('repairOrderId'));
+    assert.ok(upload.includes('split'));
+
+    const complete = readFileSync(
+      resolve(process.cwd(), 'src/app/api/video-inspections/upload/complete/route.ts'),
+      'utf8'
+    );
+    assert.ok(complete.includes('resolveRepairOrderLink'));
+
+    const list = readFileSync(resolve(process.cwd(), 'src/app/api/video-inspections/route.ts'), 'utf8');
+    assert.ok(list.includes('repairOrderId'));
   });
 
   test('videoBlob supports chunk pathnames', () => {

@@ -17,6 +17,9 @@ export interface PendingVideoUploadMeta {
   transcriptLanguage?: string;
   recordingMode?: 'fullscreen' | 'standard' | 'upload';
   durationSec?: number;
+  /** Optional link to a repair order in the same rooftop. */
+  repairOrderId?: string;
+  repairLineId?: string;
 }
 
 export interface PendingVideoUpload {

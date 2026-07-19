@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/apiRoute';
 import { apiError, reportMappedRouteError } from '@/lib/errors';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
+import { resolveVideoDealershipId } from '@/lib/videoInspection/access';
 import {
   ensurePathnamesArray,
   parseJsonArray,
@@ -57,10 +58,11 @@ export async function POST(request: Request) {
       }
 
       const db = getRlsDb();
+      const dealershipId = resolveVideoDealershipId(session);
       const row = await db.videoUploadSession.findFirst({
         where: {
           id: sessionId,
-          dealershipId: session.dealershipId,
+          dealershipId,
           technicianId: session.technicianId,
         },
       });
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
       try {
         uploaded = await uploadVideoChunkToBlob(
           Buffer.from(await chunk.arrayBuffer()),
-          session.dealershipId,
+          dealershipId,
           row.id,
           chunkIndex
         );

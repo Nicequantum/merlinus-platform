@@ -57,5 +57,14 @@
   "uploading": "Uploading video…",
   "videoSaved": "Video saved",
   "processing": "Processing…",
-  "recordingEmpty": "Recording was empty — try again or upload a file"
+  "recordingEmpty": "Recording was empty — try again or upload a file",
+  "recordingStarted": "Recording — tap the red stop button when finished",
+  "attachRepairOrder": "Attach to repair order",
+  "attachRepairOrderHint": "Optional. Links this video to an open RO so it shows on the RO detail and customer report workflow.",
+  "noRepairOrder": "No repair order",
+  "linkedToRo": "Linked repair order",
+  "noVideoYet": "No video file on this inspection yet — record or upload one.",
+  "roVideosTitle": "Video MPI",
+  "roVideosEmpty": "No video inspections linked to this RO yet.",
+  "roVideosNew": "Record Video MPI"
 }

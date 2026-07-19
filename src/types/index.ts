@@ -312,6 +312,8 @@ export interface VideoInspectionSummary {
   recordingMode?: string;
   deliveryChannel?: string | null;
   deliveredAt?: string | null;
+  repairOrderId?: string | null;
+  repairLineId?: string | null;
 }
 
 export interface VideoInspectionDetail extends VideoInspectionSummary {
