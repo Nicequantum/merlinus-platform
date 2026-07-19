@@ -54,9 +54,29 @@ export function isCloudflareWorkerRuntime(): boolean {
   return typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined';
 }
 
-function readOpenNextContextDb(): D1DatabaseLike | null {
+/**
+ * OpenNext sets `globalThis[Symbol.for("__cloudflare-context__")]` via ALS in
+ * `.open-next/cloudflare/init.js` (see runWithCloudflareRequestContext).
+ * Prefer this over require('@opennextjs/cloudflare') — that package is often
+ * outside the server-function bundle, so dynamic require silently fails in prod.
+ */
+function readOpenNextAlsDb(): D1DatabaseLike | null {
   try {
-    // Dynamic require: available after OpenNext packages the worker; safe no-op in unit tests.
+    // OpenNext defines this as a getter over AsyncLocalStorage — only set inside a request.
+    const ctx = Reflect.get(globalThis, Symbol.for('__cloudflare-context__')) as
+      | { env?: Record<string, unknown> }
+      | undefined;
+    const db = ctx?.env?.[D1_BINDING_NAME];
+    if (isD1Database(db)) return db;
+  } catch {
+    // Outside request context / getter throws
+  }
+  return null;
+}
+
+function readOpenNextPackageDb(): D1DatabaseLike | null {
+  try {
+    // Dynamic require: available in some local/dev graphs; may be missing in worker bundle.
     // eslint-disable-next-line no-new-func
     const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
     if (!req) return null;
@@ -64,7 +84,6 @@ function readOpenNextContextDb(): D1DatabaseLike | null {
       getCloudflareContext?: (opts?: { async?: boolean }) => { env?: Record<string, unknown> };
     };
     if (typeof mod.getCloudflareContext !== 'function') return null;
-    // async: false — sync binding access for module-level Prisma init paths
     const ctx = mod.getCloudflareContext({ async: false });
     const db = ctx?.env?.[D1_BINDING_NAME];
     if (isD1Database(db)) return db;
@@ -98,8 +117,12 @@ export function getD1Database(): D1DatabaseLike | null {
     return globalThis.DB;
   }
 
-  const fromOpenNext = readOpenNextContextDb();
-  if (fromOpenNext) return fromOpenNext;
+  // Production OpenNext path first (ALS / symbol) — most reliable on Workers.
+  const fromAls = readOpenNextAlsDb();
+  if (fromAls) return fromAls;
+
+  const fromOpenNextPkg = readOpenNextPackageDb();
+  if (fromOpenNextPkg) return fromOpenNextPkg;
 
   const fromWorkers = readWorkersModuleDb();
   if (fromWorkers) return fromWorkers;

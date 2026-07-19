@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
         return new Response(result.stream, {
           headers: {
-            'Content-Type': result.blob.contentType || 'application/octet-stream',
+            'Content-Type': result.contentType || 'application/octet-stream',
             'Cache-Control': 'private, no-store',
             'X-Content-Type-Options': 'nosniff',
           },

@@ -63,11 +63,17 @@ export function buildSupabasePostgresUrls(_input: {
 }
 
 export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
-  const rawUrl = trimEnv('DATABASE_URL');
+  let rawUrl = trimEnv('DATABASE_URL');
+
+  // Stale Postgres URLs (legacy Vercel/Supabase or .env.local baked into OpenNext)
+  // must never crash the Worker — D1 uses binding DB, not DATABASE_URL.
   if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
-    throw new Error(
-      'DATABASE_URL is a PostgreSQL URL but Merlinus uses Cloudflare D1. Remove it or set file:./prisma/dev.db for local tooling.'
-    );
+    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+      console.warn(
+        '[merlin:db] Ignoring PostgreSQL DATABASE_URL — Merlinus uses Cloudflare D1 (binding DB).'
+      );
+    }
+    rawUrl = null;
   }
 
   if (isD1Runtime()) {
@@ -93,7 +99,9 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
  */
 export function applyResolvedDatabaseEnv(): ResolvedDatabaseConfig {
   const config = resolveDatabaseConfig();
-  if (!process.env.DATABASE_URL?.trim()) {
+  const current = process.env.DATABASE_URL?.trim();
+  // Strip postgres URLs that would poison Prisma or crash earlier validation paths.
+  if (!current || /^postgres(ql)?:\/\//i.test(current)) {
     process.env.DATABASE_URL = config.databaseUrl || LOCAL_SQLITE;
   }
   // Never set DIRECT_URL for D1.

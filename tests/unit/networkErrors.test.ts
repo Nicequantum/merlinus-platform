@@ -23,15 +23,22 @@ describe('networkErrors', () => {
   });
 
   test('retry backoff grows exponentially', () => {
-    assert.equal(networkRetryDelayMs(0), NETWORK_RETRY_BASE_MS);
-    assert.equal(networkRetryDelayMs(1), NETWORK_RETRY_BASE_MS * 2);
+    assert.equal(networkRetryDelayMs(0, { jitter: false }), NETWORK_RETRY_BASE_MS);
+    assert.equal(networkRetryDelayMs(1, { jitter: false }), NETWORK_RETRY_BASE_MS * 2);
     assert.equal(NETWORK_RETRY_MAX_ATTEMPTS, 3);
+    // With jitter, stay within [base, base * 1.25]
+    const withJitter = networkRetryDelayMs(0);
+    assert.ok(withJitter >= NETWORK_RETRY_BASE_MS);
+    assert.ok(withJitter <= NETWORK_RETRY_BASE_MS * 1.25 + 1);
   });
 
   test('isRetriableHttpStatus covers transient upload failures', () => {
     assert.equal(isRetriableHttpStatus(429), true);
     assert.equal(isRetriableHttpStatus(503), true);
     assert.equal(isRetriableHttpStatus(401), false);
+    // Bare 500 only when includeServerError (Workers cold-start path)
+    assert.equal(isRetriableHttpStatus(500), false);
+    assert.equal(isRetriableHttpStatus(500, { includeServerError: true }), true);
   });
 
   test('parseRetryAfterMs reads seconds and dates', () => {

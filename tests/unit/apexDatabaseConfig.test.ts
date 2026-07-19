@@ -51,8 +51,21 @@ describe('apex database config (Cloudflare D1)', () => {
     assert.equal(process.env.DIRECT_URL, undefined);
   });
 
-  it('rejects PostgreSQL DATABASE_URL', () => {
+  it('ignores PostgreSQL DATABASE_URL and falls back to local sqlite', () => {
+    // Stale Postgres URLs must not crash Workers — D1 uses binding DB, not DATABASE_URL.
     process.env.DATABASE_URL = 'postgresql://localhost:5432/merlin';
-    assert.throws(() => resolveDatabaseConfig(), /PostgreSQL/);
+    const config = resolveDatabaseConfig();
+    assert.equal(config.backend, 'sqlite_file');
+    assert.equal(config.databaseUrl, 'file:./prisma/dev.db');
+    assert.equal(config.directUrl, null);
+  });
+
+  it('applyResolvedDatabaseEnv strips PostgreSQL DATABASE_URL', () => {
+    process.env.DATABASE_URL = 'postgres://user:pass@db.example/merlin';
+    process.env.DIRECT_URL = 'postgres://user:pass@db.example/merlin';
+    const config = applyResolvedDatabaseEnv();
+    assert.equal(config.backend, 'sqlite_file');
+    assert.equal(process.env.DATABASE_URL, 'file:./prisma/dev.db');
+    assert.equal(process.env.DIRECT_URL, undefined);
   });
 });

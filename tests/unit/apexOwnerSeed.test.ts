@@ -142,7 +142,7 @@ describe('Apex owner seed (Phase 5.10 / Phase 6.1 security)', () => {
   test('seed rooftop ids and clean test names are stable', () => {
     assert.equal(APEX_SEED_PRIMARY_DEALERSHIP_ID, 'seed-dealership');
     assert.equal(APEX_SEED_SECOND_DEALERSHIP_ID, 'seed-dealership-2');
-    assert.equal(APEX_TEST_PLATFORM_ROOFTOP_NAME, 'Apex Test Platform');
+    assert.equal(APEX_TEST_PLATFORM_ROOFTOP_NAME, 'Staging - Mercedes-Benz Dealers');
     assert.equal(APEX_TEST_PLATFORM_TEMPLATE_ID, 'mercedes-rooftop-v1');
     assert.equal(APEX_GENERIC_TEST_ROOFTOP_NAME, 'Apex Generic Test');
     assert.equal(APEX_GENERIC_TEST_TEMPLATE_ID, 'generic-rooftop-v1');

@@ -29,6 +29,7 @@ import {
   networkRetryDelayMs,
   NETWORK_RETRY_MAX_ATTEMPTS,
   parseRetryAfterMs,
+  shouldRetryServerErrorForMethod,
   sleep,
 } from '@/lib/networkErrors';
 import { isRequestAborted } from '@/lib/requestAbort';
@@ -79,6 +80,9 @@ async function fetchWithNetworkRetry(
   maxRetries: number = NETWORK_RETRY_MAX_ATTEMPTS
 ): Promise<Response> {
   let lastError: unknown;
+  const method = (init.method || 'GET').toUpperCase();
+  // GET/HEAD: also retry bare 500 (Workers cold-start / first D1 query).
+  const includeServerError = shouldRetryServerErrorForMethod(method);
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (externalSignal?.aborted) {
@@ -99,7 +103,7 @@ async function fetchWithNetworkRetry(
 
       if (
         !res.ok &&
-        isRetriableHttpStatus(res.status) &&
+        isRetriableHttpStatus(res.status, { includeServerError }) &&
         attempt < maxRetries
       ) {
         const retryAfterMs =

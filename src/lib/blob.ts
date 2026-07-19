@@ -1,13 +1,17 @@
-import { get, put } from '@vercel/blob';
+import 'server-only';
+
+/**
+ * Diagnostic / RO image storage — Cloudflare R2 via objectStorage abstraction.
+ * Pathnames remain benz-tech/... for DB compatibility; served via /api/images proxy.
+ */
+
 import { bufferToVisionDataUrl } from './visionImagePrep';
 import { logger } from './logger';
-import { networkRetryDelayMs, sleep } from './networkErrors';
+import { getObject, getObjectBuffer, putObject, type StoredObjectStream } from '@/lib/storage/objectStorage';
 import { buildImageProxyUrl, isAllowedImagePathname } from './imageUrls';
 
-const BLOB_PUT_MAX_ATTEMPTS = 3;
-/** Cold isolate + large private blob must not eat the entire Grok extract budget. */
-const BLOB_GET_TIMEOUT_MS = 20_000;
 const VISION_PREP_TIMEOUT_MS = 15_000;
+const BLOB_GET_TIMEOUT_MS = 20_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -28,14 +32,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-function getBlobToken(): string {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error('BLOB_READ_WRITE_TOKEN is not configured');
-  }
-  return token;
-}
-
 export interface UploadedBlobImage {
   pathname: string;
   url: string;
@@ -48,29 +44,11 @@ export async function uploadImageToBlob(
 ): Promise<UploadedBlobImage> {
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const key = `benz-tech/${Date.now()}-${safeName}`;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < BLOB_PUT_MAX_ATTEMPTS; attempt++) {
-    try {
-      const blob = await put(key, buffer, {
-        access: 'private',
-        contentType,
-        token: getBlobToken(),
-        addRandomSuffix: false,
-      });
-
-      return {
-        pathname: blob.pathname,
-        url: buildImageProxyUrl(blob.pathname),
-      };
-    } catch (error) {
-      lastError = error;
-      if (attempt === BLOB_PUT_MAX_ATTEMPTS - 1) break;
-      await sleep(networkRetryDelayMs(attempt));
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Blob upload failed');
+  await putObject(key, buffer, { contentType });
+  return {
+    pathname: key,
+    url: buildImageProxyUrl(key),
+  };
 }
 
 export async function fetchPrivateBlobAsDataUrl(pathname: string): Promise<string> {
@@ -78,13 +56,12 @@ export async function fetchPrivateBlobAsDataUrl(pathname: string): Promise<strin
     throw new Error('Invalid image pathname');
   }
 
-  const result = await get(pathname, { access: 'private', token: getBlobToken() });
+  const result = await getObjectBuffer(pathname);
   if (!result) {
-    throw new Error('Image not found in blob storage');
+    throw new Error('Image not found in object storage');
   }
-  const bytes = await new Response(result.stream).arrayBuffer();
-  const base64 = Buffer.from(bytes).toString('base64');
-  const contentType = result.blob.contentType || 'image/png';
+  const base64 = result.buffer.toString('base64');
+  const contentType = result.contentType || 'image/png';
   return `data:${contentType};base64,${base64}`;
 }
 
@@ -96,43 +73,31 @@ export async function fetchPrivateBlobAsVisionDataUrl(pathname: string): Promise
 
   const started = Date.now();
   const result = await withTimeout(
-    get(pathname, { access: 'private', token: getBlobToken() }),
+    getObjectBuffer(pathname),
     BLOB_GET_TIMEOUT_MS,
-    'blob.get vision'
+    'storage.get vision'
   );
   if (!result) {
-    throw new Error('Image not found in blob storage');
+    throw new Error('Image not found in object storage');
   }
   const getMs = Date.now() - started;
-  const bytes = Buffer.from(
-    await withTimeout(
-      new Response(result.stream).arrayBuffer(),
-      BLOB_GET_TIMEOUT_MS,
-      'blob.stream vision'
-    )
-  );
-  const streamMs = Date.now() - started;
-  const contentType = result.blob.contentType || 'image/jpeg';
   const dataUrl = await withTimeout(
-    bufferToVisionDataUrl(bytes, contentType),
+    bufferToVisionDataUrl(result.buffer, result.contentType || 'image/jpeg'),
     VISION_PREP_TIMEOUT_MS,
     'vision.prep sharp'
   );
-  logger.info('blob.vision_fetch_ok', {
+  logger.info('storage.vision_fetch_ok', {
     pathname,
-    bytes: bytes.length,
+    bytes: result.buffer.length,
     getMs,
-    streamMs,
     totalMs: Date.now() - started,
   });
   return dataUrl;
 }
 
-export async function streamPrivateBlob(pathname: string) {
+export async function streamPrivateBlob(pathname: string): Promise<StoredObjectStream | null> {
   if (!isAllowedImagePathname(pathname)) {
     return null;
   }
-
-  const result = await get(pathname, { access: 'private', token: getBlobToken() });
-  return result;
+  return getObject(pathname);
 }

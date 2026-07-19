@@ -21,14 +21,17 @@ export async function probeCurrentSession(options?: {
   timeoutMs?: number;
 }): Promise<SessionProbeResult> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_SESSION_FETCH_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Lazy import keeps login bundle free of circular pulls; retries cover cold-start /me.
+  const { fetchWithClientRetry } = await import('@/lib/clientFetchRetry');
 
   try {
-    const res = await fetch('/api/auth/me', {
+    const res = await fetchWithClientRetry('/api/auth/me', {
+      method: 'GET',
       credentials: 'include',
       cache: 'no-store',
-      signal: controller.signal,
+      timeoutMs,
+      maxRetries: 2,
     });
     if (res.status === 401) return { status: 'unauthorized' };
     if (!res.ok) {
@@ -40,7 +43,8 @@ export async function probeCurrentSession(options?: {
   } catch (error: unknown) {
     if (
       (error instanceof DOMException && error.name === 'AbortError') ||
-      (error instanceof Error && error.name === 'AbortError')
+      (error instanceof Error && error.name === 'AbortError') ||
+      (error instanceof Error && /timed out/i.test(error.message))
     ) {
       return { status: 'timeout' };
     }
@@ -48,8 +52,6 @@ export async function probeCurrentSession(options?: {
       status: 'error',
       message: error instanceof Error ? error.message : 'Session check failed',
     };
-  } finally {
-    clearTimeout(timer);
   }
 }
 

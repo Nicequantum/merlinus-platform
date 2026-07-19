@@ -52,7 +52,9 @@ describe('scan pipeline hardening', () => {
     const src = readSrc('src/lib/blob.ts');
     assert.match(src, /BLOB_GET_TIMEOUT_MS/);
     assert.match(src, /VISION_PREP_TIMEOUT_MS/);
-    assert.match(src, /blob\.vision_fetch_ok/);
+    // R2 object storage path (replaces Vercel Blob)
+    assert.match(src, /storage\.vision_fetch_ok|blob\.vision_fetch_ok/);
+    assert.match(src, /getObjectBuffer|@vercel\/blob/);
   });
 
   it('diagnostics extract uses vision-downscaled blob fetch', () => {

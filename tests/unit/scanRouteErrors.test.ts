@@ -11,12 +11,21 @@ import { handleRouteError } from '@/lib/errors';
 
 describe('scan route errors', () => {
   it('surfaces blob token misconfiguration', () => {
-    const mapped = mapBlobRouteError(new Error('BLOB_READ_WRITE_TOKEN is not configured'), 'upload');
-    assert.equal(mapped.status, 503);
-    // Phase 7.2 — public message is technician-safe; logDetail keeps diagnostic text
-    assert.match(mapped.message, /Photo storage is not configured/i);
-    assert.doesNotMatch(mapped.message, /BLOB_READ_WRITE_TOKEN/);
-    assert.match(mapped.logDetail, /BLOB_READ_WRITE_TOKEN/);
+    // R2 binding missing (production path) + legacy Blob token string both map to 503
+    const r2 = mapBlobRouteError(
+      new Error('Cloudflare R2 binding APEX_R2 is not available. Check wrangler.toml'),
+      'upload'
+    );
+    assert.equal(r2.status, 503);
+    assert.match(r2.message, /Photo storage is not configured/i);
+    assert.doesNotMatch(r2.message, /APEX_R2/);
+    assert.match(r2.logDetail, /APEX_R2/);
+
+    const legacy = mapBlobRouteError(new Error('BLOB_READ_WRITE_TOKEN is not configured'), 'upload');
+    assert.equal(legacy.status, 503);
+    assert.match(legacy.message, /Photo storage is not configured/i);
+    assert.doesNotMatch(legacy.message, /BLOB_READ_WRITE_TOKEN/);
+    assert.match(legacy.logDetail, /BLOB_READ_WRITE_TOKEN/);
   });
 
   it('includes Grok API status and detail in the message', () => {
