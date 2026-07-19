@@ -118,11 +118,12 @@ export async function POST(request: Request) {
     },
     {
       rateLimitKey: 'video.upload.chunk',
-      rateLimit: RATE_LIMITS.videoUpload,
+      // High limit: multi-minute HD videos need many 1 MiB PUTs per minute.
+      rateLimit: RATE_LIMITS.videoUploadChunk,
       requireDealershipContext: true,
       requireModule: 'video_mpi',
     }
   );
 }
 
-export const maxDuration = 60;
+export const maxDuration = 90;

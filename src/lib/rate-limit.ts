@@ -29,8 +29,16 @@ export const RATE_LIMITS = {
   auth: { limit: 10, windowMs: 60_000 },
   /** Image blob uploads. */
   upload: { limit: 30, windowMs: 60_000 },
-  /** Video inspection uploads (larger payloads). */
-  videoUpload: { limit: 10, windowMs: 60_000 },
+  /**
+   * Video inspection single-shot / complete / init (heavier operations).
+   * Kept moderate to protect R2 + D1 under multi-tenant load.
+   */
+  videoUpload: { limit: 30, windowMs: 60_000 },
+  /**
+   * Per-chunk resumable video uploads — multi-minute HD needs many small PUTs.
+   * ~3/sec average allows a 100 MiB video at 1 MiB chunks within ~1 minute of network time.
+   */
+  videoUploadChunk: { limit: 240, windowMs: 60_000 },
   /** Customer SMS sends. */
   sms: { limit: 10, windowMs: 60_000 },
   /** Grok-backed routes: story generate/review/score, RO + diagnostic vision extract. */

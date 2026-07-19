@@ -6,6 +6,7 @@ import 'server-only';
 
 import { randomUUID } from 'crypto';
 import {
+  deleteObject,
   getObject,
   getObjectBuffer,
   putObject,
@@ -99,4 +100,19 @@ export async function fetchPrivateVideoAsBuffer(pathname: string): Promise<Buffe
   const result = await getObjectBuffer(pathname);
   if (!result) throw new Error('Video not found in storage');
   return result.buffer;
+}
+
+/**
+ * Best-effort cleanup of temporary chunk parts after complete/fail.
+ * Never throws — partial cleanup is better than orphan accumulation.
+ */
+export async function deleteVideoChunksBestEffort(pathnames: string[]): Promise<void> {
+  const keys = pathnames.filter((p) => typeof p === 'string' && isAllowedVideoChunkPathname(p));
+  if (keys.length === 0) return;
+  try {
+    // R2 delete accepts string | string[]
+    await deleteObject(keys.length === 1 ? keys[0]! : keys);
+  } catch {
+    // ignore — orphans expire operationally via session TTL + prefix hygiene
+  }
 }

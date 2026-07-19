@@ -14,12 +14,15 @@ import {
 } from '../../src/lib/videoInspection/uploadSession';
 
 describe('PR-M1b video capture / chunked upload', () => {
-  test('computeChunkCount covers full file with 2MiB parts', () => {
+  test('computeChunkCount covers full file with 1MiB parts', () => {
+    assert.equal(VIDEO_UPLOAD_CHUNK_BYTES, 1 * 1024 * 1024);
     assert.equal(computeChunkCount(0), 0);
     assert.equal(computeChunkCount(1), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES + 1), 2);
+    // 100 MiB fit under max chunks at 1 MiB
     assert.ok(computeChunkCount(100 * 1024 * 1024) <= VIDEO_UPLOAD_MAX_CHUNKS);
+    assert.ok(VIDEO_UPLOAD_MAX_CHUNKS >= 100);
   });
 
   test('received mask and pathnames helpers', () => {
@@ -108,6 +111,10 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(client.includes('upload/complete'));
     assert.ok(client.includes('repairOrderId'));
     assert.ok(client.includes('normalizeContentType'));
+    // Stall fix: per-request timeouts + progress before each chunk (not stuck at 2%)
+    assert.ok(client.includes('fetchJsonWithTimeout') || client.includes('AbortController'));
+    assert.ok(client.includes('Uploading chunk'));
+    assert.ok(client.includes('VIDEO_UPLOAD_CHUNK_TIMEOUT_MS') || client.includes('timeout'));
   });
 
   test('upload routes accept repairOrderId and normalize content types', () => {
@@ -124,15 +131,32 @@ describe('PR-M1b video capture / chunked upload', () => {
       'utf8'
     );
     assert.ok(complete.includes('resolveRepairOrderLink'));
+    assert.ok(complete.includes('deleteVideoChunksBestEffort'));
+
+    const chunk = readFileSync(
+      resolve(process.cwd(), 'src/app/api/video-inspections/upload/chunk/route.ts'),
+      'utf8'
+    );
+    assert.ok(chunk.includes('videoUploadChunk') || chunk.includes('RATE_LIMITS.videoUploadChunk'));
 
     const list = readFileSync(resolve(process.cwd(), 'src/app/api/video-inspections/route.ts'), 'utf8');
     assert.ok(list.includes('repairOrderId'));
   });
 
-  test('videoBlob supports chunk pathnames', () => {
+  test('videoBlob supports chunk pathnames and cleanup', () => {
     const blob = readFileSync(resolve(process.cwd(), 'src/lib/videoBlob.ts'), 'utf8');
     assert.ok(blob.includes('isAllowedVideoChunkPathname'));
     assert.ok(blob.includes('uploadVideoChunkToBlob'));
     assert.ok(blob.includes('benz-tech/video-chunk/'));
+    assert.ok(blob.includes('deleteVideoChunksBestEffort'));
+  });
+
+  test('rate limits allow high chunk throughput for multi-minute HD', () => {
+    const rate = readFileSync(resolve(process.cwd(), 'src/lib/rate-limit.ts'), 'utf8');
+    assert.ok(rate.includes('videoUploadChunk'));
+    assert.match(rate, /videoUploadChunk:\s*\{\s*limit:\s*(\d+)/);
+    const m = rate.match(/videoUploadChunk:\s*\{\s*limit:\s*(\d+)/);
+    assert.ok(m);
+    assert.ok(Number(m![1]) >= 120, 'chunk rate limit must be high enough for multi-chunk videos');
   });
 });

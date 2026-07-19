@@ -2,11 +2,13 @@ import { resolveDealerIdForWrite } from '@/lib/apex/dealerContext';
 import { getRlsDb } from '@/lib/apex/rlsContext';
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveVideoDealershipId } from '@/lib/videoInspection/access';
 import {
   VIDEO_UPLOAD_CHUNK_BYTES,
   VIDEO_UPLOAD_MAX_CHUNKS,
   VIDEO_UPLOAD_SESSION_TTL_MS,
+  expectedChunkCount,
 } from '@/lib/videoInspection/uploadConstants';
 import { getVideoMaxBytes } from '@/lib/videoInspection/shareTokens';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody } from '@/lib/validation';
@@ -51,12 +53,15 @@ export async function POST(request: Request) {
         );
       }
 
-      const expectedChunks = Math.ceil(parsed.data.totalBytes / VIDEO_UPLOAD_CHUNK_BYTES);
-      if (parsed.data.totalChunks !== expectedChunks && parsed.data.totalChunks !== Math.max(1, expectedChunks)) {
-        // Allow client off-by-one on empty edge; otherwise require match
-        if (Math.abs(parsed.data.totalChunks - expectedChunks) > 1) {
-          return apiError('totalChunks does not match totalBytes', 400);
-        }
+      const expectedChunks = expectedChunkCount(parsed.data.totalBytes, VIDEO_UPLOAD_CHUNK_BYTES);
+      if (Math.abs(parsed.data.totalChunks - expectedChunks) > 1) {
+        return apiError(
+          `totalChunks (${parsed.data.totalChunks}) does not match totalBytes (expected ~${expectedChunks})`,
+          400
+        );
+      }
+      if (parsed.data.totalChunks > VIDEO_UPLOAD_MAX_CHUNKS) {
+        return apiError(`Too many chunks (max ${VIDEO_UPLOAD_MAX_CHUNKS})`, 400);
       }
 
       const dealerId = resolveDealerIdForWrite({ session });
@@ -99,6 +104,7 @@ export async function POST(request: Request) {
     },
     {
       rateLimitKey: 'video.upload.init',
+      rateLimit: RATE_LIMITS.videoUpload,
       requireDealershipContext: true,
       requireModule: 'video_mpi',
     }

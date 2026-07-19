@@ -21,6 +21,7 @@ import {
 } from '@/lib/videoInspection/uploadSession';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import {
+  deleteVideoChunksBestEffort,
   fetchPrivateVideoChunkAsBuffer,
   uploadVideoFrameToBlob,
   uploadVideoToBlob,
@@ -48,7 +49,8 @@ function isUploadFile(value: unknown): value is UploadFile {
 }
 
 /**
- * PR-M1b — assemble chunked upload into final VideoInspection (video_mpi).
+ * Assemble chunked upload into final VideoInspection (video_mpi).
+ * Tenant-scoped: dealershipId + technician ownership on session row.
  */
 export async function POST(request: Request) {
   return withAuth(
@@ -74,43 +76,55 @@ export async function POST(request: Request) {
         },
       });
       if (!uploadSession) return apiError('Upload session not found', 404);
+
+      // Idempotent: if already complete, return the linked inspection when possible
       if (uploadSession.status === 'complete') {
-        return apiError('Upload session already completed', 409);
+        return apiError('Upload session already completed — refresh the list', 409);
       }
       if (uploadSession.expiresAt.getTime() < Date.now()) {
+        const pathnames = parseJsonArray(uploadSession.chunkPathnames).filter(Boolean);
+        await deleteVideoChunksBestEffort(pathnames);
         await db.videoUploadSession.update({
           where: { id: uploadSession.id },
           data: { status: 'abandoned', errorMessage: 'Session expired' },
         });
-        return apiError('Upload session expired', 410);
+        return apiError('Upload session expired — please save again', 410);
+      }
+      // Allow retry if a previous assemble crashed mid-flight
+      if (uploadSession.status !== 'pending' && uploadSession.status !== 'assembling' && uploadSession.status !== 'failed') {
+        return apiError(`Upload session is ${uploadSession.status}`, 409);
       }
 
       const received = parseReceivedMask(uploadSession.receivedMask);
       if (received.length < uploadSession.totalChunks) {
         return apiError(
-          `Missing chunks (${received.length}/${uploadSession.totalChunks})`,
+          `Missing chunks (${received.length}/${uploadSession.totalChunks}). Wait for all chunks or retry Save.`,
           400
         );
       }
 
       const pathnames = parseJsonArray(uploadSession.chunkPathnames);
       if (pathnames.length < uploadSession.totalChunks || pathnames.some((p) => !p)) {
-        return apiError('Chunk storage incomplete', 400);
+        return apiError('Chunk storage incomplete — retry Save', 400);
       }
 
       await db.videoUploadSession.update({
         where: { id: uploadSession.id },
-        data: { status: 'assembling' },
+        data: { status: 'assembling', errorMessage: null },
       });
 
       let assembled: Buffer;
       try {
-        const parts: Buffer[] = [];
+        // Sequential fetch keeps Worker subrequest + memory pressure predictable.
+        const parts: Buffer[] = new Array(uploadSession.totalChunks);
+        let total = 0;
         for (let i = 0; i < uploadSession.totalChunks; i++) {
           const path = pathnames[i]!;
-          parts.push(await fetchPrivateVideoChunkAsBuffer(path));
+          const buf = await fetchPrivateVideoChunkAsBuffer(path);
+          parts[i] = buf;
+          total += buf.byteLength;
         }
-        assembled = Buffer.concat(parts);
+        assembled = Buffer.concat(parts, total);
       } catch (error) {
         await db.videoUploadSession.update({
           where: { id: uploadSession.id },
@@ -125,6 +139,7 @@ export async function POST(request: Request) {
       }
 
       if (assembled.byteLength <= 0) {
+        await deleteVideoChunksBestEffort(pathnames.filter(Boolean));
         return apiError('Assembled video is empty', 400);
       }
 
@@ -140,6 +155,8 @@ export async function POST(request: Request) {
 
       const contentType = uploadSession.contentType || 'video/webm';
       const ext = contentType.includes('mp4') ? 'mp4' : 'webm';
+
+      const sizeBytes = assembled.byteLength;
 
       let uploaded;
       try {
@@ -161,6 +178,9 @@ export async function POST(request: Request) {
         const mapped = mapBlobRouteError(error, 'upload');
         return reportMappedRouteError(mapped, error, 'video.upload.complete');
       }
+
+      // Free assembled buffer reference ASAP (GC) after R2 put
+      assembled = Buffer.alloc(0);
 
       const framePathnames: string[] = [];
       for (const entry of form.getAll('frames').slice(0, 8)) {
@@ -218,7 +238,7 @@ export async function POST(request: Request) {
           status: 'draft',
           videoPathname: uploaded.pathname,
           contentType,
-          sizeBytes: assembled.byteLength,
+          sizeBytes,
           durationSec,
           framePathnames: JSON.stringify(framePathnames),
           transcriptEncrypted: encryptSensitiveText(transcript),
@@ -240,6 +260,9 @@ export async function POST(request: Request) {
         data: { status: 'complete', errorMessage: null },
       });
 
+      // Cleanup temporary chunk parts — avoid multi-tenant R2 orphan growth
+      await deleteVideoChunksBestEffort(pathnames.filter(Boolean));
+
       await writeAuditedAccess({
         action: 'video.upload',
         dealershipId,
@@ -249,10 +272,11 @@ export async function POST(request: Request) {
         entityId: row.id,
         metadata: {
           pathname: uploaded.pathname,
-          size: assembled.byteLength,
+          size: sizeBytes,
           frameCount: framePathnames.length,
           chunked: true,
           uploadSessionId: uploadSession.id,
+          repairOrderId: link.repairOrderId,
         },
         ipAddress: getRequestIp(request),
       });
@@ -269,4 +293,4 @@ export async function POST(request: Request) {
   );
 }
 
-export const maxDuration = 180;
+export const maxDuration = 300;

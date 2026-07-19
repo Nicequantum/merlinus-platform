@@ -311,7 +311,7 @@ export function VideoInspectionView({
         // Network / transient failures → offline queue so video is not lost
         const retriable =
           !isOnline() ||
-          /network|fetch|failed to fetch|timeout|abort|offline|503|502|504|assembling/i.test(
+          /network|fetch|failed to fetch|timed out|timeout|abort|offline|503|502|504|429|assembling|temporar|chunk/i.test(
             message
           );
         if (retriable) {

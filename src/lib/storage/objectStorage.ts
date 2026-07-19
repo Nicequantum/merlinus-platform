@@ -33,15 +33,23 @@ export async function putObject(
   const bucket = requireR2Bucket();
   let lastError: unknown;
 
-  // R2 on workerd is happiest with ArrayBuffer / Uint8Array (not Node Buffer views).
-  const payload: ArrayBuffer | Uint8Array | string =
-    typeof body === 'string'
-      ? body
-      : body instanceof ArrayBuffer
-        ? body
-        : new Uint8Array(
-            body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer
-          );
+  // Always copy into a standalone Uint8Array. Node Buffer / SharedArrayBuffer
+  // views can hang or fail R2 put on workerd under multi-tenant load.
+  let payload: ArrayBuffer | Uint8Array | string;
+  let size: number;
+  if (typeof body === 'string') {
+    payload = body;
+    size = Buffer.byteLength(body);
+  } else if (body instanceof ArrayBuffer) {
+    payload = body;
+    size = body.byteLength;
+  } else {
+    const view = new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+    const copy = new Uint8Array(view.byteLength);
+    copy.set(view);
+    payload = copy;
+    size = copy.byteLength;
+  }
 
   for (let attempt = 0; attempt < PUT_MAX_ATTEMPTS; attempt++) {
     try {
@@ -54,12 +62,7 @@ export async function putObject(
       return {
         key,
         contentType: options?.contentType,
-        size:
-          typeof body === 'string'
-            ? Buffer.byteLength(body)
-            : body instanceof ArrayBuffer
-              ? body.byteLength
-              : body.byteLength,
+        size,
       };
     } catch (error) {
       lastError = error;
