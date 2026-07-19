@@ -10,6 +10,7 @@
  *   import { createTestPrismaClient } from '../setup/prismaNode.mjs';
  *   const prisma = createTestPrismaClient();
  */
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { PrismaClient } from '@prisma/client';
@@ -20,6 +21,7 @@ const LOCAL_SQLITE_URL = 'file:./prisma/dev.db';
 
 /**
  * Match Prisma CLI: relative file: URLs resolve against the schema directory (prisma/).
+ * Repo convention file:./prisma/dev.db → prisma/prisma/dev.db (same as prisma db push).
  * @param {string} databaseUrl
  * @returns {string} absolute filesystem path for better-sqlite3
  */
@@ -45,6 +47,7 @@ export function createNodePrismaClient(opts = {}) {
     process.env.DATABASE_URL = envUrl.startsWith('file:') ? envUrl : `file:${envUrl}`;
   }
   const filePath = resolveLocalSqliteFilePath(process.env.DATABASE_URL);
+  mkdirSync(path.dirname(filePath), { recursive: true });
   const adapter = new PrismaBetterSQLite3({ url: filePath });
   return new PrismaClient({
     adapter,

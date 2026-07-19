@@ -1,19 +1,20 @@
 import 'server-only';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { AuditScopeMode } from '@/lib/apex/platformConstants';
 import { APEX_NATIONAL_DEALERSHIP_ID } from '@/lib/apex/platformConstants';
+import { createRlsEnforcedClient } from '@/lib/apex/rlsPrismaExtension';
 import {
   resolveSessionScopeMode,
   type TenantScopedSession,
 } from '@/lib/apex/tenantScope';
 import type { SessionPayload } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { getPrisma, prisma } from '@/lib/db';
 import { isApexPlatformMode } from '@/lib/platformMode';
 
 /** Transaction client or root Prisma client that supports $executeRaw. */
-export type RlsDbClient = Prisma.TransactionClient | typeof prisma;
+export type RlsDbClient = Prisma.TransactionClient | PrismaClient;
 
 export interface RlsContext {
   technicianId: string;
@@ -22,20 +23,25 @@ export interface RlsContext {
   dealerId: string | null;
   scopeMode: AuditScopeMode;
   /**
-   * When true, policies enforce tenant filters (app.rls_enforced=on).
+   * When true, tenant isolation is enforced on getRlsDb() via Prisma extension.
    * Apex defaults to enforced; Merlinus soft-open unless RLS_ENABLED forces enforce.
    */
   enforced?: boolean;
   /**
    * When true, policies allow soft-open (Merlinus only). Never set for Apex.
-   * Maps to app.rls_soft_open=on.
    */
   softOpen?: boolean;
-  /** Service/seed path — sets app.rls_bypass=on for the transaction. */
+  /** Service/seed path — skip tenant rewrite for the unit of work. */
   bypass?: boolean;
 }
 
-const rlsTxStorage = new AsyncLocalStorage<Prisma.TransactionClient>();
+interface RlsAlsStore {
+  ctx: RlsContext;
+  /** Prisma client with tenant rewrite bound for this context (or base when bypass). */
+  client: RlsDbClient;
+}
+
+const rlsStore = new AsyncLocalStorage<RlsAlsStore>();
 
 /**
  * Phase 6.2 — enforce tenant RLS by default on Apex.
@@ -58,7 +64,7 @@ export function isRlsEnabled(): boolean {
   return isApexPlatformMode();
 }
 
-/** Merlinus-only soft-open (policies require app.rls_soft_open=on). */
+/** Merlinus-only soft-open. */
 export function isRlsSoftOpen(): boolean {
   return !isRlsEnabled();
 }
@@ -89,57 +95,73 @@ export function rlsContextFromSession(
   };
 }
 
-/**
- * Prisma client for the current request when inside withSessionRls / withRlsContext.
- * Falls back to the global singleton outside an RLS transaction.
- */
-export function getRlsDb(): RlsDbClient {
-  return rlsTxStorage.getStore() ?? prisma;
+function buildClientForContext(ctx: RlsContext): RlsDbClient {
+  const base = getPrisma();
+  return createRlsEnforcedClient(base, ctx) as unknown as RlsDbClient;
 }
 
-/** Active RLS transaction client, if any (for joining audits into the same unit of work). */
+/**
+ * Prisma client for the current request when inside withSessionRls / withRlsContext.
+ * Returns a tenant-enforcing extension when RLS context is enforced (non-bypass).
+ * Falls back to the global singleton outside an RLS context.
+ */
+export function getRlsDb(): RlsDbClient {
+  return rlsStore.getStore()?.client ?? prisma;
+}
+
+/** Active RLS store client, if any (for joining audits into the same unit of work). */
 export function getRlsTransaction(): Prisma.TransactionClient | undefined {
-  return rlsTxStorage.getStore();
+  const client = rlsStore.getStore()?.client;
+  return client as Prisma.TransactionClient | undefined;
+}
+
+/** Current RLS context when inside withRlsContext (for tests / diagnostics). */
+export function getActiveRlsContext(): RlsContext | undefined {
+  return rlsStore.getStore()?.ctx;
 }
 
 /**
  * Apply tenant context for the current unit of work.
  *
- * PostgreSQL previously used set_config(... is_local) for DB-level RLS policies.
- * Cloudflare D1 / SQLite has no session GUC or Postgres RLS — isolation is enforced
- * in application queries (dealershipId / dealerId filters) and rlsTxStorage.
- * This function is intentionally a no-op on D1 while preserving the call sites.
+ * Cloudflare D1 / SQLite has no session GUC or Postgres RLS policies.
+ * Isolation is enforced by rebinding getRlsDb() to a Prisma Client extension that
+ * injects dealershipId (or relation) predicates on every tenant-table query.
  */
-export async function setRlsContext(_client: RlsDbClient, _ctx: RlsContext): Promise<void> {
-  // Multi-rooftop isolation: use getRlsDb() + explicit dealership filters in queries.
-  // D1 does not support Postgres set_config / RLS policies.
+export async function setRlsContext(_client: RlsDbClient, ctx: RlsContext): Promise<void> {
   void _client;
-  void _ctx;
+  const store = rlsStore.getStore();
+  if (store) {
+    store.ctx = ctx;
+    store.client = buildClientForContext(ctx);
+  }
 }
 
 /**
  * Run work with tenant context applied.
  *
- * Postgres used SET LOCAL inside interactive `$transaction`. D1/SQLite has neither
- * session GUCs nor interactive transactions (PrismaD1 throws). On D1/Workers we
- * run on the root client and bind it via ALS so getRlsDb() stays consistent.
+ * On D1/Workers we bind an RLS-enforcing Prisma client via ALS so getRlsDb()
+ * always rewrites tenant queries for this unit of work.
  */
 export async function withRlsContext<T>(
   ctx: RlsContext,
   fn: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
-  const existing = rlsTxStorage.getStore();
+  const existing = rlsStore.getStore();
   if (existing) {
-    await setRlsContext(existing, ctx);
-    return fn(existing);
+    const previousCtx = existing.ctx;
+    const previousClient = existing.client;
+    existing.ctx = ctx;
+    existing.client = buildClientForContext(ctx);
+    try {
+      return await fn(existing.client as Prisma.TransactionClient);
+    } finally {
+      existing.ctx = previousCtx;
+      existing.client = previousClient;
+    }
   }
 
-  // Always use root client + ALS. Interactive $transaction is unsupported on
-  // PrismaD1 and unnecessary on SQLite (setRlsContext is a no-op; isolation is
-  // application-level dealershipId / dealerId filters).
-  const client = prisma as unknown as Prisma.TransactionClient;
-  await setRlsContext(client, ctx);
-  return rlsTxStorage.run(client, () => fn(client));
+  const client = buildClientForContext(ctx);
+  return rlsStore.run({ ctx, client }, () => fn(client as Prisma.TransactionClient));
 }
 
 /**
@@ -181,24 +203,24 @@ export async function withRlsBypass<T>(fn: (tx: Prisma.TransactionClient) => Pro
 export const withControlPlaneDb = withRlsBypass;
 
 /**
- * Atomic multi-step work under RLS. Reuses the ambient withSessionRls transaction
- * when present so nested prisma.$transaction does not open a non-RLS connection.
+ * Atomic multi-step work under RLS. Reuses the ambient withSessionRls client
+ * when present so nested work stays on the tenant-enforcing client.
  * Pass session-derived ctx when calling outside withSessionRls (e.g. after Grok).
  */
 export async function rlsTransaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
   ctx?: RlsContext
 ): Promise<T> {
-  const existing = rlsTxStorage.getStore();
+  const existing = rlsStore.getStore();
   if (existing) {
     if (ctx) {
-      await setRlsContext(existing, {
+      await setRlsContext(existing.client, {
         ...ctx,
         enforced: ctx.enforced ?? true,
         softOpen: false,
       });
     }
-    return fn(existing);
+    return fn(existing.client as Prisma.TransactionClient);
   }
   if (ctx) {
     return withRlsContext(

@@ -87,8 +87,144 @@ function checkMemoryRateLimit(
 }
 
 /**
+ * Per-key serialize within a single Worker isolate (sync + async re-entrancy safe).
+ * Cross-isolate safety is provided by compare-and-swap below.
+ */
+const kvKeyGates = new Map<string, Promise<void>>();
+
+async function withKvKeyGate<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const previous = kvKeyGates.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = previous.then(() => gate);
+  kvKeyGates.set(key, chained);
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (kvKeyGates.get(key) === chained) {
+      kvKeyGates.delete(key);
+    }
+  }
+}
+
+/** Stored rate-limit bucket — version + writerId enable CAS across isolates. */
+interface KvRateLimitBucket {
+  count: number;
+  resetAt: number;
+  version: number;
+  writerId: string;
+}
+
+function parseKvBucket(raw: string | null, now: number, windowMs: number): KvRateLimitBucket {
+  if (!raw) {
+    return { count: 0, resetAt: now + windowMs, version: 0, writerId: '' };
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<KvRateLimitBucket>;
+    if (
+      typeof parsed.count === 'number' &&
+      typeof parsed.resetAt === 'number' &&
+      typeof parsed.version === 'number'
+    ) {
+      if (now >= parsed.resetAt) {
+        return {
+          count: 0,
+          resetAt: now + windowMs,
+          version: parsed.version,
+          writerId: '',
+        };
+      }
+      return {
+        count: parsed.count,
+        resetAt: parsed.resetAt,
+        version: parsed.version,
+        writerId: typeof parsed.writerId === 'string' ? parsed.writerId : '',
+      };
+    }
+  } catch {
+    // Legacy plain integer counter from pre-CAS deployments
+    const prev = Number.parseInt(raw, 10);
+    if (Number.isFinite(prev) && prev >= 0) {
+      return { count: prev, resetAt: now + windowMs, version: 0, writerId: '' };
+    }
+  }
+  return { count: 0, resetAt: now + windowMs, version: 0, writerId: '' };
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Atomic KV increment via compare-and-swap:
+ * 1) read bucket
+ * 2) write candidate with unique writerId + incremented version
+ * 3) re-read; succeed only if writerId still matches (we won the last write)
+ * 4) otherwise retry with backoff
+ *
+ * Same-isolate callers are serialized with withKvKeyGate to avoid busy CAS loops.
+ * Exhausted CAS retries throw (auth routes fail closed; others may memory-fallback).
+ */
+export async function atomicKvIncrement(
+  ns: {
+    get: (key: string) => Promise<string | null>;
+    put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
+  },
+  key: string,
+  config: RateLimitConfig,
+  options?: { maxAttempts?: number }
+): Promise<number> {
+  const maxAttempts = options?.maxAttempts ?? 16;
+  const ttlSec = Math.max(1, Math.ceil(config.windowMs / 1000));
+
+  return withKvKeyGate(key, async () => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const now = Date.now();
+      const current = parseKvBucket(await ns.get(key), now, config.windowMs);
+      const writerId = `${now.toString(36)}-${attempt}-${Math.random().toString(36).slice(2, 10)}`;
+      const next: KvRateLimitBucket = {
+        count: current.count + 1,
+        resetAt: current.resetAt,
+        version: current.version + 1,
+        writerId,
+      };
+
+      await ns.put(key, JSON.stringify(next), { expirationTtl: ttlSec });
+
+      const verifiedRaw = await ns.get(key);
+      if (!verifiedRaw) {
+        await sleepMs(Math.min(40, 1 + attempt * 2) + Math.random() * 4);
+        continue;
+      }
+
+      let verified: KvRateLimitBucket;
+      try {
+        verified = JSON.parse(verifiedRaw) as KvRateLimitBucket;
+      } catch {
+        await sleepMs(Math.min(40, 1 + attempt * 2) + Math.random() * 4);
+        continue;
+      }
+
+      // CAS success: our write is the current value
+      if (verified.writerId === writerId && verified.version === next.version) {
+        return verified.count;
+      }
+
+      // Lost race — another isolate committed; retry from latest state
+      await sleepMs(Math.min(50, 2 ** Math.min(attempt, 5)) + Math.random() * 8);
+    }
+
+    throw new Error('rate_limit_cas_exhausted');
+  });
+}
+
+/**
  * Native Workers KV rate limit via env.KV_STORE.
- * Not perfectly atomic under extreme concurrency; sufficient for auth windows.
+ * Uses compare-and-swap (atomicKvIncrement) — not a racy get→increment→put.
  */
 async function checkWorkersKvRateLimit(
   key: string,
@@ -98,11 +234,7 @@ async function checkWorkersKvRateLimit(
   const ns = getRateLimitKv();
   if (!ns) throw new Error('KV_STORE binding missing — check wrangler.toml [[kv_namespaces]]');
 
-  const ttlSec = Math.max(1, Math.ceil(config.windowMs / 1000));
-  const raw = await ns.get(key);
-  const prev = raw ? Number.parseInt(raw, 10) : 0;
-  const count = (Number.isFinite(prev) ? prev : 0) + 1;
-  await ns.put(key, String(count), { expirationTtl: ttlSec });
+  const count = await atomicKvIncrement(ns, key, config);
 
   if (count > config.limit) {
     if (meta) logRateLimitDenied(meta.routeKey, meta.request, 'kv');

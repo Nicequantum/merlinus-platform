@@ -17,6 +17,7 @@ describe('Phase 6.2 RLS enforcement expansion', () => {
     assert.match(src, /export async function rlsTransaction/);
     assert.match(src, /AsyncLocalStorage/);
     assert.match(src, /enforced:\s*true/);
+    assert.match(src, /createRlsEnforcedClient/);
   });
 
   it('withAuth defaults useRls for dealership-context routes', () => {

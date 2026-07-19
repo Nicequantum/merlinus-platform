@@ -174,14 +174,21 @@ describe('Phase 7.2 H12 — RLS runtime contracts', () => {
     }
   });
 
-  test('RLS helpers still present (D1 uses app-level isolation, not Postgres set_config)', () => {
+  test('RLS helpers enforce tenancy via Prisma extension (not Postgres set_config)', () => {
     const rls = readSrc('src/lib/apex/rlsContext.ts');
-    // D1/SQLite: setRlsContext is a no-op; multi-rooftop isolation is query filters + ALS.
+    // D1/SQLite: no Postgres GUCs — tenant isolation is Prisma extension + ALS.
     assert.equal(rls.includes("set_config('app.rls_enforced'"), false);
     assert.match(rls, /export async function setRlsContext/);
     assert.match(rls, /withSessionRls/);
     assert.match(rls, /withRlsBypass/);
     assert.match(rls, /isApexPlatformMode/);
+    assert.match(rls, /createRlsEnforcedClient/);
+    assert.match(rls, /buildClientForContext/);
+
+    const ext = readSrc('src/lib/apex/rlsPrismaExtension.ts');
+    assert.match(ext, /merlinRlsTenantIsolation/);
+    assert.match(ext, /dealershipId/);
+    assert.match(ext, /\$allOperations/);
 
     // Historical Postgres RLS migration may still exist in git history for reference.
     const migPath =
