@@ -84,8 +84,12 @@ export async function POST(request: Request) {
       if (uploadSession.expiresAt.getTime() < Date.now()) {
         const pathnames = parseJsonArray(uploadSession.chunkPathnames).filter(Boolean);
         await deleteVideoChunksBestEffort(pathnames);
-        await db.videoUploadSession.update({
-          where: { id: uploadSession.id },
+        await db.videoUploadSession.updateMany({
+          where: {
+            id: uploadSession.id,
+            dealershipId,
+            technicianId: session.technicianId,
+          },
           data: { status: 'abandoned', errorMessage: 'Session expired' },
         });
         return apiError('Upload session expired — please save again', 410);
@@ -108,8 +112,13 @@ export async function POST(request: Request) {
         return apiError('Chunk storage incomplete — retry Save', 400);
       }
 
-      await db.videoUploadSession.update({
-        where: { id: uploadSession.id },
+      // updateMany required under RLS (unique update where cannot be AND-wrapped)
+      await db.videoUploadSession.updateMany({
+        where: {
+          id: uploadSession.id,
+          dealershipId,
+          technicianId: session.technicianId,
+        },
         data: { status: 'assembling', errorMessage: null },
       });
 
@@ -126,8 +135,12 @@ export async function POST(request: Request) {
         }
         assembled = Buffer.concat(parts, total);
       } catch (error) {
-        await db.videoUploadSession.update({
-          where: { id: uploadSession.id },
+        await db.videoUploadSession.updateMany({
+          where: {
+            id: uploadSession.id,
+            dealershipId,
+            technicianId: session.technicianId,
+          },
           data: {
             status: 'failed',
             errorMessage:
@@ -167,8 +180,12 @@ export async function POST(request: Request) {
           dealershipId
         );
       } catch (error) {
-        await db.videoUploadSession.update({
-          where: { id: uploadSession.id },
+        await db.videoUploadSession.updateMany({
+          where: {
+            id: uploadSession.id,
+            dealershipId,
+            technicianId: session.technicianId,
+          },
           data: {
             status: 'failed',
             errorMessage:
@@ -255,8 +272,12 @@ export async function POST(request: Request) {
         include: inspectionInclude,
       });
 
-      await db.videoUploadSession.update({
-        where: { id: uploadSession.id },
+      await db.videoUploadSession.updateMany({
+        where: {
+          id: uploadSession.id,
+          dealershipId,
+          technicianId: session.technicianId,
+        },
         data: { status: 'complete', errorMessage: null },
       });
 

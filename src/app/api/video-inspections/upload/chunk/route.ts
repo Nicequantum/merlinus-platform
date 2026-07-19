@@ -71,8 +71,13 @@ export async function POST(request: Request) {
         return apiError(`Upload session is ${row.status}`, 409);
       }
       if (row.expiresAt.getTime() < Date.now()) {
-        await db.videoUploadSession.update({
-          where: { id: row.id },
+        // updateMany: Prisma update() + RLS AND-wrap is invalid for WhereUniqueInput
+        await db.videoUploadSession.updateMany({
+          where: {
+            id: row.id,
+            dealershipId,
+            technicianId: session.technicianId,
+          },
           data: { status: 'abandoned', errorMessage: 'Session expired' },
         });
         return apiError('Upload session expired', 410);
@@ -100,13 +105,22 @@ export async function POST(request: Request) {
       pathnames[chunkIndex] = uploaded.pathname;
 
       const receivedList = [...received].sort((a, b) => a - b);
-      await db.videoUploadSession.update({
-        where: { id: row.id },
+      // Must use updateMany — RLS extension cannot wrap update() unique where in AND.
+      const saved = await db.videoUploadSession.updateMany({
+        where: {
+          id: row.id,
+          dealershipId,
+          technicianId: session.technicianId,
+          status: 'pending',
+        },
         data: {
           receivedMask: JSON.stringify(receivedList),
           chunkPathnames: JSON.stringify(pathnames),
         },
       });
+      if (saved.count === 0) {
+        return apiError('Upload session not writable (expired or completed)', 409);
+      }
 
       return {
         ok: true,
