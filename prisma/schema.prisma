@@ -1,6 +1,7 @@
 generator client {
-  // D1 uses @prisma/adapter-d1 at runtime (driver adapters are stable in Prisma 6.19+).
-  provider = "prisma-client-js"
+  // Cloudflare Workers: PrismaD1(env.DB) only — no native query-engine filesystem reads.
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
