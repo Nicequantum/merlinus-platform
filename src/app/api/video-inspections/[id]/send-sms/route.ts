@@ -60,7 +60,7 @@ export async function POST(
           createdByTechnicianId: session.technicianId,
         },
       });
-      const shareUrl = buildCustomerViewerUrl(token);
+      const shareUrl = buildCustomerViewerUrl(token, request);
 
       const dealershipRaw = existing.dealership?.name || session.dealershipName || 'Your service team';
       const dealership = dealershipRaw.replace(/[\r\n\t]/g, ' ').trim().slice(0, 40);

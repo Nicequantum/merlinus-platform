@@ -212,9 +212,13 @@ export class VideoCaptureSession {
 
     stream.getTracks().forEach((track) => {
       track.onended = () => {
-        if ((this.recording || this.previewOnly) && !this.stopping) {
-          this.onError?.('Camera or microphone was disconnected');
-        }
+        // Only surface hard disconnects while actively recording — not during
+        // intentional track stop / immersive transitions (causes false mid-record errors).
+        if (this.stopping || this.paused) return;
+        if (!this.recording) return;
+        const stillLive = this.stream?.getTracks().some((t) => t.readyState === 'live');
+        if (stillLive) return;
+        this.onError?.('Camera or microphone was disconnected — tap Stop, then re-record if needed');
       };
     });
 
@@ -857,9 +861,17 @@ export class VideoCaptureSession {
     };
     document.addEventListener('visibilitychange', this.visibilityHandler);
 
-    this.pageHideHandler = () => {
+    // Never kill an in-progress recording on pagehide — mobile browsers fire this
+    // when entering fullscreen, switching apps briefly, or locking orientation.
+    // Only release hardware when not actively recording (preview-only / idle stream).
+    this.pageHideHandler = (e: PageTransitionEvent) => {
       if (this.stopping) return;
-      if (this.recording || this.stream) {
+      if (this.recording || this.paused) {
+        // Keep MediaRecorder alive; re-acquire wake lock when visible again.
+        return;
+      }
+      if (e.persisted) return;
+      if (this.stream || this.previewOnly) {
         void this.forceReleaseHardware();
       }
     };

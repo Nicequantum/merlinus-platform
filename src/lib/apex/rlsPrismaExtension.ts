@@ -295,6 +295,9 @@ export function createRlsEnforcedClient(
               nextArgs.create = upsertArgs.create;
             } else if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
               // Handled below — expand compound unique for findFirst rewrite.
+            } else if (operation === 'update' || operation === 'delete') {
+              // Prisma update/delete require WhereUniqueInput — cannot AND-wrap.
+              // Handled below via updateMany/deleteMany + re-fetch.
             } else {
               nextArgs.where = mergeWhere(
                 nextArgs.where as Record<string, unknown> | undefined,
@@ -315,6 +318,19 @@ export function createRlsEnforcedClient(
             }
           }
 
+          const delegateName = modelToDelegate(model);
+          const delegate = (
+            base as unknown as Record<
+              string,
+              {
+                findFirst?: (a: unknown) => Promise<unknown>;
+                findFirstOrThrow?: (a: unknown) => Promise<unknown>;
+                updateMany?: (a: unknown) => Promise<{ count: number }>;
+                deleteMany?: (a: unknown) => Promise<{ count: number }>;
+              }
+            >
+          )[delegateName];
+
           // findUnique only accepts unique fields — rewrite to findFirst with flat tenant where.
           // Compound uniques (dealershipId_moduleId, etc.) must be expanded for findFirst.
           if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
@@ -324,21 +340,10 @@ export function createRlsEnforcedClient(
             );
             const findArgs = { ...nextArgs, where: findFirstWhere };
 
-            const delegate = (
-              base as unknown as Record<
-                string,
-                | {
-                    findFirst: (a: unknown) => Promise<unknown>;
-                    findFirstOrThrow: (a: unknown) => Promise<unknown>;
-                  }
-                | undefined
-              >
-            )[modelToDelegate(model)];
-
-            if (delegate) {
+            if (delegate?.findFirst) {
               const method =
                 operation === 'findUniqueOrThrow' ? 'findFirstOrThrow' : 'findFirst';
-              return delegate[method](findArgs);
+              return delegate[method]!(findArgs);
             }
 
             // Fallback: pin tenant on unique where and keep findUnique if possible
@@ -346,6 +351,57 @@ export function createRlsEnforcedClient(
               nextArgs.where as Record<string, unknown> | undefined,
               tenantDealershipId
             );
+          }
+
+          /**
+           * update/delete: AND-wrapping unique `where` breaks Prisma validation and surfaces as
+           * bogus "RO updated elsewhere" (error dumps include `updatedAt`). Rewrite to
+           * updateMany/deleteMany with tenant filter, then re-fetch the row.
+           */
+          if (operation === 'update' && delegate?.updateMany && delegate?.findFirst) {
+            const where = mergeWhere(
+              expandCompoundUniqueWhere(
+                nextArgs.where as Record<string, unknown> | undefined
+              ),
+              tenantWhere
+            );
+            const result = await delegate.updateMany({
+              where,
+              data: nextArgs.data,
+            });
+            if (!result.count) {
+              throw Object.assign(
+                new Error(`No ${model} found to update (missing or wrong tenant)`),
+                { code: 'P2025' }
+              );
+            }
+            return delegate.findFirst({
+              where,
+              include: nextArgs.include,
+              select: nextArgs.select,
+            });
+          }
+
+          if (operation === 'delete' && delegate?.deleteMany && delegate?.findFirst) {
+            const where = mergeWhere(
+              expandCompoundUniqueWhere(
+                nextArgs.where as Record<string, unknown> | undefined
+              ),
+              tenantWhere
+            );
+            const existing = await delegate.findFirst({
+              where,
+              include: nextArgs.include,
+              select: nextArgs.select,
+            });
+            if (!existing) {
+              throw Object.assign(
+                new Error(`No ${model} found to delete (missing or wrong tenant)`),
+                { code: 'P2025' }
+              );
+            }
+            await delegate.deleteMany({ where });
+            return existing;
           }
 
           return query(nextArgs);

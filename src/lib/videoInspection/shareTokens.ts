@@ -34,12 +34,72 @@ export function verifyPasscodeHash(provided: string, expectedHash: string): bool
   return timingSafeEqual(a, b);
 }
 
-export function buildCustomerViewerUrl(token: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.MERLIN_BASE_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-  return `${base.replace(/\/$/, '')}/v/${encodeURIComponent(token)}`;
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+function isLocalhostHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return (
+    h === 'localhost' ||
+    h.startsWith('localhost:') ||
+    h === '127.0.0.1' ||
+    h.startsWith('127.0.0.1:') ||
+    h === '[::1]' ||
+    h.startsWith('[::1]:')
+  );
+}
+
+/**
+ * Resolve the public app origin for customer share links.
+ * Prefer explicit env; on Cloudflare Workers fall back to the request Host
+ * so links never ship as http://localhost:3000 in production.
+ */
+export function resolveAppBaseUrl(request?: Request | null): string {
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.MERLIN_BASE_URL,
+    process.env.APP_URL,
+    process.env.CF_PAGES_URL,
+  ];
+  for (const raw of candidates) {
+    const v = raw?.trim();
+    if (!v) continue;
+    try {
+      const u = new URL(v.includes('://') ? v : `https://${v}`);
+      if (!isLocalhostHost(u.host)) {
+        return stripTrailingSlash(`${u.protocol}//${u.host}`);
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  if (request) {
+    const host =
+      request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+      request.headers.get('host')?.trim() ||
+      '';
+    if (host && !isLocalhostHost(host)) {
+      const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+      const proto = protoHeader === 'http' ? 'http' : 'https';
+      return stripTrailingSlash(`${proto}://${host}`);
+    }
+  }
+
+  if (process.env.VERCEL_URL?.trim()) {
+    return stripTrailingSlash(`https://${process.env.VERCEL_URL.trim()}`);
+  }
+
+  return 'http://localhost:3000';
+}
+
+export function buildCustomerViewerUrl(
+  token: string,
+  request?: Request | null
+): string {
+  const base = resolveAppBaseUrl(request);
+  return `${base}/v/${encodeURIComponent(token)}`;
 }
 
 export function getVideoMaxBytes(): number {

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   buildFindFirstTenantWhereForTests,
@@ -58,6 +60,16 @@ describe('F-01 RLS Prisma extension', () => {
       false
     );
     assert.equal(shouldEnforceRlsForTests({ ...base, enforced: false, softOpen: true }), false);
+  });
+
+  it('documents update/delete rewrite (unique where cannot AND-wrap under RLS)', () => {
+    // Regression: video upload/report used update({ where: { id } }) which RLS AND-wrapped
+    // → Prisma validation dump (includes updatedAt) → false "RO updated elsewhere" 409.
+    const src = readFileSync(resolve(process.cwd(), 'src/lib/apex/rlsPrismaExtension.ts'), 'utf8');
+    assert.ok(src.includes("operation === 'update'"));
+    assert.ok(src.includes('updateMany'));
+    assert.ok(src.includes("operation === 'delete'"));
+    assert.ok(src.includes('deleteMany'));
   });
 
   it('expands compound unique filters for findFirst (DealershipModule)', () => {

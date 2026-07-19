@@ -42,8 +42,38 @@ describe('video inspection share tokens', () => {
   });
 
   it('builds customer viewer URLs', () => {
-    const url = buildCustomerViewerUrl('abcTOKEN');
-    assert.match(url, /\/v\/abcTOKEN/);
+    const prev = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://merlinus-platform.example.com';
+    try {
+      const url = buildCustomerViewerUrl('abcTOKEN');
+      assert.equal(url, 'https://merlinus-platform.example.com/v/abcTOKEN');
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = prev;
+    }
+  });
+
+  it('derives production share host from request when env is localhost', () => {
+    const prevApp = process.env.NEXT_PUBLIC_APP_URL;
+    const prevMerlin = process.env.MERLIN_BASE_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+    delete process.env.MERLIN_BASE_URL;
+    try {
+      const req = new Request('https://example.invalid/', {
+        headers: {
+          host: 'merlinus-platform.hombre3536.workers.dev',
+          'x-forwarded-proto': 'https',
+        },
+      });
+      const url = buildCustomerViewerUrl('tok123TOKEN_tok123TOKEN_tok123TOK', req);
+      assert.match(url, /^https:\/\/merlinus-platform\.hombre3536\.workers\.dev\/v\//);
+      assert.ok(!url.includes('localhost'));
+    } finally {
+      if (prevApp === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = prevApp;
+      if (prevMerlin === undefined) delete process.env.MERLIN_BASE_URL;
+      else process.env.MERLIN_BASE_URL = prevMerlin;
+    }
   });
 });
 
@@ -113,7 +143,7 @@ describe('must-do security hardening', () => {
     const sms = readSrc('src/app/api/video-inspections/[id]/send-sms/route.ts');
     assert.equal(sms.includes('shareUrl: z'), false);
     assert.equal(sms.includes('parsed.data.shareUrl'), false);
-    assert.match(sms, /buildCustomerViewerUrl\(token\)/);
+    assert.match(sms, /buildCustomerViewerUrl\(token(?:,\s*request)?\)/);
     assert.match(sms, /generateShareToken/);
   });
 

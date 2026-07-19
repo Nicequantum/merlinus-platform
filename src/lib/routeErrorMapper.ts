@@ -318,10 +318,23 @@ export function mapRouteError(error: unknown, context: string): RouteErrorMappin
     };
   }
 
-  if (/repair order was updated elsewhere|updatedAt/i.test(raw)) {
+  // Do NOT match bare `updatedAt` — Prisma validation dumps list every field including
+  // updatedAt, which mislabeled video upload failures as "RO updated elsewhere".
+  if (
+    /repair order was updated elsewhere/i.test(raw) ||
+    (/concurrent|stale|version conflict|optimistic/i.test(raw) &&
+      /repair.?order|updatedAt/i.test(raw))
+  ) {
     return {
       message: CONFLICT_ERROR,
       status: 409,
+      logDetail,
+    };
+  }
+  if (/No \w+ found to (update|delete) \(missing or wrong tenant\)/i.test(raw)) {
+    return {
+      message: 'Record not found or you do not have access. Refresh and try again.',
+      status: 404,
       logDetail,
     };
   }

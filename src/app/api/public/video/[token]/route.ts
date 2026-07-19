@@ -62,12 +62,27 @@ export async function GET(
     })
   ).catch(() => undefined);
 
+  // Absolute media URL when Host is available so customer players always resolve
+  // on production domains (not relative to a wrong share host).
+  const host =
+    request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+    request.headers.get('host')?.trim() ||
+    '';
+  const proto =
+    request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'http'
+      ? 'http'
+      : 'https';
+  const mediaPath = `/api/public/video/${encodeURIComponent(raw!)}/media`;
+  const mediaUrl = host ? `${proto}://${host}${mediaPath}` : mediaPath;
+
   return Response.json({
     title: inspection.title,
     vehicleLabel: inspection.vehicleLabel,
     dealershipName: inspection.dealership?.name ?? null,
     report: decryptSensitiveText(inspection.reportEncrypted || ''),
-    mediaUrl: `/api/public/video/${encodeURIComponent(raw!)}/media`,
+    mediaUrl,
+    hasVideo: Boolean(inspection.videoPathname?.trim()),
+    contentType: inspection.contentType || 'video/webm',
     createdAt: inspection.createdAt.toISOString(),
   });
 }

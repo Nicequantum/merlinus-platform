@@ -8,12 +8,16 @@ import { generateCustomerVideoReport } from '@/lib/grok';
 import { mapGrokRouteError } from '@/lib/grokErrors';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { parseFramePathnames, mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
-import { findInspectionForSession } from '@/lib/videoInspection/access';
+import {
+  findInspectionForSession,
+  resolveVideoDealershipId,
+} from '@/lib/videoInspection/access';
 import { fetchPrivateVideoAsBuffer } from '@/lib/videoBlob';
 import { CUSTOMER_VIDEO_REPORT_PROMPT_VERSION } from '@/prompts/customerVideoReport/version';
 import { parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
 import { bufferToVisionDataUrl } from '@/lib/visionImagePrep';
+import { logger } from '@/lib/logger';
 
 const paramsSchema = z.object({ id: z.string().trim().min(1).max(64) });
 
@@ -36,7 +40,10 @@ export async function POST(
         return apiError('Upload a video before generating a report.', 400);
       }
 
-      await getRlsDb().videoInspection.update({
+      const dealershipId = resolveVideoDealershipId(session);
+      const db = getRlsDb();
+
+      await db.videoInspection.update({
         where: { id: existing.id },
         data: { status: 'processing', errorMessage: null },
       });
@@ -50,13 +57,20 @@ export async function POST(
           const buf = await fetchPrivateVideoAsBuffer(path);
           frameDataUrls.push(await bufferToVisionDataUrl(buf, 'image/jpeg'));
         } catch {
-          // skip frame
+          // skip frame — report still works from transcript alone
         }
       }
 
+      // If no frames and empty transcript, still allow a short structured report
+      const effectiveTranscript =
+        transcript.trim() ||
+        (frameDataUrls.length > 0
+          ? '(Technician recorded video; limited spoken notes.)'
+          : '(Video inspection on file; limited spoken notes.)');
+
       try {
         const report = await generateCustomerVideoReport({
-          transcript,
+          transcript: effectiveTranscript,
           transcriptLanguage: existing.transcriptLanguage,
           vehicleLabel: existing.vehicleLabel,
           dealershipName: existing.dealership?.name ?? session.dealershipName,
@@ -64,8 +78,12 @@ export async function POST(
           frameDataUrls,
         });
 
+        if (!report?.trim()) {
+          throw new Error('AI returned an empty customer report');
+        }
+
         const { inspectionInclude } = await import('@/lib/videoInspection/access');
-        const row = await getRlsDb().videoInspection.update({
+        const row = await db.videoInspection.update({
           where: { id: existing.id },
           data: {
             status: 'ready',
@@ -78,7 +96,7 @@ export async function POST(
 
         await writeAuditedAccess({
           action: 'video.report_generate',
-          dealershipId: session.dealershipId,
+          dealershipId,
           dealerId: auditDealerIdFromSession(session),
           technicianId: session.technicianId,
           entityType: 'video_inspection',
@@ -87,14 +105,20 @@ export async function POST(
             promptVersion: CUSTOMER_VIDEO_REPORT_PROMPT_VERSION,
             frameCount: frameDataUrls.length,
             transcriptLanguage: existing.transcriptLanguage,
+            hasTranscript: Boolean(transcript.trim()),
           },
           ipAddress: getRequestIp(request),
         });
 
         return { inspection: mapVideoInspectionDetail(row, { includeMediaUrls: true }) };
       } catch (error) {
-        await getRlsDb()
-          .videoInspection.update({
+        logger.error('video.report_generate_failed', {
+          inspectionId: existing.id,
+          dealershipId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await db.videoInspection
+          .update({
             where: { id: existing.id },
             data: {
               status: 'failed',

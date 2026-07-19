@@ -8,6 +8,8 @@ type ViewerPayload = {
   dealershipName: string | null;
   report: string;
   mediaUrl: string;
+  hasVideo?: boolean;
+  contentType?: string;
   createdAt: string;
 };
 
@@ -119,33 +121,38 @@ export function VideoCustomerViewer({ token }: { token: string }) {
       <main className="mx-auto grid max-w-6xl gap-6 p-4 md:grid-cols-2 md:p-8">
         <section className="min-w-0">
           <div className="overflow-hidden rounded-xl border border-slate-800 bg-black">
-            <video
-              className="aspect-video w-full"
-              controls
-              playsInline
-              preload="metadata"
-              src={
-                passcode
-                  ? undefined
-                  : mediaSrc
-              }
-              // Passcode-protected media needs header; use blob fetch when passcode set
-              ref={(el) => {
-                if (!el || !passcode) return;
-                void (async () => {
-                  try {
-                    const res = await fetch(data.mediaUrl, {
-                      headers: { 'x-video-passcode': passcode },
-                    });
-                    if (!res.ok) return;
-                    const blob = await res.blob();
-                    el.src = URL.createObjectURL(blob);
-                  } catch {
-                    // ignore
-                  }
-                })();
-              }}
-            />
+            {data.hasVideo === false ? (
+              <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-slate-400">
+                Video is not available for this inspection.
+              </div>
+            ) : (
+              <video
+                className="aspect-video w-full"
+                controls
+                playsInline
+                preload="metadata"
+                src={passcode ? undefined : mediaSrc}
+                // Passcode-protected media needs header; use blob fetch when passcode set
+                ref={(el) => {
+                  if (!el || !passcode) return;
+                  void (async () => {
+                    try {
+                      const res = await fetch(data.mediaUrl, {
+                        headers: { 'x-video-passcode': passcode },
+                      });
+                      if (!res.ok) {
+                        el.poster = '';
+                        return;
+                      }
+                      const blob = await res.blob();
+                      el.src = URL.createObjectURL(blob);
+                    } catch {
+                      // ignore — controls show error state
+                    }
+                  })();
+                }}
+              />
+            )}
           </div>
           <p className="mt-2 text-xs text-slate-500">
             Streamed securely — no download required.

@@ -73,7 +73,8 @@ export async function POST(
 
       return {
         shareId: share.id,
-        url: buildCustomerViewerUrl(token),
+        // Pass request so Workers resolve production host (not localhost)
+        url: buildCustomerViewerUrl(token, request),
         token,
         expiresAt: expiresAt.toISOString(),
       };
