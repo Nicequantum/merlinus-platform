@@ -119,11 +119,12 @@ describe('Phase 6.1/6.2 RLS context', () => {
     assert.match(src, /export async function withRlsContext/);
     assert.match(src, /export async function withRlsBypass/);
     assert.match(src, /isApexPlatformMode/);
-    // D1: no live Postgres GUC calls — isolation is application-level.
+    // D1: no live Postgres GUC calls — isolation via Prisma client extension.
     assert.equal(src.includes("$executeRaw`SELECT set_config"), false);
-    assert.match(src, /rlsTxStorage|getRlsDb/);
+    assert.match(src, /getRlsDb/);
+    assert.match(src, /createRlsEnforcedClient/);
     // Login uses withRlsBypass → withRlsContext. Interactive $transaction throws on PrismaD1.
     assert.doesNotMatch(src, /return prisma\.\$transaction\s*\(/);
-    assert.match(src, /rlsTxStorage\.run\(client/);
+    assert.match(src, /rlsStore\.run/);
   });
 });

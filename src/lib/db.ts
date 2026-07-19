@@ -2,6 +2,7 @@ import 'server-only';
 // engineType=client (schema.prisma): always requires a driver adapter — no native query engine.
 // Workers: PrismaD1(env.DB). Plain Node/CI: PrismaBetterSQLite3(file SQLite).
 // Default @prisma/client (not /wasm) — OpenNext patches this package for workerd.
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
@@ -39,7 +40,8 @@ function prismaLogLevel(): Array<'error' | 'warn'> {
 
 /**
  * Prisma CLI resolves relative `file:` URLs against the schema directory (`prisma/`).
- * better-sqlite3 resolves against process.cwd() — normalize so both hit the same file.
+ * Repo convention `file:./prisma/dev.db` therefore lands at `prisma/prisma/dev.db`
+ * for both `prisma db push` and the better-sqlite3 adapter — keep them aligned.
  */
 export function resolveLocalSqliteFilePath(databaseUrl: string): string {
   const stripped = databaseUrl.trim().replace(/^file:/i, '');
@@ -62,6 +64,8 @@ function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
   // eslint-disable-next-line -- require() is intentional for optional Node-only native dep
   const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3');
   const filePath = resolveLocalSqliteFilePath(databaseUrl);
+  // Ensure parent directory exists so first open does not throw ENOENT on missing dirs.
+  mkdirSync(path.dirname(filePath), { recursive: true });
   // Factory adapter (engineType=client) — PrismaClient calls connect() internally.
   // Pass absolute path (no file: prefix) so better-sqlite3 opens the Prisma CLI DB file.
   const adapter = new PrismaBetterSQLite3({ url: filePath });
