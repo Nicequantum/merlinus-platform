@@ -10,7 +10,7 @@ import {
   type TenantScopedSession,
 } from '@/lib/apex/tenantScope';
 import type { SessionPayload } from '@/lib/auth';
-import { getPrisma, prisma } from '@/lib/db';
+import { getDb, prisma } from '@/lib/db';
 import { isApexPlatformMode } from '@/lib/platformMode';
 
 /** Transaction client or root Prisma client that supports $executeRaw. */
@@ -95,18 +95,24 @@ export function rlsContextFromSession(
   };
 }
 
-function buildClientForContext(ctx: RlsContext): RlsDbClient {
-  const base = getPrisma();
+async function buildClientForContext(ctx: RlsContext): Promise<RlsDbClient> {
+  // Prefer async getDb() so OpenNext getCloudflareContext binds env.DB (no fs).
+  const base = await getDb();
   return createRlsEnforcedClient(base, ctx) as unknown as RlsDbClient;
 }
 
 /**
  * Prisma client for the current request when inside withSessionRls / withRlsContext.
  * Returns a tenant-enforcing extension when RLS context is enforced (non-bypass).
- * Falls back to the global singleton outside an RLS context.
+ * Falls back to the warmed getDb()/getPrisma cache outside an RLS context.
+ * Auth routes must call getDb() or withRlsBypass first so Workers never hit the
+ * Node library Prisma engine (fs.readFileSync under unenv).
  */
 export function getRlsDb(): RlsDbClient {
-  return rlsStore.getStore()?.client ?? prisma;
+  const store = rlsStore.getStore();
+  if (store?.client) return store.client;
+  // Prefer already-warmed global from getDb() — do not construct a new library client.
+  return prisma;
 }
 
 /** Active RLS store client, if any (for joining audits into the same unit of work). */
@@ -132,7 +138,7 @@ export async function setRlsContext(_client: RlsDbClient, ctx: RlsContext): Prom
   const store = rlsStore.getStore();
   if (store) {
     store.ctx = ctx;
-    store.client = buildClientForContext(ctx);
+    store.client = await buildClientForContext(ctx);
   }
 }
 
@@ -151,7 +157,7 @@ export async function withRlsContext<T>(
     const previousCtx = existing.ctx;
     const previousClient = existing.client;
     existing.ctx = ctx;
-    existing.client = buildClientForContext(ctx);
+    existing.client = await buildClientForContext(ctx);
     try {
       return await fn(existing.client as Prisma.TransactionClient);
     } finally {
@@ -160,7 +166,7 @@ export async function withRlsContext<T>(
     }
   }
 
-  const client = buildClientForContext(ctx);
+  const client = await buildClientForContext(ctx);
   return rlsStore.run({ ctx, client }, () => fn(client as Prisma.TransactionClient));
 }
 

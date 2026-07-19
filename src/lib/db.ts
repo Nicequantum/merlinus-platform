@@ -1,12 +1,16 @@
 import 'server-only';
+
 /**
- * Prisma client for Merlinus / Apex.
+ * Prisma client for Merlinus / Apex on Cloudflare Workers + local Node.
  *
- * Cloudflare Workers (login + API): PrismaD1(env.DB) only — never open a local
- * SQLite file or touch node:fs (unenv throws fs.readdir / mkdirSync).
- * Plain Node / CI: @prisma/adapter-better-sqlite3 with file: DATABASE_URL.
+ * Workers / OpenNext login path:
+ *   getDb() → getCloudflareContext({ async: true }).env.DB → PrismaD1 → WASM PrismaClient
+ * Never open file SQLite or load the Node library engine (unenv: fs.readdir / readFileSync).
+ *
+ * Local Node / CI:
+ *   getDb() / getPrisma() → better-sqlite3 adapter + Node PrismaClient
  */
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
 import {
   getD1Database,
@@ -18,17 +22,17 @@ import {
 import { logger } from './logger';
 import { withDbConnectionRetry } from './dbRetry';
 
+type PrismaClientConstructor = new (args?: {
+  adapter?: unknown;
+  log?: Array<'error' | 'warn'>;
+}) => PrismaClient;
+
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
   prismaD1?: boolean;
-  /** Weak-map style: recreate client if D1 binding instance changes. */
   prismaD1Binding?: D1DatabaseLike | null;
 };
 
-/**
- * Default local SQLite URL for prisma generate / Node without D1.
- * Never used on Cloudflare Workers (file engine is unavailable there).
- */
 export const LOCAL_SQLITE_URL = 'file:./prisma/dev.db';
 
 function ensureLocalDatabaseUrl(): void {
@@ -41,17 +45,26 @@ function prismaLogLevel(): Array<'error' | 'warn'> {
   return process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'];
 }
 
+/** True only for plain Node (CI/dev) — never Workers / OpenNext. */
+function isPlainNodeRuntime(): boolean {
+  if (typeof process === 'undefined' || !process.versions?.node) return false;
+  if (typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined') {
+    return false;
+  }
+  if (process.env.CF_PAGES === '1' || process.env.CF_PAGES === 'true') return false;
+  if (process.env.OPEN_NEXT_ORIGIN?.trim()) return false;
+  if (process.env.NEXT_RUNTIME === 'edge') return false;
+  if (isCloudflareWorkerRuntime()) return false;
+  return true;
+}
+
 /**
  * Prisma CLI resolves relative `file:` URLs against the schema directory (`prisma/`).
- * Repo convention `file:./prisma/dev.db` therefore lands at `prisma/prisma/dev.db`
- * for both `prisma db push` and the better-sqlite3 adapter — keep them aligned.
- *
- * Node-only — must not run (or pull path/fs) on Workers.
+ * Node-only helper.
  */
 export function resolveLocalSqliteFilePath(databaseUrl: string): string {
-  // Dynamic require keeps node:path out of the Workers/OpenNext graph.
-  // eslint-disable-next-line -- require() intentional for Node-only path resolution
-  const path = require('node:path') as typeof import('node:path');
+  // eslint-disable-next-line no-new-func -- Node-only; hide path from OpenNext graph
+  const path = Function('return require("node:path")')() as typeof import('node:path');
   const stripped = databaseUrl.trim().replace(/^file:/i, '');
   if (!stripped) {
     return path.resolve(process.cwd(), 'prisma', 'dev.db');
@@ -59,30 +72,83 @@ export function resolveLocalSqliteFilePath(databaseUrl: string): string {
   if (path.isAbsolute(stripped)) {
     return stripped;
   }
-  const schemaDir = path.join(process.cwd(), 'prisma');
-  return path.resolve(schemaDir, stripped);
+  return path.resolve(path.join(process.cwd(), 'prisma'), stripped);
 }
 
-function createD1PrismaClient(d1: D1DatabaseLike): PrismaClient {
+/**
+ * Workers: @prisma/client/wasm (no native engine, no fs).
+ * Node: @prisma/client (library engine + better-sqlite3 adapter).
+ *
+ * Never statically import `@prisma/client` default entry — webpack would bundle
+ * the library engine and unenv would throw on fs.readFileSync at login.
+ */
+async function loadPrismaClientCtor(preferWasm: boolean): Promise<PrismaClientConstructor> {
+  if (preferWasm) {
+    try {
+      const wasm = (await import('@prisma/client/wasm')) as {
+        PrismaClient: PrismaClientConstructor;
+      };
+      return wasm.PrismaClient;
+    } catch {
+      // fall through to default
+    }
+  }
+  const node = (await import('@prisma/client')) as { PrismaClient: PrismaClientConstructor };
+  return node.PrismaClient;
+}
+
+function loadPrismaClientCtorSync(preferWasm: boolean): PrismaClientConstructor {
+  // eslint-disable-next-line no-new-func -- avoid static analysis pulling wrong entry
+  const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+  if (!req) {
+    throw new Error('PrismaClient constructor requires require() or dynamic import');
+  }
+  if (preferWasm) {
+    try {
+      const wasm = req('@prisma/client/wasm') as { PrismaClient: PrismaClientConstructor };
+      if (wasm?.PrismaClient) return wasm.PrismaClient;
+    } catch {
+      // fall through
+    }
+  }
+  return (req('@prisma/client') as { PrismaClient: PrismaClientConstructor }).PrismaClient;
+}
+
+async function createD1PrismaClient(d1: D1DatabaseLike): Promise<PrismaClient> {
   logger.info('db.backend', { backend: 'cloudflare_d1', binding: 'DB' });
   const adapter = new PrismaD1(d1 as ConstructorParameters<typeof PrismaD1>[0]);
-  return new PrismaClient({
+  // Always WASM on non-Node so workerd never loads library engine + fs.
+  const PrismaClientCtor = await loadPrismaClientCtor(!isPlainNodeRuntime());
+  return new PrismaClientCtor({
     adapter,
     log: prismaLogLevel(),
   });
 }
 
-/**
- * Local/CI file SQLite adapter for plain Node.
- * Dynamic require keeps native better-sqlite3 and node:fs out of the Workers bundle.
- */
+function createD1PrismaClientSync(d1: D1DatabaseLike): PrismaClient {
+  logger.info('db.backend', { backend: 'cloudflare_d1', binding: 'DB' });
+  const adapter = new PrismaD1(d1 as ConstructorParameters<typeof PrismaD1>[0]);
+  const PrismaClientCtor = loadPrismaClientCtorSync(!isPlainNodeRuntime());
+  return new PrismaClientCtor({
+    adapter,
+    log: prismaLogLevel(),
+  });
+}
+
 function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
-  // eslint-disable-next-line -- require() is intentional for optional Node-only native deps
-  const { mkdirSync } = require('node:fs') as typeof import('node:fs');
-  // eslint-disable-next-line -- require() is intentional for optional Node-only native deps
-  const path = require('node:path') as typeof import('node:path');
-  // eslint-disable-next-line -- require() is intentional for optional Node-only native dep
-  const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3');
+  // eslint-disable-next-line no-new-func -- Node-only; keep better-sqlite3 out of Workers bundle
+  const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+  if (!req) {
+    throw new Error('File SQLite requires Node require() — not available on Workers');
+  }
+  const { mkdirSync } = req('node:fs') as typeof import('node:fs');
+  const path = req('node:path') as typeof import('node:path');
+  const { PrismaBetterSQLite3 } = req(
+    '@prisma/adapter-better-sqlite3'
+  ) as typeof import('@prisma/adapter-better-sqlite3');
+  const { PrismaClient: NodePrismaClient } = req('@prisma/client') as {
+    PrismaClient: PrismaClientConstructor;
+  };
   const filePath = resolveLocalSqliteFilePath(databaseUrl);
   mkdirSync(path.dirname(filePath), { recursive: true });
   const adapter = new PrismaBetterSQLite3({ url: filePath });
@@ -92,31 +158,14 @@ function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
       path: filePath.endsWith('dev.db') ? filePath : '***',
     });
   }
-  return new PrismaClient({
+  return new NodePrismaClient({
     adapter,
     log: prismaLogLevel(),
   });
 }
 
-function createPrismaClient(d1: D1DatabaseLike | null): PrismaClient {
-  if (d1) {
-    return createD1PrismaClient(d1);
-  }
-
-  if (isCloudflareWorkerRuntime()) {
-    // Never open file SQLite on Workers — unenv has no real fs.readdir/mkdir.
-    throw new Error(
-      'Cloudflare Worker runtime has no D1 binding `DB`. Check wrangler.toml [[d1_databases]] binding = "DB" and redeploy.'
-    );
-  }
-
-  ensureLocalDatabaseUrl();
-  return createFileSqlitePrismaClient(process.env.DATABASE_URL!.trim());
-}
-
 /**
  * Resolve D1 via OpenNext getCloudflareContext (async) then fall back to getD1Database().
- * Call from request handlers (login, withAuth) so env.DB is request-scoped.
  */
 export async function resolveD1Database(): Promise<D1DatabaseLike | null> {
   try {
@@ -135,30 +184,38 @@ export async function resolveD1Database(): Promise<D1DatabaseLike | null> {
 }
 
 /**
- * Async Prisma client for Cloudflare request paths (login, API).
- * Always uses PrismaD1(env.DB) when the binding is available — no filesystem.
+ * Preferred entry for all request handlers (login, auth, API).
+ * Workers: PrismaD1(env.DB) + WASM client — zero filesystem access.
  */
 export async function getDb(): Promise<PrismaClient> {
   const d1 = await resolveD1Database();
   if (d1) {
-    const existing = globalForPrisma.prisma;
-    if (existing && globalForPrisma.prismaD1 && globalForPrisma.prismaD1Binding === d1) {
-      return existing;
+    if (
+      globalForPrisma.prisma &&
+      globalForPrisma.prismaD1 &&
+      globalForPrisma.prismaD1Binding === d1
+    ) {
+      return globalForPrisma.prisma;
     }
-    const client = createD1PrismaClient(d1);
+    const client = await createD1PrismaClient(d1);
     globalForPrisma.prisma = client;
     globalForPrisma.prismaD1 = true;
     globalForPrisma.prismaD1Binding = d1;
     return client;
   }
 
-  // Sync path for Node/CI (or throw on Workers without DB)
+  if (!isPlainNodeRuntime()) {
+    throw new Error(
+      'No D1 binding `DB`. On Cloudflare Workers, env.DB must be available via getCloudflareContext. Check wrangler.toml [[d1_databases]] binding = "DB".'
+    );
+  }
+
   return getPrisma();
 }
 
 /**
- * Resolve Prisma client (D1 on Cloudflare, file SQLite locally).
- * Prefer getDb() on request paths so OpenNext can attach env.DB after cold start.
+ * Sync accessor for Node/CI and legacy call sites.
+ * Prefer getDb() on Workers request paths.
  */
 export function getPrisma(): PrismaClient {
   const d1 = getD1Database();
@@ -172,7 +229,18 @@ export function getPrisma(): PrismaClient {
     return globalForPrisma.prisma;
   }
 
-  const client = createPrismaClient(d1);
+  let client: PrismaClient;
+  if (d1) {
+    client = createD1PrismaClientSync(d1);
+  } else if (!isPlainNodeRuntime()) {
+    throw new Error(
+      'No D1 binding `DB` in this runtime. Use getDb() inside a request so getCloudflareContext can bind env.DB.'
+    );
+  } else {
+    ensureLocalDatabaseUrl();
+    client = createFileSqlitePrismaClient(process.env.DATABASE_URL!.trim());
+  }
+
   globalForPrisma.prisma = client;
   globalForPrisma.prismaD1 = wantD1;
   globalForPrisma.prismaD1Binding = d1;
@@ -180,9 +248,8 @@ export function getPrisma(): PrismaClient {
 }
 
 /**
- * Singleton accessor for existing call sites (`import { prisma } from '@/lib/db'`).
- * Uses a Proxy so each property access re-resolves D1 (important on Workers).
- * On Workers, prefer getDb() so getCloudflareContext({ async: true }) can bind env.DB.
+ * Legacy singleton. On Workers, only safe after getDb() has warmed the cache,
+ * or when ALS already holds D1. Prefer getDb() in auth routes.
  */
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
@@ -192,7 +259,6 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   },
 });
 
-/** Health-check probe with connection retry — not used on request hot paths. */
 export async function probeDatabaseConnection(): Promise<void> {
   await withDbConnectionRetry(
     async () => {
@@ -203,12 +269,9 @@ export async function probeDatabaseConnection(): Promise<void> {
   );
 }
 
-/** Background cold-start warmup; never blocks login or RO scan handlers. */
 export function warmDatabaseConnectionInBackground(): void {
   void withDbConnectionRetry(
     async () => {
-      // Prefer a real query over $connect(): on Workers/unenv, $connect can touch
-      // fs APIs that are not implemented, while D1 SELECT 1 validates the binding.
       const db = await getDb();
       await db.$queryRaw`SELECT 1`;
     },

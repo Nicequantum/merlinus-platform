@@ -15,7 +15,7 @@
     "build:opennextjs-cloudflare": "opennextjs-cloudflare build --skipNextBuild",
     "strip:opennext-secrets": "node scripts/strip-opennext-secrets.mjs",
     "verify:opennext-secrets": "node scripts/verify-opennext-no-secrets.mjs",
-    "build:opennext": "npm run build:opennextjs-cloudflare && npm run strip:opennext-secrets && npm run verify:opennext-secrets",
+    "build:opennext": "node scripts/prisma-with-sqlite-url.mjs generate && npm run build:opennextjs-cloudflare && npm run strip:opennext-secrets && npm run verify:opennext-secrets",
     "build": "npm run build:next && npm run build:opennext",
     "build:cf": "npm run build",
     "build:diagnostic": "echo '=== GROK DIAGNOSTIC BUILD START ===' && npm run build:opennext 2>&1 | tee build.log && echo '=== BUILD COMPLETE - CHECKING FOR ERRORS ===' && if grep -i 'error\\|fail\\|exception' build.log; then echo 'BUILD ERRORS FOUND - SEE ABOVE'; else echo 'BUILD CLEAN'; fi && echo '=== STARTING LOCAL PREVIEW ===' && npm run preview",

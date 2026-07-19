@@ -16,6 +16,7 @@ name = "merlinus-platform"
 # OpenNext Worker entry (produced by `npm run build` / `build:opennext`)
 main = ".open-next/worker.js"
 compatibility_date = "2025-08-05"
+# Wrangler v4: use nodejs_compat (legacy node_compat = true is rejected).
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 # Workers Observability (dashboard logs + traces) — audit period: full capture

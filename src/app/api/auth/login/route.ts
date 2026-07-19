@@ -15,6 +15,7 @@ import { auditDealerIdFromSession } from '@/lib/audit';
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { applySessionCookieToResponse, createSessionToken, loginTechnician } from '@/lib/auth';
 import { isLegacyAuthPathEnabled } from '@/lib/authMode';
+import { getDb } from '@/lib/db';
 import { isApexPlatformMode } from '@/lib/platformMode';
 import { apiError, handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
     if (!isLegacyAuthPathEnabled()) {
       return apiError('Legacy D7 login is disabled. Use Clerk sign-in.', 403);
     }
+
+    // Bind D1 via getCloudflareContext before any Prisma/auth work (Workers: no fs).
+    await getDb();
 
     const parsed = await parseRequestBody(request, loginRequestSchema, AUTH_JSON_BODY_LIMIT_BYTES);
     if ('error' in parsed) {

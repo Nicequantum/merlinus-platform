@@ -6,6 +6,7 @@ import {
 import { auditDealerIdFromSession } from '@/lib/audit';
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { isLegacyAuthPathEnabled } from '@/lib/authMode';
+import { getDb } from '@/lib/db';
 import { isApexPlatformMode } from '@/lib/platformMode';
 import { apiError, handleRouteError, UNAUTHORIZED_ERROR } from '@/lib/errors';
 import { checkRateLimit, getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
       return apiError('Session refresh is only available in apex platform mode.', 404);
     }
 
+    // Workers: bind D1 before refresh token DB work.
+    await getDb();
     const rotation = await rotateApexRefreshToken(request);
 
     if (rotation.status === 'reuse_detected') {

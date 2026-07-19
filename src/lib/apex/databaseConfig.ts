@@ -8,8 +8,12 @@
 import { loadApexEnvFile } from '@/lib/apex/loadApexEnv';
 import { isD1Runtime } from '@/lib/d1';
 
-// Load .env.apex.local for non-DB Apex secrets when present.
-loadApexEnvFile();
+// Load .env.apex.local for non-DB Apex secrets when present (no-op on Workers).
+try {
+  loadApexEnvFile();
+} catch {
+  // unenv fs — ignore on Cloudflare Workers
+}
 
 export type DatabaseBackend = 'cloudflare_d1' | 'sqlite_file';
 

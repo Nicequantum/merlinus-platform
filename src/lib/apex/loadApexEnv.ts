@@ -41,15 +41,42 @@ function parseEnvLine(line: string): { key: string; value: string } | null {
 /**
  * Load .env.apex.local when Apex is active (APEX_ENV or PLATFORM_MODE=apex).
  * Existing process.env values win unless override=true.
+ *
+ * Never touch the filesystem on Cloudflare Workers / OpenNext (unenv has no
+ * real fs — existsSync/readFileSync throw and break login).
  */
 export function loadApexEnvFile(options: { override?: boolean } = {}): boolean {
   if (!isApexPlatformEnvActive()) return false;
   if (apexEnvLoaded && !options.override) return true;
 
-  const path = resolve(process.cwd(), '.env.apex.local');
-  if (!existsSync(path)) return false;
+  // Workers / OpenNext: secrets come from wrangler; skip .env.apex.local.
+  if (typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined') {
+    apexEnvLoaded = true;
+    return false;
+  }
+  if (
+    process.env.CF_PAGES === '1' ||
+    process.env.CF_PAGES === 'true' ||
+    Boolean(process.env.OPEN_NEXT_ORIGIN?.trim())
+  ) {
+    apexEnvLoaded = true;
+    return false;
+  }
 
-  const content = readFileSync(path, 'utf8');
+  const path = resolve(process.cwd(), '.env.apex.local');
+  try {
+    if (!existsSync(path)) return false;
+  } catch {
+    // unenv / missing fs
+    return false;
+  }
+
+  let content: string;
+  try {
+    content = readFileSync(path, 'utf8');
+  } catch {
+    return false;
+  }
   for (const line of content.split('\n')) {
     const parsed = parseEnvLine(line);
     if (!parsed) continue;
