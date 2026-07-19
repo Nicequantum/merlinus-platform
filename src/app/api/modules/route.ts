@@ -29,19 +29,36 @@ export async function GET(request: Request) {
   return withAuth(
     request,
     async (session) => {
-      const { dealershipId } = scopedPiiWhere(session);
-      const modules = await listModuleStatuses(dealershipId);
-      return NextResponse.json({
-        dealershipId,
-        modules,
-        /** Explicit reminder: core story is never a product module flag. */
-        coreStoryAlwaysOn: true,
-      });
+      try {
+        const { dealershipId } = scopedPiiWhere(session);
+        const modules = await listModuleStatuses(dealershipId);
+        return NextResponse.json({
+          dealershipId,
+          modules,
+          /** Explicit reminder: core story is never a product module flag. */
+          coreStoryAlwaysOn: true,
+        });
+      } catch (error) {
+        logger.error('modules.list_failed', {
+          technicianId: session.technicianId,
+          dealershipId: session.activeDealershipId ?? session.dealershipId,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack?.slice(0, 800) : undefined,
+        });
+        return apiError(
+          error instanceof Error && error.message
+            ? `Modules list failed: ${error.message}`
+            : 'Modules list failed',
+          500
+        );
+      }
     },
     {
       rateLimitKey: 'modules.list',
       requireManager: true,
       requireDealershipContext: true,
+      // Ensure D1/WASM client is bound (withAuth defaults useRls for manager routes).
+      useRls: true,
     }
   );
 }

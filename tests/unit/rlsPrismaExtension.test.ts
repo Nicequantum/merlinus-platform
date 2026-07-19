@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildFindFirstTenantWhereForTests,
   buildTenantWhereForTests,
+  expandCompoundUniqueWhereForTests,
   isRlsTenantModelForTests,
   listDirectDealershipModelsForTests,
   RLS_DENY_DEALERSHIP_ID,
@@ -56,5 +58,37 @@ describe('F-01 RLS Prisma extension', () => {
       false
     );
     assert.equal(shouldEnforceRlsForTests({ ...base, enforced: false, softOpen: true }), false);
+  });
+
+  it('expands compound unique filters for findFirst (DealershipModule)', () => {
+    // Regression: findUnique→findFirst with dealershipId_moduleId AND tenant broke Prisma validation.
+    // Error was roughly: Unknown arg `dealershipId_moduleId` in where.AND[0].dealershipId_moduleId
+    // for findFirst (compound unique is only valid on findUnique/upsert).
+    const compound = {
+      dealershipId_moduleId: {
+        dealershipId: 'd-1',
+        moduleId: 'video_mpi',
+      },
+    };
+    const tenant = buildTenantWhereForTests('DealershipModule', 'd-1');
+    assert.deepEqual(tenant, { dealershipId: 'd-1' });
+
+    const expanded = expandCompoundUniqueWhereForTests(compound);
+    assert.deepEqual(expanded, {
+      dealershipId: 'd-1',
+      moduleId: 'video_mpi',
+    });
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(expanded, 'dealershipId_moduleId'),
+      false
+    );
+
+    const findFirstWhere = buildFindFirstTenantWhereForTests(compound, tenant);
+    assert.deepEqual(findFirstWhere, {
+      dealershipId: 'd-1',
+      moduleId: 'video_mpi',
+    });
+    // Must not nest compound unique under AND (that is what crashed /api/modules).
+    assert.equal(Object.prototype.hasOwnProperty.call(findFirstWhere, 'AND'), false);
   });
 });

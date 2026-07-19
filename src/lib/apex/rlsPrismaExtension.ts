@@ -113,6 +113,88 @@ function mergeWhere(
   return { AND: [existing, tenantWhere] };
 }
 
+/**
+ * Prisma compound unique filters (e.g. dealershipId_moduleId: { dealershipId, moduleId })
+ * are only valid on findUnique/upsert. findFirst requires flat field filters.
+ */
+function expandCompoundUniqueWhere(
+  where: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!where) return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(where)) {
+    if (
+      key.includes('_') &&
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date) &&
+      Object.values(value as Record<string, unknown>).every(
+        (v) => v === null || ['string', 'number', 'boolean', 'bigint'].includes(typeof v)
+      )
+    ) {
+      Object.assign(out, value as Record<string, unknown>);
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Keep unique-constraint where shape for upsert/findUnique, but pin dealershipId
+ * fields to the active tenant (never wrap in AND — that breaks unique where).
+ */
+function pinTenantOnUniqueWhere(
+  where: Record<string, unknown> | undefined,
+  dealershipId: string
+): Record<string, unknown> {
+  if (!where) {
+    return { dealershipId };
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(where)) {
+    if (
+      key.includes('_') &&
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date)
+    ) {
+      const nested = { ...(value as Record<string, unknown>) };
+      if ('dealershipId' in nested) {
+        nested.dealershipId = dealershipId;
+      }
+      out[key] = nested;
+      continue;
+    }
+    if (key === 'dealershipId') {
+      out[key] = dealershipId;
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+/** Build a findFirst-compatible where with tenant isolation. */
+function buildFindFirstTenantWhere(
+  where: Record<string, unknown> | undefined,
+  tenantWhere: Record<string, unknown>
+): Record<string, unknown> {
+  const expanded = expandCompoundUniqueWhere(where);
+  // Simple dealershipId pin: merge flat fields (avoids AND + compound unique).
+  if (
+    typeof tenantWhere.dealershipId === 'string' ||
+    (tenantWhere.dealershipId &&
+      typeof tenantWhere.dealershipId === 'object' &&
+      'in' in (tenantWhere.dealershipId as object))
+  ) {
+    return { ...expanded, ...tenantWhere };
+  }
+  return mergeWhere(expanded, tenantWhere);
+}
+
 function buildTenantWhere(model: string, dealershipId: string): Record<string, unknown> {
   if (model in RELATION_TENANT_WHERE) {
     return RELATION_TENANT_WHERE[model](dealershipId);
@@ -182,6 +264,10 @@ export function createRlsEnforcedClient(
 
           const tenantWhere = buildTenantWhere(model, dealershipId);
           const nextArgs = { ...(args as Record<string, unknown>) };
+          const tenantDealershipId =
+            typeof tenantWhere.dealershipId === 'string'
+              ? tenantWhere.dealershipId
+              : dealershipId;
 
           if (READ_OPS.has(operation) || WHERE_WRITE_OPS.has(operation)) {
             if (operation === 'upsert') {
@@ -190,7 +276,11 @@ export function createRlsEnforcedClient(
                 create?: Record<string, unknown>;
                 update?: Record<string, unknown>;
               };
-              upsertArgs.where = mergeWhere(upsertArgs.where, tenantWhere);
+              // Upsert `where` must stay a unique selector — never wrap in AND.
+              upsertArgs.where = pinTenantOnUniqueWhere(
+                upsertArgs.where,
+                tenantDealershipId
+              );
               if (!(model in RELATION_TENANT_WHERE)) {
                 upsertArgs.create = injectCreateData(
                   model,
@@ -203,6 +293,8 @@ export function createRlsEnforcedClient(
               }
               nextArgs.where = upsertArgs.where;
               nextArgs.create = upsertArgs.create;
+            } else if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
+              // Handled below — expand compound unique for findFirst rewrite.
             } else {
               nextArgs.where = mergeWhere(
                 nextArgs.where as Record<string, unknown> | undefined,
@@ -223,20 +315,36 @@ export function createRlsEnforcedClient(
             }
           }
 
-          // findUnique only accepts unique fields — rewrite to findFirst with tenant where.
+          // findUnique only accepts unique fields — rewrite to findFirst with flat tenant where.
+          // Compound uniques (dealershipId_moduleId, etc.) must be expanded for findFirst.
           if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
-            const findFirst = (
+            const findFirstWhere = buildFindFirstTenantWhere(
+              nextArgs.where as Record<string, unknown> | undefined,
+              tenantWhere
+            );
+            const findArgs = { ...nextArgs, where: findFirstWhere };
+
+            const delegate = (
               base as unknown as Record<
                 string,
-                { findFirst: (a: unknown) => Promise<unknown>; findFirstOrThrow: (a: unknown) => Promise<unknown> }
+                {
+                  findFirst: (a: unknown) => Promise<unknown>;
+                  findFirstOrThrow: (a: unknown) => Promise<unknown>;
+                }
               >
             )[modelToDelegate(model)];
 
-            if (findFirst) {
+            if (delegate?.findFirst) {
               const method =
                 operation === 'findUniqueOrThrow' ? 'findFirstOrThrow' : 'findFirst';
-              return findFirst[method](nextArgs);
+              return delegate[method](findArgs);
             }
+
+            // Fallback: pin tenant on unique where and keep findUnique if possible
+            nextArgs.where = pinTenantOnUniqueWhere(
+              nextArgs.where as Record<string, unknown> | undefined,
+              tenantDealershipId
+            );
           }
 
           return query(nextArgs);
@@ -274,4 +382,19 @@ export function buildTenantWhereForTests(
 
 export function shouldEnforceRlsForTests(ctx: RlsContext): boolean {
   return shouldEnforce(ctx);
+}
+
+/** Pure helper for unit tests — expand compound unique where for findFirst rewrite. */
+export function expandCompoundUniqueWhereForTests(
+  where: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  return expandCompoundUniqueWhere(where);
+}
+
+/** Pure helper for unit tests — findFirst tenant where used by findUnique rewrite. */
+export function buildFindFirstTenantWhereForTests(
+  where: Record<string, unknown> | undefined,
+  tenantWhere: Record<string, unknown>
+): Record<string, unknown> {
+  return buildFindFirstTenantWhere(where, tenantWhere);
 }

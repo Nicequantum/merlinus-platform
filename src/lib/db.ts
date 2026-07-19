@@ -63,8 +63,7 @@ function isPlainNodeRuntime(): boolean {
  * Node-only helper.
  */
 export function resolveLocalSqliteFilePath(databaseUrl: string): string {
-  // eslint-disable-next-line no-new-func -- Node-only; hide path from OpenNext graph
-  const path = Function('return require("node:path")')() as typeof import('node:path');
+  const path = getNodeRequire()('node:path') as typeof import('node:path');
   const stripped = databaseUrl.trim().replace(/^file:/i, '');
   if (!stripped) {
     return path.resolve(process.cwd(), 'prisma', 'dev.db');
@@ -97,12 +96,16 @@ async function loadPrismaClientCtor(preferWasm: boolean): Promise<PrismaClientCo
   return node.PrismaClient;
 }
 
+function getNodeRequire(): NodeRequire {
+  // Prefer createRequire so this works under tsx/ESM (global require is undefined).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node-only
+  const { createRequire } = require('node:module') as typeof import('node:module');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node-only
+  return createRequire(typeof __filename !== 'undefined' ? __filename : process.cwd() + '/package.json');
+}
+
 function loadPrismaClientCtorSync(preferWasm: boolean): PrismaClientConstructor {
-  // eslint-disable-next-line no-new-func -- avoid static analysis pulling wrong entry
-  const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
-  if (!req) {
-    throw new Error('PrismaClient constructor requires require() or dynamic import');
-  }
+  const req = getNodeRequire();
   if (preferWasm) {
     try {
       const wasm = req('@prisma/client/wasm') as { PrismaClient: PrismaClientConstructor };
@@ -136,11 +139,10 @@ function createD1PrismaClientSync(d1: D1DatabaseLike): PrismaClient {
 }
 
 function createFileSqlitePrismaClient(databaseUrl: string): PrismaClient {
-  // eslint-disable-next-line no-new-func -- Node-only; keep better-sqlite3 out of Workers bundle
-  const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
-  if (!req) {
-    throw new Error('File SQLite requires Node require() — not available on Workers');
+  if (!isPlainNodeRuntime()) {
+    throw new Error('File SQLite is only available on plain Node (not Workers)');
   }
+  const req = getNodeRequire();
   const { mkdirSync } = req('node:fs') as typeof import('node:fs');
   const path = req('node:path') as typeof import('node:path');
   const { PrismaBetterSQLite3 } = req(
