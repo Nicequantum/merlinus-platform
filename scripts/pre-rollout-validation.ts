@@ -2367,8 +2367,14 @@ function checkApexPhase64FortressComplete(): void {
   const rlsCtx = resolve(process.cwd(), 'src/lib/apex/rlsContext.ts');
   if (existsSync(rlsCtx)) {
     const src = readFileSync(rlsCtx, 'utf8');
-    if (src.includes('rls_soft_open') && src.includes('isApexPlatformMode')) {
-      record('APEX 6.4', 'RLS default-deny Apex', 'pass', 'Apex enforce + Merlinus soft-open');
+    // D1: softOpen flag + Apex enforce via isRlsEnabled / createRlsEnforcedClient (not Postgres GUCs).
+    if (
+      src.includes('isApexPlatformMode') &&
+      src.includes('isRlsEnabled') &&
+      (src.includes('softOpen') || src.includes('rls_soft_open')) &&
+      (src.includes('createRlsEnforcedClient') || src.includes('withSessionRls'))
+    ) {
+      record('APEX 6.4', 'RLS default-deny Apex', 'pass', 'Apex enforce + Merlinus soft-open (D1 Prisma RLS extension)');
     } else {
       record('APEX 6.4', 'RLS default-deny Apex', 'fail', 'rlsContext missing Phase 6.2 default-deny');
     }
@@ -2473,9 +2479,11 @@ function checkApexPhase65RemainingSecurity(): void {
     record('APEX 6.5', 'No hard-coded credentials', 'fail', 'Hard-coded credentials or missing create-only seed');
   }
 
-  // RLS default-deny on Apex
+  // RLS default-deny on Apex (D1: Prisma extension; historical Postgres migration may still exist)
   const rlsPath = resolve(process.cwd(), 'src/lib/apex/rlsContext.ts');
   const rlsSrc = existsSync(rlsPath) ? readFileSync(rlsPath, 'utf8') : '';
+  const extPath = resolve(process.cwd(), 'src/lib/apex/rlsPrismaExtension.ts');
+  const extSrc = existsSync(extPath) ? readFileSync(extPath, 'utf8') : '';
   const mig62 = resolve(
     process.cwd(),
     'prisma/migrations/20250715120000_apex_phase6_2_rls_default_deny/migration.sql'
@@ -2483,16 +2491,17 @@ function checkApexPhase65RemainingSecurity(): void {
   const mig62Src = existsSync(mig62) ? readFileSync(mig62, 'utf8') : '';
   const rlsOk =
     rlsSrc.includes('isApexPlatformMode') &&
-    rlsSrc.includes('rls_soft_open') &&
     rlsSrc.includes('isRlsEnabled') &&
-    mig62Src.includes('app.rls_soft_open') &&
-    mig62Src.includes('Technician');
+    (rlsSrc.includes('softOpen') || rlsSrc.includes('rls_soft_open')) &&
+    (rlsSrc.includes('createRlsEnforcedClient') ||
+      (extSrc.includes('merlinRlsTenantIsolation') && extSrc.includes('dealershipId')) ||
+      (mig62Src.includes('app.rls_soft_open') && mig62Src.includes('Technician')));
   if (rlsOk) {
     record(
       'APEX 6.5',
       'RLS default-deny on Apex',
       'pass',
-      'Apex enforce-by-default + soft_open GUC + Technician policies'
+      'Apex enforce-by-default + D1 Prisma tenant rewrite (or historical GUC migration)'
     );
   } else {
     record('APEX 6.5', 'RLS default-deny on Apex', 'fail', 'RLS default-deny incomplete');
@@ -2667,13 +2676,25 @@ function checkApexPhase61RlsFoundation(): void {
   const rlsPath = resolve(process.cwd(), 'src/lib/apex/rlsContext.ts');
   if (existsSync(rlsPath)) {
     const src = readFileSync(rlsPath, 'utf8');
+    const extPath = resolve(process.cwd(), 'src/lib/apex/rlsPrismaExtension.ts');
+    const hasExtension =
+      existsSync(extPath) &&
+      readFileSync(extPath, 'utf8').includes('createRlsEnforcedClient');
+    // D1/SQLite: Prisma extension rewrites tenant predicates (no Postgres set_config GUCs).
     const ok =
       src.includes('setRlsContext') &&
       src.includes('withRlsContext') &&
       src.includes('rlsContextFromSession') &&
-      src.includes('set_config');
+      (src.includes('createRlsEnforcedClient') || src.includes('set_config') || hasExtension);
     if (ok) {
-      record('APEX 6.1', 'rlsContext.ts', 'pass', 'Transaction-local app.* session vars');
+      record(
+        'APEX 6.1',
+        'rlsContext.ts',
+        'pass',
+        hasExtension || src.includes('createRlsEnforcedClient')
+          ? 'D1 Prisma tenant isolation extension bound via ALS'
+          : 'Transaction-local app.* session vars'
+      );
     } else {
       record('APEX 6.1', 'rlsContext.ts', 'fail', 'rlsContext.ts incomplete');
     }
