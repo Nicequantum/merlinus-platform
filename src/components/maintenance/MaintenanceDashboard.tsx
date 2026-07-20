@@ -226,36 +226,118 @@ export function MaintenanceDashboard({
     }
   };
 
+  const scrollToSection = (statusId: string) => {
+    const el = document.getElementById(`maint-section-${statusId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const ticketCard = (t: MaintenanceTicketSummary) => (
     <button
       key={t.id}
       type="button"
-      className="w-full text-left rounded-lg border border-benz-border/60 bg-white p-3 shadow-sm hover:border-benz-blue/40 transition-colors"
+      className="w-full min-h-[4.5rem] text-left rounded-xl border border-benz-border/60 bg-[var(--benz-surface-2)] px-4 py-3.5 shadow-sm active:scale-[0.99] hover:border-benz-blue/40 hover:bg-[var(--benz-surface-3)] transition-all touch-manipulation"
       onClick={() => void openDetail(t.id)}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-semibold text-sm leading-snug">{t.title}</div>
-        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${severityClass(t.severity)}`}>
-          {t.severity}
+      <div className="flex items-start justify-between gap-3">
+        <div className="font-semibold text-[15px] leading-snug text-[var(--benz-text)] min-w-0">
+          {t.title}
+        </div>
+        <span
+          className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md ${severityClass(t.severity)}`}
+        >
+          {MAINTENANCE_SEVERITY_LABELS[t.severity as MaintenanceSeverity] || t.severity}
         </span>
       </div>
-      <div className="text-[11px] text-benz-secondary mt-1">
+      <div className="text-sm text-[var(--benz-text-secondary)] mt-2">
         {t.locationLabel || t.department}
-        {t.photoCount ? ` · ${t.photoCount} photo(s)` : ''}
+        {t.photoCount ? ` · ${t.photoCount} photo${t.photoCount === 1 ? '' : 's'}` : ''}
       </div>
-      <div className="text-[11px] text-benz-muted mt-1">
+      <div className="text-xs text-[var(--benz-text-muted)] mt-1.5">
         {t.createdByName || 'Staff'}
         {t.assignedToName ? ` → ${t.assignedToName}` : ''}
       </div>
     </button>
   );
 
+  const statusSection = (
+    status: MaintenanceTicketStatus,
+    options?: { muted?: boolean }
+  ) => {
+    const list = columns[status] || [];
+    const muted = options?.muted;
+    return (
+      <section
+        key={status}
+        id={`maint-section-${status}`}
+        className={`scroll-mt-24 rounded-2xl border overflow-hidden ${
+          muted
+            ? 'border-benz-border/30 bg-[var(--benz-surface)]/60'
+            : 'border-benz-border/50 bg-[var(--benz-surface)]/90'
+        }`}
+      >
+        <header className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-benz-border/40 bg-[var(--benz-surface-2)]/80">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                status === 'blocked'
+                  ? 'bg-red-400'
+                  : status === 'in_progress'
+                    ? 'bg-benz-blue'
+                    : status === 'scheduled'
+                      ? 'bg-violet-400'
+                      : status === 'triage'
+                        ? 'bg-amber-400'
+                        : status === 'done'
+                          ? 'bg-emerald-400'
+                          : status === 'cancelled'
+                            ? 'bg-slate-500'
+                            : 'bg-sky-400'
+              }`}
+              aria-hidden
+            />
+            <h3 className="text-sm font-semibold tracking-wide text-[var(--benz-text)]">
+              {MAINTENANCE_STATUS_LABELS[status]}
+            </h3>
+          </div>
+          <span
+            className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-benz-blue/15 px-2.5 py-1 text-xs font-bold tabular-nums text-benz-blue"
+            aria-label={`${list.length} tickets`}
+          >
+            {list.length}
+          </span>
+        </header>
+        <div className="p-3 sm:p-4 space-y-2.5">
+          {list.length === 0 ? (
+            <p className="text-sm text-[var(--benz-text-muted)] px-1 py-5 text-center">
+              No tickets in this stage
+            </p>
+          ) : (
+            list.map(ticketCard)
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  const activeTicketCount = MAINTENANCE_KANBAN_COLUMNS.reduce(
+    (n, col) => n + (columns[col]?.length || 0),
+    0
+  );
+  const closedTicketCount =
+    (columns.done?.length || 0) + (columns.cancelled?.length || 0);
+
   return (
-    <div className="benz-page">
-      <div className="flex items-center justify-between gap-2 mb-4">
+    <div className="benz-page pb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 text-sm text-benz-secondary min-w-0">
           {onBack ? (
-            <button type="button" className="benz-nav-back !mb-0" onClick={onBack}>
+            <button
+              type="button"
+              className="benz-nav-back !mb-0 min-h-11 min-w-11 inline-flex items-center justify-center"
+              onClick={onBack}
+              aria-label="Back"
+            >
               <ArrowLeft size={18} />
             </button>
           ) : null}
@@ -264,10 +346,14 @@ export function MaintenanceDashboard({
           <span className="truncate">· {session.dealershipName}</span>
         </div>
         <div className="flex gap-2 shrink-0">
-          <button type="button" className="secondary-btn h-9 px-3 text-xs" onClick={onOpenSettings}>
+          <button
+            type="button"
+            className="secondary-btn min-h-11 px-4 text-sm"
+            onClick={onOpenSettings}
+          >
             Settings
           </button>
-          <button type="button" className="secondary-btn h-9 px-3 text-xs" onClick={onLogout}>
+          <button type="button" className="secondary-btn min-h-11 px-4 text-sm" onClick={onLogout}>
             Sign out
           </button>
         </div>
@@ -277,70 +363,79 @@ export function MaintenanceDashboard({
         <ModuleDisabledNotice title="Maintenance board" moduleId="maintenance" />
       ) : mode === 'board' ? (
         <>
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-            <div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-5">
+            <div className="min-w-0">
               <p className="benz-dashboard-eyebrow">Facility & shop tickets</p>
-              <h2 className="benz-page-title text-xl">Maintenance board</h2>
-              <p className="benz-hint mt-1">
+              <h2 className="benz-page-title text-xl sm:text-2xl">Maintenance board</h2>
+              <p className="benz-hint mt-1 max-w-xl">
                 Submit issues from any department; maintenance staff prioritize and track work.
+                Scroll down through each status stage.
               </p>
+              {!loading ? (
+                <p className="text-xs text-benz-muted mt-2 tabular-nums">
+                  {activeTicketCount} active · {closedTicketCount} closed
+                </p>
+              ) : null}
             </div>
-            <button type="button" className="primary-btn h-11 px-4" onClick={openCreate}>
+            <button
+              type="button"
+              className="primary-btn min-h-12 w-full sm:w-auto px-5 text-base shrink-0"
+              onClick={openCreate}
+            >
               New ticket
             </button>
           </div>
 
           {loading ? (
-            <p className="benz-hint flex items-center gap-2">
-              <Loader2 className="animate-spin" size={16} /> Loading tickets…
+            <p className="benz-hint flex items-center gap-2 py-8 justify-center">
+              <Loader2 className="animate-spin" size={18} /> Loading tickets…
             </p>
           ) : (
             <>
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                {MAINTENANCE_KANBAN_COLUMNS.map((col) => (
-                  <div
-                    key={col}
-                    className="min-w-[220px] max-w-[260px] flex-1 rounded-xl border border-benz-border/50 bg-benz-surface/40 p-2"
-                  >
-                    <div className="flex items-center justify-between px-1 mb-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-benz-secondary">
+              {/* Status jump chips — jump down the vertical stack (no horizontal swipe) */}
+              <nav
+                className="sticky top-0 z-10 -mx-1 mb-5 px-1 py-2.5 bg-[color-mix(in_srgb,var(--benz-bg)_88%,transparent)] backdrop-blur-md border-b border-benz-border/30"
+                aria-label="Jump to status"
+              >
+                <div className="flex flex-wrap gap-2">
+                  {MAINTENANCE_KANBAN_COLUMNS.map((col) => {
+                    const count = (columns[col] || []).length;
+                    return (
+                      <button
+                        key={col}
+                        type="button"
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-benz-border/60 bg-[var(--benz-surface-2)] px-3.5 text-sm font-medium text-[var(--benz-text)] shadow-sm active:bg-benz-blue/10 hover:border-benz-blue/40 transition-colors touch-manipulation"
+                        onClick={() => scrollToSection(col)}
+                      >
                         {MAINTENANCE_STATUS_LABELS[col]}
-                      </span>
-                      <span className="text-[11px] text-benz-muted">
-                        {(columns[col] || []).length}
-                      </span>
-                    </div>
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                      {(columns[col] || []).map(ticketCard)}
-                      {(columns[col] || []).length === 0 ? (
-                        <p className="text-[11px] text-benz-muted px-1 py-3">Empty</p>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <span className="rounded-full bg-benz-blue/15 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-benz-blue">
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
 
-              <div className="mt-4">
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-benz-blue"
-                  onClick={() => setShowClosed((v) => !v)}
-                >
-                  {showClosed ? 'Hide' : 'Show'} done / cancelled (
-                  {(columns.done?.length || 0) + (columns.cancelled?.length || 0)})
-                </button>
+              {/* Vertical stack: one status section below the next */}
+              <div className="flex flex-col gap-4 sm:gap-5 w-full max-w-3xl mx-auto lg:max-w-4xl">
+                {MAINTENANCE_KANBAN_COLUMNS.map((col) => statusSection(col))}
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    className="min-h-11 w-full sm:w-auto rounded-xl border border-benz-border/50 bg-[var(--benz-surface-2)] px-4 text-sm font-semibold text-benz-blue shadow-sm active:bg-benz-blue/10 touch-manipulation"
+                    onClick={() => setShowClosed((v) => !v)}
+                    aria-expanded={showClosed}
+                  >
+                    {showClosed ? 'Hide' : 'Show'} done / cancelled ({closedTicketCount})
+                  </button>
+                </div>
+
                 {showClosed ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                    <div className="benz-card p-3 space-y-2">
-                      <div className="text-xs font-semibold uppercase text-benz-secondary">Done</div>
-                      {(columns.done || []).map(ticketCard)}
-                    </div>
-                    <div className="benz-card p-3 space-y-2">
-                      <div className="text-xs font-semibold uppercase text-benz-secondary">
-                        Cancelled
-                      </div>
-                      {(columns.cancelled || []).map(ticketCard)}
-                    </div>
+                  <div className="flex flex-col gap-4">
+                    {statusSection('done', { muted: true })}
+                    {statusSection('cancelled', { muted: true })}
                   </div>
                 ) : null}
               </div>
@@ -348,12 +443,16 @@ export function MaintenanceDashboard({
           )}
         </>
       ) : mode === 'create' ? (
-        <div>
-          <button type="button" className="benz-nav-back" onClick={() => setMode('board')}>
+        <div className="max-w-xl">
+          <button
+            type="button"
+            className="benz-nav-back min-h-11"
+            onClick={() => setMode('board')}
+          >
             <ArrowLeft size={18} /> Back
           </button>
           <h2 className="benz-page-title mb-4">New maintenance ticket</h2>
-          <div className="space-y-3 max-w-xl">
+          <div className="space-y-3">
             <div>
               <label className="benz-label">Title *</label>
               <input
@@ -411,10 +510,10 @@ export function MaintenanceDashboard({
                 />
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
               <button
                 type="button"
-                className="primary-btn h-11 px-4"
+                className="primary-btn min-h-12 w-full sm:w-auto px-5"
                 disabled={busy}
                 onClick={() => void createTicket()}
               >
@@ -422,7 +521,7 @@ export function MaintenanceDashboard({
               </button>
               <button
                 type="button"
-                className="secondary-btn h-11 px-4"
+                className="secondary-btn min-h-12 w-full sm:w-auto px-5"
                 disabled={busy}
                 onClick={() => setMode('board')}
               >
@@ -432,8 +531,12 @@ export function MaintenanceDashboard({
           </div>
         </div>
       ) : selected ? (
-        <div>
-          <button type="button" className="benz-nav-back" onClick={() => setMode('board')}>
+        <div className="max-w-2xl">
+          <button
+            type="button"
+            className="benz-nav-back min-h-11"
+            onClick={() => setMode('board')}
+          >
             <ArrowLeft size={18} /> Back to board
           </button>
           <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -465,7 +568,7 @@ export function MaintenanceDashboard({
             )}
           </div>
 
-          <div className="space-y-3 max-w-2xl">
+          <div className="space-y-3">
             <div>
               <label className="benz-label">Title</label>
               <input
@@ -531,11 +634,11 @@ export function MaintenanceDashboard({
                 </div>
                 <button
                   type="button"
-                  className="secondary-btn h-9 px-3 text-xs"
+                  className="secondary-btn min-h-11 px-3 text-sm"
                   disabled={busy}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <ImagePlus size={14} className="inline mr-1" /> Add photos
+                  <ImagePlus size={16} className="inline mr-1" /> Add photos
                 </button>
                 <input
                   ref={fileInputRef}
@@ -600,7 +703,7 @@ export function MaintenanceDashboard({
 
             <button
               type="button"
-              className="primary-btn h-11 px-4"
+              className="primary-btn min-h-12 w-full sm:w-auto px-5"
               disabled={busy}
               onClick={() => void saveDetail()}
             >
