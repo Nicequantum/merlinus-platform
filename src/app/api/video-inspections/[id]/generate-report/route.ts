@@ -3,9 +3,8 @@ import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { getRlsDb } from '@/lib/apex/rlsContext';
 import { withAuth } from '@/lib/apiRoute';
 import { encryptSensitiveText, decryptSensitiveText } from '@/lib/encryption';
-import { apiError, NOT_FOUND_ERROR, reportMappedRouteError } from '@/lib/errors';
+import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { generateCustomerVideoReport } from '@/lib/grok';
-import { mapGrokRouteError } from '@/lib/grokErrors';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { parseFramePathnames, mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import {
@@ -17,13 +16,27 @@ import { fetchPrivateVideoAsBuffer } from '@/lib/videoBlob';
 import { CUSTOMER_VIDEO_REPORT_PROMPT_VERSION } from '@/prompts/customerVideoReport/version';
 import { parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
-import { bufferToVisionDataUrl } from '@/lib/visionImagePrep';
 import { logger } from '@/lib/logger';
+import { NextResponse } from 'next/server';
 
 const paramsSchema = z.object({ id: z.string().trim().min(1).max(64) });
 
 /** Sync with CUSTOMER_VIDEO_REPORT_ROUTE_MAX_DURATION_S in timeouts.ts */
 export const maxDuration = 130;
+
+/**
+ * Workers-safe data URL (no sharp). Sharp pulls process.report which unenv
+ * does not implement — static-importing visionImagePrep crashed this route
+ * with HTML 500 before the handler ran.
+ */
+function bufferToDataUrl(bytes: Buffer, contentType = 'image/jpeg'): string {
+  const type = contentType && contentType.includes('/') ? contentType : 'image/jpeg';
+  return `data:${type};base64,${bytes.toString('base64')}`;
+}
+
+function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
+  return NextResponse.json({ error: message, ...extra }, { status });
+}
 
 export async function POST(
   request: Request,
@@ -57,9 +70,12 @@ export async function POST(
         for (const path of framePaths.slice(0, 8)) {
           try {
             const buf = await fetchPrivateVideoAsBuffer(path);
-            frameDataUrls.push(await bufferToVisionDataUrl(buf, 'image/jpeg'));
+            // Keep frames small-ish for Grok vision (skip huge blobs)
+            if (buf.length > 0 && buf.length <= 2_500_000) {
+              frameDataUrls.push(bufferToDataUrl(buf, 'image/jpeg'));
+            }
           } catch {
-            // frames optional
+            // frames optional — missing R2 objects must not fail the report
           }
         }
 
@@ -151,26 +167,28 @@ export async function POST(
         };
       } catch (error) {
         // Always JSON — never OpenNext HTML 500 for this route
-        logger.error('video.report_generate_failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('video.report_generate_failed', { error: message });
         try {
-          const id = routeParams.data.id;
           await getRlsDb()
             .videoInspection.update({
-              where: { id },
+              where: { id: routeParams.data.id },
               data: {
                 status: 'failed',
-                errorMessage:
-                  error instanceof Error ? error.message.slice(0, 500) : 'Report generation failed',
+                errorMessage: message.slice(0, 500),
               },
             })
             .catch(() => undefined);
         } catch {
-          // ignore
+          // ignore secondary failures
         }
-        const mapped = mapGrokRouteError(error, 'Customer video report');
-        return reportMappedRouteError(mapped, error, 'video.report_generate');
+        return jsonError(
+          message.includes('GROK') || message.includes('Grok') || message.includes('xAI')
+            ? 'Customer video report could not be generated. Try again shortly.'
+            : 'Customer video report failed. Please try again.',
+          500,
+          { code: 'VIDEO_REPORT_FAILED' }
+        );
       }
     },
     {
