@@ -16,8 +16,6 @@ import { buildVideoInspectionSmsBody } from '@/lib/videoInspection/smsBody';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody, parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
 
-export { buildVideoInspectionSmsBody };
-
 const paramsSchema = z.object({ id: z.string().trim().min(1).max(64) });
 /** Phone only — share URLs are always server-minted (no client shareUrl). */
 const bodySchema = z.object({
