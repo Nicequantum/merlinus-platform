@@ -15,4 +15,11 @@ describe('public routes (Phase 4 PR-4)', () => {
     assert.equal(isMerlinPublicPath('/sign-in/factor-one'), true);
     assert.equal(isMerlinPublicPath('/api/repair-orders'), false);
   });
+
+  test('customer legal pages are public (Twilio / trust)', () => {
+    assert.ok(MERLIN_PUBLIC_ROUTE_PATTERNS.includes('/terms'));
+    assert.ok(MERLIN_PUBLIC_ROUTE_PATTERNS.includes('/privacy'));
+    assert.equal(isMerlinPublicPath('/terms'), true);
+    assert.equal(isMerlinPublicPath('/privacy'), true);
+  });
 });

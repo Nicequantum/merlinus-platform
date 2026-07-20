@@ -4,6 +4,8 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
   '/',
   '/sign-in(.*)',
   '/v(.*)',
+  '/terms',
+  '/privacy',
   '/manifest.json',
   '/manifest.webmanifest',
   '/api/auth/login',
@@ -21,6 +23,8 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
 const PUBLIC_PATHS = new Set([
   '/',
   '/sign-in',
+  '/terms',
+  '/privacy',
   '/manifest.json',
   '/manifest.webmanifest',
   '/api/auth/login',
