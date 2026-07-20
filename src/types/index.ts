@@ -158,7 +158,8 @@ export type AppView =
   | 'service'
   | 'maintenance'
   | 'loaner'
-  | 'voice';
+  | 'voice'
+  | 'hub';
 
 export type MaintenanceSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type MaintenanceTicketStatus =

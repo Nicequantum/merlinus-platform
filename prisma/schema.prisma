@@ -165,6 +165,9 @@ model Dealership {
   voiceAgentLines       VoiceAgentLine[]
   voiceCalls            VoiceCall[]
   voiceConversations    VoiceConversation[]
+  serviceAppointments   ServiceAppointment[]
+  conversationInsights  ConversationInsight[]
+  hubAuditEvents        HubAuditEvent[]
 
   @@index([dealerId])
 }
@@ -741,6 +744,91 @@ model VoiceTranscriptSegment {
   @@index([callId, createdAt])
   @@index([callId, tsMs])
   @@map("VoiceTranscriptSegment")
+}
+
+// ─── UNIFIED CALENDAR & CONVERSATION HUB ─────────────────────────────────────
+
+/**
+ * Service / sales appointment for the rooftop calendar.
+ * PII (customer name, phone, notes) encrypted at rest.
+ */
+model ServiceAppointment {
+  id                       String   @id @default(cuid())
+  dealershipId             String
+  dealership               Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  title                    String
+  /** service | sales | parts | loaner | other */
+  category                 String   @default("service")
+  /** scheduled | confirmed | completed | cancelled | no_show */
+  status                   String   @default("scheduled")
+  startsAt                 DateTime
+  endsAt                   DateTime?
+  customerNameEncrypted    String   @default("")
+  customerPhoneEncrypted   String   @default("")
+  customerPhoneLast4       String   @default("")
+  vehicleLabel             String?
+  vinLast8                 String?
+  notesEncrypted           String   @default("")
+  advisorName              String?
+  /** manual | voice_suggestion | hub | import */
+  source                   String   @default("manual")
+  voiceCallId              String?
+  departmentRequestId      String?
+  /** Opaque share token hash for customer portal (optional) */
+  shareTokenHash           String?  @unique
+  shareExpiresAt           DateTime?
+  createdByTechnicianId    String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([dealershipId, startsAt])
+  @@index([dealershipId, status, startsAt])
+  @@index([dealershipId, category])
+  @@index([voiceCallId])
+  @@map("ServiceAppointment")
+}
+
+/**
+ * AI-generated insight for a phone conversation (Sophia or human-linked call log).
+ */
+model ConversationInsight {
+  id                    String   @id @default(cuid())
+  dealershipId          String
+  dealership            Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  voiceCallId           String   @unique
+  summaryEncrypted      String   @default("")
+  /** JSON string array of key points */
+  keyPointsJson         String   @default("[]")
+  sentiment             String?
+  primaryIntent         String?
+  /** JSON: suggested appointment fields */
+  suggestedAppointmentJson String @default("{}")
+  outcome               String?
+  promptVersion         String   @default("hub-insight-v1")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([dealershipId, primaryIntent])
+  @@map("ConversationInsight")
+}
+
+/** Durable audit trail for hub mutations (appointments, shares, AI runs). */
+model HubAuditEvent {
+  id            String   @id @default(cuid())
+  dealershipId  String
+  dealership    Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** appointment | conversation | share | national */
+  entityType    String
+  entityId      String
+  action        String
+  technicianId  String?
+  metadataJson  String   @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([dealershipId, createdAt(sort: Desc)])
+  @@index([dealershipId, entityType, entityId])
+  @@map("HubAuditEvent")
 }
 
 /**

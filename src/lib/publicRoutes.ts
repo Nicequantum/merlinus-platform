@@ -6,6 +6,7 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
   '/v(.*)',
   '/terms',
   '/privacy',
+  '/portal(.*)',
   '/manifest.json',
   '/manifest.webmanifest',
   '/api/auth/login',
@@ -14,6 +15,7 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
   '/api/auth/clerk/link',
   '/api/webhooks/clerk',
   '/api/public/video(.*)',
+  '/api/public/hub(.*)',
   '/api/voice/inbound',
   '/api/voice/gather(.*)',
   '/api/voice/status',
@@ -38,7 +40,9 @@ export function isMerlinPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   if (pathname.startsWith('/sign-in/')) return true;
   if (pathname.startsWith('/v/') || pathname === '/v') return true;
+  if (pathname.startsWith('/portal/') || pathname === '/portal') return true;
   if (pathname.startsWith('/api/public/video/')) return true;
+  if (pathname.startsWith('/api/public/hub/')) return true;
   // PR-M5a — Twilio voice webhooks (signature-validated in handlers)
   if (
     pathname === '/api/voice/inbound' ||

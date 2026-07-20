@@ -1022,6 +1022,84 @@ export const api = {
       { cache: 'no-store' }
     ),
 
+  /** Unified Calendar & Conversation Hub */
+  getHubTimeline: (params?: { q?: string; from?: string; to?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.set('q', params.q);
+    if (params?.from) query.set('from', params.from);
+    if (params?.to) query.set('to', params.to);
+    if (params?.limit) query.set('limit', String(params.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return apiFetch<{
+      items: Array<Record<string, unknown>>;
+      appointmentCount: number;
+      callCount: number;
+      stats: {
+        upcomingAppointments7d: number;
+        openCalls: number;
+        insightsGenerated: number;
+      };
+      dealershipName?: string;
+    }>(`/api/hub/timeline${suffix}`, { cache: 'no-store' });
+  },
+
+  createHubAppointment: (body: {
+    title: string;
+    startsAt: string;
+    endsAt?: string | null;
+    category?: 'service' | 'sales' | 'parts' | 'loaner' | 'other';
+    status?: string;
+    customerName?: string;
+    customerPhone?: string;
+    vehicleLabel?: string | null;
+    notes?: string;
+    advisorName?: string | null;
+    source?: string;
+    voiceCallId?: string | null;
+  }) =>
+    apiFetch<{ appointment: Record<string, unknown> }>('/api/hub/appointments', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchHubAppointment: (
+    id: string,
+    body: Record<string, unknown> & { createShare?: boolean }
+  ) =>
+    apiFetch<{
+      appointment: Record<string, unknown>;
+      shareUrl?: string;
+      shareToken?: string;
+    }>(`/api/hub/appointments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  summarizeHubConversation: (callId: string) =>
+    apiFetch<{ insight: Record<string, unknown> }>(
+      `/api/hub/conversations/${callId}/summarize`,
+      { method: 'POST', timeoutMs: 60_000, maxRetries: 0 }
+    ),
+
+  getHubNationalOverview: () =>
+    apiFetch<{
+      totals: { appointments7d: number; calls7d: number; insights7d: number };
+      rooftops: Array<{
+        dealershipId: string;
+        dealershipName: string;
+        appointments7d: number;
+        calls7d: number;
+        insights7d: number;
+      }>;
+      windowDays: number;
+    }>('/api/hub/national', { cache: 'no-store' }),
+
+  getHubAudit: (limit?: number) =>
+    apiFetch<{ events: Array<Record<string, unknown>> }>(
+      `/api/hub/audit${limit ? `?limit=${limit}` : ''}`,
+      { cache: 'no-store' }
+    ),
+
   getUsageAnalytics: () => apiFetch<UsageAnalytics>('/api/admin/usage'),
 
   exportAuditLogsCsv: (params: {

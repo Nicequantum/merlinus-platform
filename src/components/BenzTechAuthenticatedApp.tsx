@@ -109,6 +109,11 @@ const VoiceOpsDashboard = dynamic(
   { loading: () => <LoadingScreen label="Loading voice ops" /> }
 );
 
+const HubDashboard = dynamic(
+  () => import('@/components/hub/HubDashboard').then((m) => m.HubDashboard),
+  { loading: () => <LoadingScreen label="Loading calendar hub" /> }
+);
+
 function runAction(label: string, action: () => void | Promise<void>): void {
   void Promise.resolve(action()).catch((error: unknown) => {
     clientLog.error('ui.action_failed', { label, error });
@@ -545,6 +550,17 @@ export function BenzTechAuthenticatedApp({
         </ViewErrorBoundary>
       )}
 
+      {ro.view === 'hub' && (
+        <ViewErrorBoundary viewName="the calendar hub">
+          <HubDashboard
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+            onBack={() => ro.setView('home')}
+          />
+        </ViewErrorBoundary>
+      )}
+
       {ro.view === 'home' && isManager && (
         <ViewErrorBoundary viewName="the manager dashboard">
           <ManagerDashboard
@@ -560,6 +576,7 @@ export function BenzTechAuthenticatedApp({
             onOpenMaintenance={() => ro.setView('maintenance')}
             onOpenLoaner={() => ro.setView('loaner')}
             onOpenVoice={() => ro.setView('voice')}
+            onOpenHub={() => ro.setView('hub')}
             onOpenSettings={goToSettings}
             onOpenAuditLogs={() => ro.setView('audit')}
             onOpenServiceAdvisors={() => ro.setView('advisors')}

@@ -19,6 +19,7 @@ import {
   Phone,
   Briefcase,
   Headset,
+  CalendarDays,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -53,6 +54,7 @@ interface ManagerDashboardProps {
   onOpenMaintenance?: () => void;
   onOpenLoaner?: () => void;
   onOpenVoice?: () => void;
+  onOpenHub?: () => void;
   pendingROImages: PendingImage[];
   onScanRO: () => void;
   onAddFromGallery: () => void;
@@ -106,6 +108,7 @@ export function ManagerDashboard({
   onOpenMaintenance,
   onOpenLoaner,
   onOpenVoice,
+  onOpenHub,
   pendingROImages,
   onScanRO,
   onAddFromGallery,
@@ -335,6 +338,15 @@ export function ManagerDashboard({
                     className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     <Phone size={14} /> Voice agent
+                  </button>
+                ) : null}
+                {onOpenHub ? (
+                  <button
+                    type="button"
+                    onClick={onOpenHub}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <CalendarDays size={14} /> Calendar hub
                   </button>
                 ) : null}
                 <button
