@@ -190,6 +190,76 @@ export const VOICE_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_dealership_info',
+      description:
+        'Return verified dealership hours, address, phone, directions, and department notes from context (never invent).',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: {
+            type: 'string',
+            enum: ['hours', 'address', 'directions', 'phone', 'departments', 'all'],
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'set_call_sentiment',
+      description: 'Record caller sentiment for call analytics.',
+      parameters: {
+        type: 'object',
+        properties: {
+          sentiment: {
+            type: 'string',
+            enum: ['neutral', 'positive', 'frustrated', 'urgent', 'confused'],
+          },
+          primaryIntent: { type: 'string' },
+        },
+        required: ['sentiment'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'log_call_summary',
+      description:
+        'Store a concise call summary (2-4 sentences) for managers: who called, need, outcome, next steps.',
+      parameters: {
+        type: 'object',
+        properties: {
+          summary: { type: 'string' },
+          primaryIntent: { type: 'string' },
+          outcomeHint: {
+            type: 'string',
+            enum: ['resolved_by_agent', 'staff_followup', 'transferred_human', 'abandoned'],
+          },
+        },
+        required: ['summary'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'transfer_to_human',
+      description:
+        'Warm transfer to a live dealership team member when configured. Use when the caller insists on a person or the issue is sensitive.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: { type: 'string' },
+          brief: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'end_call',
       description: 'End the phone call politely after the final spoken message.',
       parameters: {
@@ -211,6 +281,8 @@ export type ToolExecutionContext = {
   callId: string;
   state: ConversationState;
   activeAgent: VoiceAgentName;
+  /** Optional structured rooftop facts for get_dealership_info */
+  dealershipContext?: import('@/lib/voiceAgent/dealershipContext').DealershipContext;
 };
 
 export type ToolExecutionOutput = {
@@ -220,6 +292,8 @@ export type ToolExecutionOutput = {
   endCall: boolean;
   farewell?: string;
   transferredHuman?: boolean;
+  /** When transfer_to_human succeeds and a dial number exists */
+  dialHumanE164?: string;
 };
 
 function pushRoute(
@@ -358,6 +432,7 @@ export async function executeVoiceTool(
   let endCall = false;
   let farewell: string | undefined;
   let transferredHuman = false;
+  let dialHumanE164: string | undefined;
 
   const str = (key: string) =>
     typeof args[key] === 'string' ? (args[key] as string).trim() : '';
@@ -371,6 +446,7 @@ export async function executeVoiceTool(
       endCall,
       farewell,
       transferredHuman,
+      dialHumanE164,
       ...extra,
     };
   };
@@ -507,9 +583,115 @@ export async function executeVoiceTool(
     }
   }
 
+  if (name === 'get_dealership_info') {
+    const ctxInfo = ctx.dealershipContext;
+    if (!ctxInfo) {
+      return finish({
+        ok: true,
+        message: 'Dealership context limited',
+        data: { dealershipName: 'this dealership' },
+      });
+    }
+    const topic = str('topic') || 'all';
+    const data: Record<string, unknown> = {
+      dealershipName: ctxInfo.dealershipName,
+      brand: ctxInfo.brand,
+      phone: ctxInfo.mainPhoneE164,
+      phoneSpoken: ctxInfo.mainPhoneSpoken,
+      address: [ctxInfo.addressLine1, ctxInfo.addressLine2, ctxInfo.city, ctxInfo.state, ctxInfo.postalCode]
+        .filter(Boolean)
+        .join(', '),
+      directions: ctxInfo.directions,
+      hours: ctxInfo.hours,
+      departments: ctxInfo.departments,
+      website: ctxInfo.website,
+    };
+    if (topic === 'hours') {
+      return finish({ ok: true, message: 'Hours', data: { hours: ctxInfo.hours } });
+    }
+    if (topic === 'address' || topic === 'directions') {
+      return finish({
+        ok: true,
+        message: topic,
+        data: { address: data.address, directions: ctxInfo.directions },
+      });
+    }
+    if (topic === 'phone') {
+      return finish({
+        ok: true,
+        message: 'Phone',
+        data: { phone: ctxInfo.mainPhoneE164, phoneSpoken: ctxInfo.mainPhoneSpoken },
+      });
+    }
+    if (topic === 'departments') {
+      return finish({ ok: true, message: 'Departments', data: { departments: ctxInfo.departments } });
+    }
+    return finish({ ok: true, message: 'Dealership info', data });
+  }
+
+  if (name === 'set_call_sentiment') {
+    const sentiment = str('sentiment') || 'neutral';
+    state.slots.sentiment = sentiment;
+    ensureMetrics(state).sentiment = sentiment;
+    const intent = str('primaryIntent');
+    if (intent) {
+      state.slots.primaryIntent = intent;
+      ensureMetrics(state).primaryIntent = intent;
+    }
+    return finish({ ok: true, message: 'Sentiment recorded', data: { sentiment, intent } });
+  }
+
+  if (name === 'log_call_summary') {
+    const summary = str('summary');
+    if (summary) {
+      state.slots.callSummary = summary.slice(0, 2000);
+      ensureMetrics(state).callSummary = summary.slice(0, 2000);
+    }
+    const intent = str('primaryIntent');
+    if (intent) {
+      state.slots.primaryIntent = intent;
+      ensureMetrics(state).primaryIntent = intent;
+    }
+    const outcomeHint = str('outcomeHint');
+    if (outcomeHint) ensureMetrics(state).outcome = outcomeHint;
+    return finish({
+      ok: true,
+      message: 'Summary logged',
+      data: { summary: state.slots.callSummary },
+    });
+  }
+
+  if (name === 'transfer_to_human') {
+    const brief = str('brief');
+    if (brief) state.slots.handoffBrief = brief;
+    const reason = str('reason') || 'Caller requested a team member';
+    const transferNumber = ctx.dealershipContext?.humanTransferNumberE164?.trim();
+    if (ctx.dealershipContext?.humanTransferEnabled && transferNumber) {
+      transferredHuman = true;
+      dialHumanE164 = transferNumber;
+      ensureMetrics(state).outcome = 'transferred_human';
+      ensureMetrics(state).contained = false;
+      pushRoute(state, activeAgent, activeAgent, reason, brief || undefined);
+      return finish({
+        ok: true,
+        message: 'Warm transfer available',
+        data: { dial: transferNumber, reason, brief },
+      });
+    }
+    // No live dial configured — fall back guidance
+    return finish({
+      ok: false,
+      message:
+        'Live transfer number is not configured. Create a department request and promise a callback instead.',
+      data: { reason, brief },
+    });
+  }
+
   if (name === 'end_call') {
     endCall = true;
-    farewell = str('farewell') || 'Thank you for calling. Goodbye.';
+    farewell =
+      str('farewell') ||
+      `Thank you for calling${ctx.dealershipContext?.dealershipName ? ` ${ctx.dealershipContext.dealershipName}` : ''}. It was a pleasure assisting you. Goodbye.`;
     const outcome = str('outcome');
     if (outcome === 'transferred_human') transferredHuman = true;
     if (outcome) {

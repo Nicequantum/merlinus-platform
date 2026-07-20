@@ -19,7 +19,7 @@ describe('PR-M5b multi-agent voice expansion', () => {
     assert.equal(isVoiceAgentName('wizard'), false);
     assert.match(systemPromptForAgent('sales', 'Test MB'), /SALES/i);
     assert.match(systemPromptForAgent('service', 'Test MB'), /SERVICE/i);
-    assert.match(systemPromptForAgent('receptionist', 'Test MB'), /containment/i);
+    assert.match(systemPromptForAgent('receptionist', 'Test MB'), /receptionist|Sophia|containment/i);
   });
 
   test('handoffs and containment metrics finalize', () => {

@@ -30,6 +30,12 @@ export type ConversationSlots = {
   /** Brief for the next specialist after handoff */
   handoffBrief?: string;
   preferredDepartment?: string;
+  /** Call-level summary for ops dashboards */
+  callSummary?: string;
+  /** neutral | positive | frustrated | urgent | confused */
+  sentiment?: string;
+  /** Intent tags, e.g. service_appointment, hours, parts */
+  primaryIntent?: string;
 };
 
 export type HandoffEvent = {
@@ -53,6 +59,14 @@ export type CallMetrics = {
   outcome?: string;
   /** Agent resolved without needing human (heuristic) */
   contained?: boolean;
+  /** Last known sentiment for the call */
+  sentiment?: string;
+  /** Short operator-facing summary */
+  callSummary?: string;
+  /** Primary intent label */
+  primaryIntent?: string;
+  /** Agent persona name (Sophia) */
+  agentDisplayName?: string;
 };
 
 export type ConversationState = {

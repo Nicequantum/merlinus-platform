@@ -6,6 +6,10 @@ import {
   resolveVoiceLineByToNumber,
   withDealershipVoiceRls,
 } from '@/lib/voiceAgent/callLifecycle';
+import {
+  buildSophiaWelcome,
+  resolveDealershipContext,
+} from '@/lib/voiceAgent/dealershipContext';
 import { appendTranscriptSegment, buildOpeningGreeting } from '@/lib/voiceAgent/runtime';
 import {
   absoluteVoiceUrl,
@@ -19,7 +23,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 /**
- * PR-M5a — Twilio voice webhook: inbound call start.
+ * Twilio voice webhook: inbound call → Sophia receptionist greeting.
  * Configure the Twilio number Voice URL to POST here.
  */
 export async function POST(request: Request) {
@@ -27,7 +31,7 @@ export async function POST(request: Request) {
     const params = await parseTwilioForm(request);
     const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
     const signature = request.headers.get('x-twilio-signature');
-    const url = absoluteVoiceUrl('/api/voice/inbound');
+    const url = absoluteVoiceUrl('/api/voice/inbound', request);
 
     if (
       !validateTwilioSignature({
@@ -78,7 +82,18 @@ export async function POST(request: Request) {
       to,
     });
 
-    const greeting = await buildOpeningGreeting(line.dealershipName);
+    const ctx = resolveDealershipContext({
+      dealershipId: line.dealershipId,
+      dealershipName: line.dealershipName,
+      toE164: line.e164Number,
+    });
+    const greeting =
+      (await buildOpeningGreeting(line.dealershipName, {
+        dealershipId: line.dealershipId,
+        toE164: line.e164Number,
+        context: ctx,
+      })) || buildSophiaWelcome(ctx);
+
     if (call.isNew) {
       await withDealershipVoiceRls(line.dealershipId, async () => {
         await appendTranscriptSegment({
@@ -90,8 +105,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const actionUrl = absoluteVoiceUrl(`/api/voice/gather?callId=${encodeURIComponent(call.callId)}`);
-    const xml = twimlGather({ actionUrl, say: greeting });
+    const actionUrl = absoluteVoiceUrl(
+      `/api/voice/gather?callId=${encodeURIComponent(call.callId)}`,
+      request
+    );
+    const xml = twimlGather({
+      actionUrl,
+      say: greeting,
+      silencePrompt: `I am still here with ${ctx.dealershipName}. How may I help — service, parts, or sales?`,
+    });
     return new NextResponse(xml, {
       status: 200,
       headers: { 'Content-Type': 'text/xml' },

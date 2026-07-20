@@ -135,6 +135,8 @@ export async function loadCallContext(callId: string): Promise<{
   activeAgent: VoiceAgentName;
   state: ConversationState;
   status: string;
+  toE164: string;
+  fromLast4: string;
 } | null> {
   return withRlsBypass(async (tx) => {
     const call = await tx.voiceCall.findUnique({
@@ -151,6 +153,8 @@ export async function loadCallContext(callId: string): Promise<{
       activeAgent: normalizeAgentName(call.conversation.activeAgent),
       state: parseConversationState(call.conversation.stateJson),
       status: call.status,
+      toE164: call.toE164 || '',
+      fromLast4: call.fromLast4 || '',
     };
   });
 }

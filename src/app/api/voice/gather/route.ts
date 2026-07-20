@@ -4,10 +4,12 @@ import {
   loadCallContext,
   withDealershipVoiceRls,
 } from '@/lib/voiceAgent/callLifecycle';
+import { resolveDealershipContext } from '@/lib/voiceAgent/dealershipContext';
 import { processAgentTurn } from '@/lib/voiceAgent/runtime';
 import {
   absoluteVoiceUrl,
   parseTwilioForm,
+  twimlDialHuman,
   twimlGather,
   twimlSayHangup,
   validateTwilioSignature,
@@ -17,7 +19,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 /**
- * PR-M5a — Twilio <Gather> callback: caller speech → agent turn → TwiML.
+ * Twilio <Gather> callback: caller speech → Sophia agent turn → TwiML.
  */
 export async function POST(request: Request) {
   try {
@@ -26,8 +28,10 @@ export async function POST(request: Request) {
     const params = await parseTwilioForm(request);
     const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
     const signature = request.headers.get('x-twilio-signature');
-    // Twilio signs the full URL including query string as configured
-    const signedUrl = absoluteVoiceUrl(`/api/voice/gather?callId=${encodeURIComponent(callId)}`);
+    const signedUrl = absoluteVoiceUrl(
+      `/api/voice/gather?callId=${encodeURIComponent(callId)}`,
+      request
+    );
 
     if (
       !validateTwilioSignature({
@@ -64,16 +68,49 @@ export async function POST(request: Request) {
       params.UnstableSpeechResult?.trim() ||
       '';
 
+    // Empty result after silence recovery — gentle re-prompt instead of hanging up
+    if (!speechResult) {
+      const actionUrl = absoluteVoiceUrl(
+        `/api/voice/gather?callId=${encodeURIComponent(callId)}`,
+        request
+      );
+      return new NextResponse(
+        twimlGather({
+          actionUrl,
+          say: 'I did not quite catch that. Please tell me how I can help — for example, service, parts, or sales.',
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/xml' } }
+      );
+    }
+
+    const dealershipContext = resolveDealershipContext({
+      dealershipId: ctx.dealershipId,
+      dealershipName: ctx.dealershipName,
+      toE164: ctx.toE164,
+    });
+
     const turn = await withDealershipVoiceRls(ctx.dealershipId, async () =>
       processAgentTurn({
         dealershipId: ctx.dealershipId,
         dealershipName: ctx.dealershipName,
         callId,
-        callerUtterance: speechResult || '(silence)',
+        callerUtterance: speechResult,
         activeAgent: ctx.activeAgent,
         state: ctx.state,
+        toE164: ctx.toE164,
+        dealershipContext,
       })
     );
+
+    if (turn.dialHumanE164) {
+      return new NextResponse(
+        twimlDialHuman({
+          say: turn.speech,
+          dialE164: turn.dialHumanE164,
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/xml' } }
+      );
+    }
 
     if (turn.endCall) {
       return new NextResponse(twimlSayHangup(turn.speech), {
@@ -82,7 +119,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const actionUrl = absoluteVoiceUrl(`/api/voice/gather?callId=${encodeURIComponent(callId)}`);
+    const actionUrl = absoluteVoiceUrl(
+      `/api/voice/gather?callId=${encodeURIComponent(callId)}`,
+      request
+    );
     return new NextResponse(twimlGather({ actionUrl, say: turn.speech }), {
       status: 200,
       headers: { 'Content-Type': 'text/xml' },
@@ -93,7 +133,7 @@ export async function POST(request: Request) {
     });
     return new NextResponse(
       twimlSayHangup(
-        'I am having trouble processing that. Please try calling again or visit the dealership. Goodbye.'
+        'I am having a brief technical issue. Please try calling again, or visit the dealership and we will take excellent care of you. Goodbye.'
       ),
       { status: 200, headers: { 'Content-Type': 'text/xml' } }
     );
