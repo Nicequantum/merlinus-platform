@@ -41,6 +41,19 @@ Complete every section. A deployment is **blocked** until all **Critical** items
 | 2.3 | `DATA_ENCRYPTION_KEY` 64 hex chars, unique per deployment (legacy `ENCRYPTION_KEY` alias is dev-only) | ✅ | ☐ | | |
 | 2.4 | `SEARCH_HMAC_KEY` 64 hex, **different** from data encryption key | ✅ | ☐ | | |
 | 2.5 | Seed passwords rotated (`ADMIN_SEED_PASSWORD`, `TECH_SEED_PASSWORD`) | ✅ | ☐ | | |
+| 2.5a | **P0** `OWNER_SEED_PASSWORD*` **removed** from production Worker (no seed passwords without `ALLOW_OWNER_SEED_BOOTSTRAP`); `APEX_PLATFORM_OWNER_EMAILS` set; `/api/health` `ownerSeedSecrets` ok; `npm run check:seed-secrets` pass | ✅ | ☐ | | |
+| 2.5b | **P0-5** RLS tenant registry complete: `npm run check:rls-registry` pass; any new Prisma models registered in `src/lib/apex/rlsTenantRegistry.ts` (DIRECT / RELATION / PLATFORM) + unit test | ✅ | ☐ | | |
+| 2.5c | **P0-4** API default-deny: `npm run check:api-routes` pass; new routes use `withAuth` / `withPublicRoute` / `withStoryAiRoute` or documented bare allowlist | ✅ | ☐ | | |
+| 2.5d | **P0-3** Manager `/api/health` GREEN for critical deps (`database`, `kv`, `ownerSeedSecrets`); module-aware Twilio when `voice_agent` on; SMS config if `SMS_ENABLED` | ✅ | ☐ | | |
+| 2.5e | **P1-4** Provisioned rooftops start with product modules **off** (enable per contract); demo seed may still enable pilot SKUs | ✅ | ☐ | | |
+| 2.5f | **P1-3** If `MERLIN_MFA_ENFORCE=true`, managers/owners must enroll TOTP (`/api/auth/mfa/*`) before PII routes | ☐ | ☐ | | |
+| 2.5g | **P1-1** Long hub summarize can use `{ "async": true }` + poll `/api/ai-jobs/:id` (AiJob table migrated) | ☐ | ☐ | | |
+| 2.5h | **P1-2** Post-login + bay keep-alive warmup active (`/api/session/warmup`) | ☐ | ☐ | | |
+| 2.5i | **P1-5** Dual-key rotation: `DATA_ENCRYPTION_KEY_PREVIOUS` only during key change; removed after reencrypt | ☐ | ☐ | | |
+| 2.5j | **P1-6** CSRF double-submit active in production (`merlin_csrf` + `X-Merlin-CSRF`) | ☐ | ☐ | | |
+| 2.5k | **P1-7** Rooftop smoke integration passes (`tests/integration/rooftop-smoke.test.ts`) | ☐ | ☐ | | |
+| 2.5l | **P2** Rollout uses [Rollout-Runbook.md](./Rollout-Runbook.md); README has no inflated audit scores; CF `KV_STORE` + observability sampling 0.1; manager passwords meet complexity policy | ☐ | ☐ | | |
+| 2.5m | **P3** Isolation stance documented ([Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md)); CDK deferred ([CDK-Sync-Deferred.md](./CDK-Sync-Deferred.md)); Gather is prod voice; recovery only if `MERLIN_PASSWORD_RECOVERY_ENABLED` | ☐ | ☐ | | |
 | 2.6 | Manager can view `/api/auth/security-status` — no default passwords | ✅ | ☐ | | |
 | 2.7 | Audit chain verified on sample dealership | ✅ | ☐ | | |
 | 2.8 | Customer Pay templates bypass Grok — audit uses `customerPayTemplateApplied` | ✅ | ☐ | | |

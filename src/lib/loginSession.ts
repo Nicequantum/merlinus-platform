@@ -80,9 +80,14 @@ export async function loginWithCredentials(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
   try {
+    const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+    const csrf = readCsrfTokenFromDocument();
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+      },
       credentials: 'include',
       body: JSON.stringify({ d7Number, password }),
       signal: controller.signal,
@@ -98,6 +103,10 @@ export async function loginWithCredentials(
     if (!data.session) {
       throw new Error('Login succeeded but no session was returned');
     }
+    // P1-2: warm Worker isolate + D1 so first post-login click is not the cold path
+    void import('@/lib/clientFetchRetry')
+      .then(({ warmSessionIsolate }) => warmSessionIsolate())
+      .catch(() => undefined);
     return data.session;
   } catch (error: unknown) {
     if (

@@ -6,6 +6,7 @@ import { upsertTechnicianDealershipMembership } from '@/lib/apex/membershipGuard
 import { internalEmailForD7, normalizeD7Number } from './d7Number';
 import { prisma } from './db';
 import { seedTemplateLibraryIfEmpty } from './templateLibrary';
+import { DEMO_SEED_MODULE_IDS } from '@/lib/modules/catalog';
 import { ensureAllDealershipModuleDefaults } from '@/lib/modules/entitlements';
 
 /** Canonical seed credentials — login works immediately after db:seed or deploy auto-seed. */
@@ -224,7 +225,11 @@ export async function runDatabaseSeed(): Promise<SeedResult> {
 
   // PR polish — enable product modules on seed rooftops (skip rows managers already set).
   // cdk_sync stays off until credentials exist. core_story is never a module row.
-  const modules = await ensureAllDealershipModuleDefaults({ db: prisma });
+  // P1-4: local/demo seed enables pilot SKUs; franchise provision stays opt-in.
+  const modules = await ensureAllDealershipModuleDefaults({
+    db: prisma,
+    enableIds: DEMO_SEED_MODULE_IDS,
+  });
 
   return {
     managerD7,

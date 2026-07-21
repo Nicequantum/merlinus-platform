@@ -96,11 +96,18 @@ export function isProductModuleId(value: string): value is ProductModuleId {
 }
 
 /**
- * Modules enabled by default for seed / newly provisioned rooftops.
- * Does not include cdk_sync (requires external CDK credentials — PR-M7).
+ * P1-4 — Commercial provision defaults: **no paid SKUs on by default**.
+ * Franchise rooftops enable modules via Manager Dashboard or contract-driven enableIds.
  * core_story is never listed (always-on, not a product module).
+ * cdk_sync stays deferred (requires external credentials).
  */
-export const SEED_ENABLED_MODULE_IDS: readonly ProductModuleId[] = [
+export const PROVISION_DEFAULT_MODULE_IDS: readonly ProductModuleId[] = [] as const;
+
+/**
+ * Local/demo seed only — full pilot surface for staging tablets and CI integration.
+ * Prefer DEMO_SEED_MODULE_IDS in seedDatabase; never use for franchise provision.
+ */
+export const DEMO_SEED_MODULE_IDS: readonly ProductModuleId[] = [
   'video_mpi',
   'maintenance',
   'voice_agent',
@@ -110,6 +117,12 @@ export const SEED_ENABLED_MODULE_IDS: readonly ProductModuleId[] = [
   'sales',
   'service',
 ] as const;
+
+/**
+ * @deprecated Prefer PROVISION_DEFAULT_MODULE_IDS (commercial) or DEMO_SEED_MODULE_IDS (local).
+ * Kept as alias of provision defaults so ensureDealershipModuleDefaults stays fail-closed.
+ */
+export const SEED_ENABLED_MODULE_IDS: readonly ProductModuleId[] = PROVISION_DEFAULT_MODULE_IDS;
 
 /**
  * Env break-glass aliases (optional) — maps business names to ProductModuleId.

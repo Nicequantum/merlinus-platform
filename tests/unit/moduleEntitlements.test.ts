@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import {
   DEFERRED_MODULE_IDS,
+  DEMO_SEED_MODULE_IDS,
   MODULE_CATALOG,
   PRODUCT_MODULE_IDS,
+  PROVISION_DEFAULT_MODULE_IDS,
   SEED_ENABLED_MODULE_IDS,
   isProductModuleId,
   parseForcedModules,
@@ -93,7 +95,9 @@ describe('PR-M0 product module entitlements', () => {
     assert.ok(route.includes("action: 'module.set'"));
   });
 
-  test('seed defaults enable shippable modules and leave cdk_sync deferred', () => {
+  test('P1-4 provision defaults are empty; demo seed enables shippable modules', () => {
+    assert.equal(PROVISION_DEFAULT_MODULE_IDS.length, 0);
+    assert.equal(SEED_ENABLED_MODULE_IDS.length, 0);
     for (const id of [
       'video_mpi',
       'maintenance',
@@ -104,11 +108,11 @@ describe('PR-M0 product module entitlements', () => {
       'sales',
       'service',
     ] as const) {
-      assert.ok(SEED_ENABLED_MODULE_IDS.includes(id), id);
+      assert.ok(DEMO_SEED_MODULE_IDS.includes(id), id);
     }
     assert.ok(!SEED_ENABLED_MODULE_IDS.includes('cdk_sync'));
     assert.ok(DEFERRED_MODULE_IDS.includes('cdk_sync'));
-    assert.ok(!SEED_ENABLED_MODULE_IDS.includes('core_story' as never));
+    assert.ok(!DEMO_SEED_MODULE_IDS.includes('cdk_sync'));
   });
 
   test('catalog includes calendar_hub and voice_agent product modules', () => {
@@ -141,6 +145,7 @@ describe('PR-M0 product module entitlements', () => {
   test('seed and provision wire module defaults; manager UI can toggle', () => {
     const seed = readFileSync(resolve(process.cwd(), 'src/lib/seedDatabase.ts'), 'utf8');
     assert.ok(seed.includes('ensureAllDealershipModuleDefaults'));
+    assert.ok(seed.includes('DEMO_SEED_MODULE_IDS'));
 
     const provision = readFileSync(resolve(process.cwd(), 'src/lib/apex/provisionDealer.ts'), 'utf8');
     assert.ok(provision.includes('ensureDealershipModuleDefaults'));

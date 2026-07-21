@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConsentModal } from '@/components/ConsentModal';
+import { ForcedMfaEnrollScreen } from '@/components/ForcedMfaEnrollScreen';
 import { ForcedPasswordChangeScreen } from '@/components/ForcedPasswordChangeScreen';
 import { LegalDisclaimerModal } from '@/components/LegalDisclaimerModal';
 import { LoginView } from '@/components/LoginView';
@@ -20,7 +21,12 @@ import {
 } from '@/lib/authClient';
 import { isClerkSignInAvailable, shouldUseClerkOnlyLogin } from '@/lib/authModeClient';
 import { clientLog } from '@/lib/clientLog';
-import { needsConsent, needsLegalDisclaimer, needsPasswordChange } from '@/lib/complianceSession';
+import {
+  needsConsent,
+  needsLegalDisclaimer,
+  needsMfaEnrollment,
+  needsPasswordChange,
+} from '@/lib/complianceSession';
 import { cacheLegalDisclaimerLocally } from '@/lib/legalDisclaimer';
 import type { TechnicianSession } from '@/types';
 
@@ -194,6 +200,24 @@ export function BenzTechApp() {
         rooftopName={session.dealershipName}
         onCompleted={async () => {
           await logout();
+        }}
+        onLogout={logout}
+      />
+    );
+  }
+
+  if (needsMfaEnrollment(session)) {
+    return (
+      <ForcedMfaEnrollScreen
+        userName={session.name}
+        onCompleted={async () => {
+          const probed = await probeCurrentSession({ timeoutMs: 12_000 });
+          if (probed.status === 'ok') {
+            applySession(probed.session);
+          } else {
+            toast.error('MFA saved — please sign in again');
+            await logout();
+          }
         }}
         onLogout={logout}
       />

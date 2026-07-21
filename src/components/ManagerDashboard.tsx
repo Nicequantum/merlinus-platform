@@ -215,7 +215,7 @@ export function ManagerDashboard({
 
   const moduleDeferredHint = (moduleId: string) => {
     if (moduleId === 'cdk_sync') {
-      return 'Requires CDK API credentials (not configured yet).';
+      return 'Live CDK Global API sync is deferred (credentials + legal + connector). Clipboard Copy for CDK still works without this module.';
     }
     return null;
   };

@@ -5,25 +5,25 @@ import { randomUUID } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { NextResponse } from 'next/server';
+import { buildMfaSessionFlags } from '@/lib/mfa/policy';
 import { normalizeD7Number } from './d7Number';
 import { parseSessionPayloadClaims } from './sessionClaims';
 import { isTechnicianAccountActive } from './technicianAccounts';
 import { logger } from './logger';
 
 /**
- * H-1 — Enterprise identity (Phase 1 accepted risk)
+ * H-1 — Enterprise identity
  *
- * Merlin Phase 1 uses D7 number + password authentication only.
- * SSO (SAML/OIDC) and MFA are NOT implemented in this module.
+ * Merlin uses D7 number + password (or Apex email/username) authentication.
+ * P1-3: optional TOTP MFA when MERLIN_MFA_ENFORCE=true (manager/owner/admin).
+ * SSO (SAML/OIDC) remains roadmap.
  *
- * Accepted for initial dealership pilot deployment with compensating controls:
+ * Compensating controls:
  * - bcrypt password hashing (cost 12), sessionVersion revocation, 8-hour httpOnly cookies
  * - Manager-provisioned accounts and password reset via Settings
  * - Rate-limited login endpoint
  *
- * Planned Phase 2: corporate SSO (e.g. Entra ID) and MFA — track in enterprise roadmap.
- *
- * See also: src/lib/encryption.ts (L4 key rotation accepted risk) and docs/Reencryption-Runbook.md.
+ * See also: src/lib/encryption.ts (L4 key rotation) and docs/Reencryption-Runbook.md.
  */
 
 export const SESSION_COOKIE = 'benz_tech_session';
@@ -59,6 +59,11 @@ export interface SessionPayload {
   dealerGroupName?: string;
   /** Provisioned / reset accounts must change password before PII routes. */
   mustChangePassword?: boolean;
+  /** P1-3 — TOTP enrolled for this account. */
+  mfaEnabled?: boolean;
+  mfaEnrolled?: boolean;
+  /** True when MERLIN_MFA_ENFORCE requires enrollment for this role. */
+  mfaRequired?: boolean;
   /**
    * Phase 7.3 (H7) — IANA timezone for the active rooftop (usage caps + "today" RO lists).
    * Absent on national/group owner home; set in dealership scope.
@@ -102,6 +107,8 @@ export type TechnicianForSession = {
   legalDisclaimerVersion: string | null;
   mustChangePassword?: boolean;
   preferredLanguage?: string | null;
+  mfaEnabled?: boolean | null;
+  mfaEnrolledAt?: Date | null;
   dealership: { name: string; dealerId?: string | null; timezone?: string | null };
 };
 
@@ -112,6 +119,15 @@ export function buildSessionPayloadFromTechnician(tech: TechnicianForSession): S
     typeof tech.preferredLanguage === 'string' && tech.preferredLanguage.trim()
       ? tech.preferredLanguage.trim()
       : 'en';
+  const mfaFlags = buildMfaSessionFlags({
+    role: tech.role,
+    isAdmin: tech.isAdmin,
+    mfaEnabled: tech.mfaEnabled,
+    mfaEnrolledAt: tech.mfaEnrolledAt,
+  });
+  const mfaEnabled = mfaFlags.mfaEnabled;
+  const mfaEnrolled = mfaFlags.mfaEnrolled;
+  const mfaRequired = mfaFlags.mfaRequired;
   return {
     technicianId: tech.id,
     d7Number: tech.d7Number,
@@ -128,6 +144,9 @@ export function buildSessionPayloadFromTechnician(tech: TechnicianForSession): S
     legalDisclaimerVersion: tech.legalDisclaimerVersion ?? null,
     sessionVersion: tech.sessionVersion,
     mustChangePassword: Boolean(tech.mustChangePassword),
+    mfaEnabled,
+    mfaEnrolled,
+    mfaRequired,
     dealershipTimezone: timezone,
     preferredLanguage,
   };

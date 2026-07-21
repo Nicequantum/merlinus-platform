@@ -11,6 +11,11 @@ import {
   APEX_TEST_PLATFORM_ROOFTOP_NAME,
   APEX_TEST_PLATFORM_TEMPLATE_ID,
 } from '../../src/lib/apex/seedOwnerAccounts';
+import {
+  clearOwnerSeedSecretsFromProcessEnv,
+  evaluateOwnerSeedSecretPolicy,
+  shouldRunOwnerSeedOnStartup,
+} from '../../src/lib/apex/ownerSeedSecurity';
 
 const root = resolve(process.cwd());
 
@@ -146,5 +151,73 @@ describe('Apex owner seed (Phase 5.10 / Phase 6.1 security)', () => {
     assert.equal(APEX_TEST_PLATFORM_TEMPLATE_ID, 'mercedes-rooftop-v1');
     assert.equal(APEX_GENERIC_TEST_ROOFTOP_NAME, 'Apex Generic Test');
     assert.equal(APEX_GENERIC_TEST_TEMPLATE_ID, 'generic-rooftop-v1');
+  });
+
+  test('P0: production owner seed passwords without bootstrap are a policy violation', () => {
+    const env = {
+      NODE_ENV: 'production',
+      OWNER_SEED_PASSWORD: 'still-here-after-bootstrap',
+    } as NodeJS.ProcessEnv;
+    const policy = evaluateOwnerSeedSecretPolicy(env);
+    assert.equal(policy.ok, false);
+    assert.equal(policy.violation, true);
+    assert.deepEqual(policy.presentPasswordKeys, ['OWNER_SEED_PASSWORD']);
+    assert.equal(shouldRunOwnerSeedOnStartup(env), false);
+  });
+
+  test('P0: production one-shot ALLOW_OWNER_SEED_BOOTSTRAP allows seed passwords', () => {
+    const env = {
+      NODE_ENV: 'production',
+      OWNER_SEED_PASSWORD: 'one-shot-bootstrap',
+      ALLOW_OWNER_SEED_BOOTSTRAP: '1',
+    } as NodeJS.ProcessEnv;
+    const policy = evaluateOwnerSeedSecretPolicy(env);
+    assert.equal(policy.ok, true);
+    assert.equal(policy.violation, false);
+    assert.equal(policy.bootstrapAllowed, true);
+    assert.equal(shouldRunOwnerSeedOnStartup(env), true);
+  });
+
+  test('P0: production with no seed passwords is ok and skips startup seed', () => {
+    const env = { NODE_ENV: 'production' } as NodeJS.ProcessEnv;
+    const policy = evaluateOwnerSeedSecretPolicy(env);
+    assert.equal(policy.ok, true);
+    assert.equal(policy.violation, false);
+    assert.equal(shouldRunOwnerSeedOnStartup(env), false);
+  });
+
+  test('P0: clearOwnerSeedSecretsFromProcessEnv removes password slots', () => {
+    const env = {
+      OWNER_SEED_PASSWORD: 'temp',
+      OWNER_SEED_EMAIL: 'owner@example.com',
+      ALLOW_OWNER_SEED_BOOTSTRAP: '1',
+      KEEP_ME: 'yes',
+    } as NodeJS.ProcessEnv;
+    const cleared = clearOwnerSeedSecretsFromProcessEnv(env);
+    assert.ok(cleared.includes('OWNER_SEED_PASSWORD'));
+    assert.ok(cleared.includes('OWNER_SEED_EMAIL'));
+    assert.ok(cleared.includes('ALLOW_OWNER_SEED_BOOTSTRAP'));
+    assert.equal(env.OWNER_SEED_PASSWORD, undefined);
+    assert.equal(env.KEEP_ME, 'yes');
+  });
+
+  it('P0: instrumentation skips production seed without bootstrap flag', () => {
+    const src = readSrc('src/instrumentation.ts');
+    assert.match(src, /shouldRunOwnerSeedOnStartup/);
+    assert.match(src, /evaluateOwnerSeedSecretPolicy/);
+    assert.match(src, /owner_seed_secrets_forbidden/);
+  });
+
+  it('P0: health treats ownerSeedSecrets as critical in production', () => {
+    const src = readSrc('src/lib/healthChecks.ts');
+    assert.match(src, /checkOwnerSeedSecrets/);
+    assert.match(src, /ownerSeedSecrets/);
+    assert.match(src, /getCriticalHealthServices/);
+  });
+
+  it('P0: gitignore blocks owner seed local env files', () => {
+    const gi = readSrc('.gitignore');
+    assert.match(gi, /\.owner-seed\*\.env/);
+    assert.match(gi, /\*seed\*\.local\.env/);
   });
 });

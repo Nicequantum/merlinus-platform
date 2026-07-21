@@ -23,6 +23,8 @@ import type {
   ExtractedData,
   UsageAnalytics,
 } from '@/types';
+import { parseApiErrorResponse, readJsonBodySafe } from '@/lib/apiResponseParse';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,
@@ -33,6 +35,16 @@ import {
   sleep,
 } from '@/lib/networkErrors';
 import { isRequestAborted } from '@/lib/requestAbort';
+
+/** Attach CSRF double-submit header when cookie is present (P1-6). */
+function withCsrfHeaders(headers?: HeadersInit): HeadersInit {
+  const csrf = readCsrfTokenFromDocument();
+  if (!csrf) return headers || {};
+  return {
+    ...headers,
+    [CSRF_HEADER]: csrf,
+  };
+}
 import {
   API_DEFAULT_CLIENT_MS,
   DIAGNOSTIC_EXTRACT_CLIENT_MS,
@@ -145,10 +157,10 @@ async function apiFetch<T>(
     path,
     {
       ...fetchOptions,
-      headers: {
+      headers: withCsrfHeaders({
         'Content-Type': 'application/json',
         ...fetchOptions.headers,
-      },
+      }),
       credentials: 'include',
     },
     timeoutMs,
@@ -156,12 +168,11 @@ async function apiFetch<T>(
     maxRetries
   );
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(body.error || 'Request failed. Please try again.', res.status);
+  const parsed = await readJsonBodySafe<T>(res);
+  if (!parsed.ok) {
+    throw new ApiError(parsed.error.message, res.status);
   }
-
-  return res.json();
+  return parsed.data;
 }
 
 async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number): Promise<T> {
@@ -171,16 +182,21 @@ async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number
       method: 'POST',
       body: formData,
       credentials: 'include',
+      headers: withCsrfHeaders(),
     },
     timeoutMs
   );
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(body.error || 'Upload failed. Please try again.', res.status);
+    const err = await parseApiErrorResponse(res, 'Upload failed. Please try again.');
+    throw new ApiError(err.message, res.status);
   }
 
-  return res.json();
+  const parsed = await readJsonBodySafe<T>(res);
+  if (!parsed.ok) {
+    throw new ApiError(parsed.error.message, res.status);
+  }
+  return parsed.data;
 }
 
 export const api = {

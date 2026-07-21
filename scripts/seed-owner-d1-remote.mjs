@@ -1,8 +1,15 @@
 /**
  * One-shot: seed national owner into remote D1 (Cloudflare).
- * Reads OWNER_SEED_* from .owner-seed.local.env or process.env.
+ * Reads OWNER_SEED_* from .owner-seed.local.env (gitignored) or process.env.
  *
  * Usage: node scripts/seed-owner-d1-remote.mjs
+ *
+ * P0 AFTER SUCCESS:
+ *   1. Delete .owner-seed.local.env from disk (do not commit)
+ *   2. Ensure Worker has NO OWNER_SEED_PASSWORD* secrets:
+ *        npx wrangler secret delete OWNER_SEED_PASSWORD
+ *   3. Set APEX_PLATFORM_OWNER_EMAILS for ongoing national operators
+ *   4. Confirm manager /api/health ownerSeedSecrets is ok
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';

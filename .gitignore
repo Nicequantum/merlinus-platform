@@ -32,6 +32,12 @@ prisma/dev.db-journal
 .env.local
 tsconfig.tsbuildinfo
 
+# Owner / bootstrap seed secrets (never commit — P0)
+.owner-seed*.env
+*.owner-seed*.local.env
+*seed*.local.env
+.owner-seed.local.env
+
 .wrangler
 .open-next
 

@@ -152,6 +152,24 @@ describe('enterprise health checks', () => {
       503
     );
 
+    // P0: owner seed password secrets remaining on production Worker → 503
+    assert.equal(
+      aggregateAuthenticatedHealthStatus({
+        database: { status: 'ok' },
+        kv: { status: 'ok' },
+        ownerSeedSecrets: { status: 'error' },
+      }),
+      'error'
+    );
+    assert.equal(
+      resolveAuthenticatedHealthHttpStatus({
+        database: { status: 'ok' },
+        kv: { status: 'ok' },
+        ownerSeedSecrets: { status: 'error' },
+      }),
+      503
+    );
+
     process.env.NODE_ENV = originalNodeEnv;
     if (originalVercelEnv === undefined) {
       delete process.env.VERCEL_ENV;
@@ -185,6 +203,11 @@ describe('enterprise health checks', () => {
     assert.ok(route.includes('buildHealthServicesPayload'));
     assert.ok(route.includes('logUnhealthyServices'));
     assert.ok(route.includes('resolveAuthenticatedHealthHttpStatus'));
+    assert.ok(route.includes('resolveModuleHealthSummary'));
+    assert.ok(route.includes('modulesEnabled'));
+    assert.ok(checks.includes('checkTwilioVoiceConfig'));
+    assert.ok(checks.includes('checkTwilioSmsConfig'));
+    assert.ok(checks.includes('objectStorage'));
     assert.ok(checks.includes('checkGrokApiConnectivity'));
     assert.ok(checks.includes('checkDatabase'));
     assert.ok(checks.includes('checkKvStore'));

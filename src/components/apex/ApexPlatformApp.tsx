@@ -8,6 +8,7 @@ import { ApexLoginShell, type ApexLoginShellResult } from '@/components/apex/Ape
 import { ApexOwnerDealershipWorkspace } from '@/components/apex/ApexOwnerDealershipWorkspace';
 import { ApexOwnerNationalShell } from '@/components/apex/ApexOwnerNationalShell';
 import { ConsentModal } from '@/components/ConsentModal';
+import { ForcedMfaEnrollScreen } from '@/components/ForcedMfaEnrollScreen';
 import { ForcedPasswordChangeScreen } from '@/components/ForcedPasswordChangeScreen';
 import { LegalDisclaimerModal } from '@/components/LegalDisclaimerModal';
 import {
@@ -15,7 +16,12 @@ import {
   selectDealershipSession,
 } from '@/lib/apexLoginSession';
 import { clientLog } from '@/lib/clientLog';
-import { needsConsent, needsLegalDisclaimer, needsPasswordChange } from '@/lib/complianceSession';
+import {
+  needsConsent,
+  needsLegalDisclaimer,
+  needsMfaEnrollment,
+  needsPasswordChange,
+} from '@/lib/complianceSession';
 import {
   acceptConsentSession,
   acceptLegalDisclaimerSession,
@@ -217,6 +223,23 @@ export function ApexPlatformApp() {
         rooftopName={session.dealershipName}
         onCompleted={async () => {
           await logout();
+        }}
+        onLogout={logout}
+      />
+    );
+  }
+
+  if (needsMfaEnrollment(session)) {
+    return (
+      <ForcedMfaEnrollScreen
+        userName={session.name}
+        onCompleted={async () => {
+          const probed = await probeCurrentSession({ timeoutMs: 12_000 });
+          if (probed.status === 'ok') {
+            applySession(probed.session);
+          } else {
+            await logout();
+          }
         }}
         onLogout={logout}
       />

@@ -369,6 +369,8 @@ function technicianForSessionFromDealership(
     legalDisclaimerVersion: tech.legalDisclaimerVersion,
     mustChangePassword: tech.mustChangePassword,
     preferredLanguage: tech.preferredLanguage,
+    mfaEnabled: tech.mfaEnabled,
+    mfaEnrolledAt: tech.mfaEnrolledAt,
     dealership: { name: dealership.name, dealerId: dealership.dealerId },
   };
 }

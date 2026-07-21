@@ -1,6 +1,7 @@
 import type { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiError, VALIDATION_ERROR } from './errors';
+import { passwordPolicyIssue } from './passwordPolicy';
 import { DEFAULT_JSON_BODY_LIMIT_BYTES, readBoundedJsonBody } from './requestBody';
 import { d7NumberField } from './d7Number';
 import {
@@ -271,6 +272,16 @@ export const createUserSchema = z
     newAdvisorCode: safeTextOptional(16),
   })
   .superRefine((data, ctx) => {
+    // P2-5 — elevated roles need stronger passwords
+    const issue = passwordPolicyIssue(data.password, { role: data.role });
+    if (issue) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: issue,
+        path: ['password'],
+      });
+    }
+
     if (data.role !== 'service_advisor') return;
 
     const mode = resolveServiceAdvisorLinkMode(data);
@@ -321,14 +332,55 @@ export const storyEditSchema = z.object({
   warrantyStory: safeText(STORY_TEXT_MAX_CHARS),
 });
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1).max(128),
-  newPassword: z.string().min(8).max(128),
-});
+/**
+ * Base password change schema (min 8).
+ * Routes should additionally apply passwordPolicyIssue with the session role
+ * (managers/owners need complexity — P2-5).
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(128),
+    newPassword: z.string().min(8).max(128),
+  })
+  .superRefine((data, ctx) => {
+    // Role unknown at parse time — apply baseline common-password block only.
+    // Handlers call assertPasswordMeetsPolicy(role) for elevated rules.
+    const issue = passwordPolicyIssue(data.newPassword, { elevated: false, minLength: 8 });
+    if (issue) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: issue,
+        path: ['newPassword'],
+      });
+    }
+  });
 
-export const resetPasswordSchema = z.object({
-  newPassword: z.string().min(8).max(128),
-});
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z.string().min(8).max(128),
+  })
+  .superRefine((data, ctx) => {
+    // Admin resets often target managers — enforce elevated complexity by default.
+    const issue = passwordPolicyIssue(data.newPassword, { elevated: true });
+    if (issue) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: issue,
+        path: ['newPassword'],
+      });
+    }
+  });
+
+/** Call from change-password route with session.role / isAdmin. */
+export function assertPasswordMeetsPolicy(
+  password: string,
+  options: { role?: string | null; isAdmin?: boolean }
+): string | null {
+  return passwordPolicyIssue(password, {
+    role: options.role,
+    elevated: Boolean(options.isAdmin) || undefined,
+  });
+}
 
 /**
  * Owner national HTTP provision body.

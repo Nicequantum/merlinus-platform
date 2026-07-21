@@ -47,13 +47,30 @@ npm run db:reencrypt
 
 Restore the pre-migration database backup. Do not change encryption keys without a planned rotation.
 
-## Key rotation (L4)
+## Key rotation (L4 / P1-5 dual-key)
 
-Rotating `DATA_ENCRYPTION_KEY` or `SEARCH_HMAC_KEY` requires decrypting every row with the **old** key and re-encrypting with the **new** key. `npm run db:reencrypt` covers **plaintext-to-encrypted** backfill only — run it first so no legacy plaintext remains before a rotation event.
+Rotating `DATA_ENCRYPTION_KEY` uses an **online dual-key window** so the app can decrypt old and new ciphertext during migration.
 
-1. **Maintenance window** — set `MERLIN_MAINTENANCE_MODE=true` so technicians cannot trigger new writes.
+### Dual-key encrypt/decrypt (runtime)
+
+| Env | Role |
+|-----|------|
+| `DATA_ENCRYPTION_KEY` | **Current** — all new encrypts |
+| `DATA_ENCRYPTION_KEY_PREVIOUS` | **Previous** — decrypt only during rotation (min 32 chars) |
+| `ENCRYPTION_SALT` | Optional explicit salt (otherwise derived from current key) |
+
+Decrypt order: current key → previous key → legacy scrypt salt variants.
+
+### Procedure
+
+1. **Maintenance window** — set `MERLIN_MAINTENANCE_MODE=true` so technicians cannot trigger heavy writes.
 2. **Backup** — full database snapshot before any key change.
-3. **Plaintext sweep** — `npm run db:reencrypt` with the current keys (expect `updated: 0` on second run).
-4. **Dual-key pass** — coordinate with platform maintainer for a one-time rotation script that reads ciphertext with the retired key and writes with the new `DATA_ENCRYPTION_KEY` / `SEARCH_HMAC_KEY`. When `SEARCH_HMAC_KEY` changes, `roNumberSearchTokens` must be regenerated for every repair order.
-5. **Verify** — `npm run validate:pre-rollout`, spot-check RO detail + list search, confirm no `piiDecryptWarnings` on known-good rows.
-6. **Clear maintenance** — unset `MERLIN_MAINTENANCE_MODE` only after validation passes.
+3. **Plaintext sweep** — `npm run db:reencrypt` with the **current** keys (expect `updated: 0` on second run).
+4. **Activate dual-key**  
+   - Set `DATA_ENCRYPTION_KEY_PREVIOUS` = old key  
+   - Set `DATA_ENCRYPTION_KEY` = new key  
+   - Deploy Worker secrets and restart.
+5. **Re-encrypt under dual-key** — run `npm run db:reencrypt` (and any custom table walk using `reencryptCiphertextWithCurrentKey`) so rows are rewritten with the new primary key. When `SEARCH_HMAC_KEY` also changes, regenerate `roNumberSearchTokens` for every repair order.
+6. **Verify** — `npm run validate:pre-rollout`, spot-check RO detail + list search, confirm no `piiDecryptWarnings`.
+7. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy.
+8. **Clear maintenance** — unset `MERLIN_MAINTENANCE_MODE` only after validation passes.

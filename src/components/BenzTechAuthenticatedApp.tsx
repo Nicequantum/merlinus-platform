@@ -135,6 +135,18 @@ export function BenzTechAuthenticatedApp({
 }: BenzTechAuthenticatedAppProps) {
   const { t: tHome } = useTranslation('home');
   const ocr = useOcrProgress();
+
+  // P1-2: keep bay session isolate warm (session warmup + public status)
+  useEffect(() => {
+    let stop = () => undefined;
+    void import('@/lib/clientFetchRetry')
+      .then(({ startBaySessionKeepAlive }) => {
+        stop = startBaySessionKeepAlive({ intervalMs: 90_000 });
+      })
+      .catch(() => undefined);
+    return () => stop();
+  }, [session.technicianId]);
+
   const handleComplianceRequired = useCallback(() => {
     void onSessionRefresh();
   }, [onSessionRefresh]);

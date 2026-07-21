@@ -168,6 +168,8 @@ model Dealership {
   serviceAppointments   ServiceAppointment[]
   conversationInsights  ConversationInsight[]
   hubAuditEvents        HubAuditEvent[]
+  aiJobs                AiJob[]
+  passwordRecoveryTokens PasswordRecoveryToken[]
 
   @@index([dealerId])
 }
@@ -245,6 +247,13 @@ model Technician {
    */
   mustChangePassword Boolean   @default(false) @map("must_change_password")
   passwordChangedAt  DateTime? @map("password_changed_at")
+  /**
+   * P1-3 MFA foundation — TOTP enrollment for manager/owner when MERLIN_MFA_ENFORCE=true.
+   * Secret is AES-encrypted at rest (never returned to clients after enroll).
+   */
+  mfaEnabled         Boolean   @default(false) @map("mfa_enabled")
+  mfaSecretEncrypted String?   @map("mfa_secret_encrypted")
+  mfaEnrolledAt      DateTime? @map("mfa_enrolled_at")
   /** Phase 4 Clerk — linked Clerk user id; null for legacy D7-only accounts. */
   clerkUserId    String?       @unique @map("clerk_user_id")
   /** Phase 4 — identity provider: legacy (JWT) or clerk. */
@@ -1283,4 +1292,54 @@ model UsageLog {
   @@index([technicianId, createdAt])
   @@index([dealerId])
   @@index([dealershipId, createdAt])
+}
+
+/**
+ * P1-1 — Async AI / long-running work jobs (hub summarize, future story/report).
+ * Workers return jobId immediately; client polls until succeeded/failed.
+ * resultEncrypted holds JSON payload (AES via encryptSensitiveText).
+ */
+model AiJob {
+  id              String     @id @default(cuid())
+  dealershipId    String
+  dealership      Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  technicianId    String
+  /** story.generate | hub.summarize | video.report | … */
+  kind            String
+  /** queued | running | succeeded | failed */
+  status          String     @default("queued")
+  progress        Int        @default(0)
+  /** Opaque entity key (repairLineId, callId, inspectionId). */
+  entityType      String?
+  entityId        String?
+  errorMessage    String?
+  resultEncrypted String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([dealershipId, technicianId, createdAt(sort: Desc)])
+  @@index([dealershipId, status, createdAt])
+  @@index([entityType, entityId])
+}
+
+/**
+ * P3-4 — Self-service password recovery tokens (hashed at rest).
+ * Public request/confirm routes use withRlsBypass + rate limits.
+ */
+model PasswordRecoveryToken {
+  id           String    @id @default(cuid())
+  technicianId String
+  dealershipId String
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** SHA-256 hex of the opaque token sent to the user. */
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([technicianId, createdAt])
+  @@index([dealershipId, createdAt])
+  @@index([expiresAt])
 }

@@ -4,30 +4,21 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync }
 import { logger } from './logger';
 
 /**
- * L4 — Encryption key rotation (Phase 1 accepted risk)
+ * L4 / P1-5 — Encryption key rotation
  *
- * Phase 1 uses a single static DATA_ENCRYPTION_KEY per deployment. Rotating the key
- * requires a planned maintenance window and `npm run db:reencrypt` (see docs/Reencryption-Runbook.md).
- * There is no automatic online re-key or multi-key envelope encryption in this release.
+ * Encrypt always uses the current DATA_ENCRYPTION_KEY.
+ * Decrypt tries, in order:
+ *   1. Current key + current salt (H7 key-derived or ENCRYPTION_SALT)
+ *   2. Previous key DATA_ENCRYPTION_KEY_PREVIOUS (online dual-key window)
+ *   3. Current key + legacy scrypt salt (pre-H7 rows)
+ *   4. Previous key + legacy scrypt salt
  *
- * Accepted for initial pilot with compensating controls:
- * - Keys stored only in Vercel env (never in repo); 64-hex format validated at build
- * - Legacy scrypt salt fallback for rows encrypted before H7 hardening
- * - Tolerant decrypt reads surface piiDecryptWarnings instead of silent data loss
- *
- * Planned Phase 2: dual-key envelope rotation with background re-encryption job.
+ * Rotation procedure: set PREVIOUS=old, KEY=new → deploy → run reencrypt → remove PREVIOUS.
+ * See docs/Reencryption-Runbook.md.
  */
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
-
-/** H7: Salt derived from deployment key material — not a hardcoded global constant. */
-function getScryptSalt(): string {
-  const explicit = process.env.ENCRYPTION_SALT?.trim();
-  if (explicit) return explicit;
-  const secret = getDataEncryptionSecret();
-  return createHash('sha256').update(`merlin-pii-salt:${secret}`).digest('hex');
-}
 
 const LEGACY_SCRYPT_SALT = 'benz-tech-pii-salt';
 
@@ -41,19 +32,57 @@ function getDataEncryptionSecret(): string {
   return secret;
 }
 
-function deriveKeyFromSalt(salt: string): Buffer {
-  return scryptSync(getDataEncryptionSecret(), salt, 32);
+/** Optional previous key for dual-key decrypt during rotation (min 32 chars). */
+function getPreviousEncryptionSecret(): string | null {
+  const secret = process.env.DATA_ENCRYPTION_KEY_PREVIOUS?.trim();
+  if (!secret || secret.length < 32) return null;
+  return secret;
 }
 
-/** New encryptions use key-derived salt (H7); legacy rows used LEGACY_SCRYPT_SALT. */
+function scryptSaltForSecret(secret: string): string {
+  const explicit = process.env.ENCRYPTION_SALT?.trim();
+  if (explicit) return explicit;
+  return createHash('sha256').update(`merlin-pii-salt:${secret}`).digest('hex');
+}
+
+function deriveKey(secret: string, salt: string): Buffer {
+  return scryptSync(secret, salt, 32);
+}
+
+/** New encryptions use current key + current salt only. */
 function getPrimaryKey(): Buffer {
-  return deriveKeyFromSalt(getScryptSalt());
+  const secret = getDataEncryptionSecret();
+  return deriveKey(secret, scryptSaltForSecret(secret));
 }
 
-function getDecryptKeyCandidates(): Buffer[] {
-  const primary = getPrimaryKey();
-  const legacy = deriveKeyFromSalt(LEGACY_SCRYPT_SALT);
-  return primary.equals(legacy) ? [primary] : [primary, legacy];
+/**
+ * All keys that may decrypt historical ciphertext during rotation + legacy salt window.
+ * Order: current primary, previous primary, current+legacy salt, previous+legacy salt.
+ */
+export function getDecryptKeyCandidates(): Buffer[] {
+  const secrets: string[] = [getDataEncryptionSecret()];
+  const prev = getPreviousEncryptionSecret();
+  if (prev && prev !== secrets[0]) secrets.push(prev);
+
+  const keys: Buffer[] = [];
+  const seen = new Set<string>();
+  const push = (buf: Buffer) => {
+    const id = buf.toString('hex');
+    if (seen.has(id)) return;
+    seen.add(id);
+    keys.push(buf);
+  };
+
+  for (const secret of secrets) {
+    push(deriveKey(secret, scryptSaltForSecret(secret)));
+    push(deriveKey(secret, LEGACY_SCRYPT_SALT));
+  }
+  return keys;
+}
+
+/** True when dual-key rotation window is active (previous key configured). */
+export function isDualKeyRotationActive(): boolean {
+  return Boolean(getPreviousEncryptionSecret());
 }
 
 export function encryptPII(plaintext: string): string {
@@ -87,13 +116,30 @@ export function decryptPII(ciphertext: string): string {
       lastError = error;
     }
   }
-  // H6: loud failure after legacy + current salt attempts.
+  // H6: loud failure after current + previous + legacy salt attempts.
   logger.error('encryption.decrypt_failed', {
     error: lastError instanceof Error ? lastError.message : 'unknown',
+    dualKey: isDualKeyRotationActive(),
+    candidateCount: keys.length,
   });
   throw new Error(
-    'PII decryption failed — verify DATA_ENCRYPTION_KEY matches the key used to encrypt data'
+    'PII decryption failed — verify DATA_ENCRYPTION_KEY (and DATA_ENCRYPTION_KEY_PREVIOUS during rotation) matches the key used to encrypt data'
   );
+}
+
+/**
+ * Re-encrypt ciphertext with the current primary key.
+ * Returns null if decrypt fails or value is empty / not ciphertext-shaped.
+ * Used by rotation batch jobs.
+ */
+export function reencryptCiphertextWithCurrentKey(ciphertext: string): string | null {
+  if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return null;
+  try {
+    const plain = decryptPII(ciphertext);
+    return encryptPII(plain);
+  } catch {
+    return null;
+  }
 }
 
 export function encryptStringArray(items: string[]): string {

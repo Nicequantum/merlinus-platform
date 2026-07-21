@@ -2,6 +2,18 @@ import 'server-only';
 
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type { RlsContext } from '@/lib/apex/rlsContext';
+import {
+  buildRelationTenantWhere,
+  GLOBAL_DEALERSHIP_ID,
+  isGlobalCatalogModel,
+  isRelationScopedModel,
+  isTenantModel as registryIsTenantModel,
+  listDirectDealershipModels,
+  RELATION_SCOPED_MODELS,
+  RLS_DENY_DEALERSHIP_ID,
+} from '@/lib/apex/rlsTenantRegistry';
+
+export { RLS_DENY_DEALERSHIP_ID, GLOBAL_DEALERSHIP_ID } from '@/lib/apex/rlsTenantRegistry';
 
 /**
  * D1 / SQLite has no Postgres-style ROW LEVEL SECURITY.
@@ -11,62 +23,22 @@ import type { RlsContext } from '@/lib/apex/rlsContext';
  *
  * Call sites that forget `where: { dealershipId }` still cannot cross tenants
  * when work runs inside withSessionRls / withRlsContext (enforced, non-bypass).
+ *
+ * Model registry (single source of truth): `src/lib/apex/rlsTenantRegistry.ts`
+ * Validate against schema: `npm run check:rls-registry`
  */
-
-/** Models with a direct `dealershipId` column. */
-const DIRECT_DEALERSHIP_MODELS = new Set([
-  'DealershipModule',
-  'Technician',
-  'VideoInspection',
-  'VideoUploadSession',
-  'DepartmentRequest',
-  'PartsLookupEvent',
-  'MaintenanceTicket',
-  'LoanerVehicle',
-  'LoanerAssignment',
-  'VoiceAgentLine',
-  'VoiceCall',
-  'VoiceConversation',
-  'ServiceAppointment',
-  'ConversationInsight',
-  'HubAuditEvent',
-  'TechnicianDealership',
-  'RepairOrder',
-  'ServiceAdvisor',
-  'AdvisorComplaintObservation',
-  'UsageEvent',
-  'Template',
-  'KnowledgeBase',
-  'AuditLog',
-  'TechnicianCertifiedStory',
-  'TechnicianActivityLog',
-  'UsageLog',
-]);
 
 /**
  * Child models without dealershipId — tenant scope via parent relation.
- * Values are Prisma `where` fragments merged into the operation.
+ * Built from RELATION_SCOPED_MODELS in rlsTenantRegistry.
  */
-const RELATION_TENANT_WHERE: Record<string, (dealershipId: string) => Record<string, unknown>> = {
-  RepairLine: (dealershipId) => ({ repairOrder: { dealershipId } }),
-  ServiceAdvisorAlias: (dealershipId) => ({ serviceAdvisor: { dealershipId } }),
-  AdvisorWritingProfile: (dealershipId) => ({ serviceAdvisor: { dealershipId } }),
-  PartsRequestLine: (dealershipId) => ({ departmentRequest: { dealershipId } }),
-  MaintenancePhoto: (dealershipId) => ({ ticket: { dealershipId } }),
-  MaintenanceTicketEvent: (dealershipId) => ({ ticket: { dealershipId } }),
-  VideoInspectionFinding: (dealershipId) => ({ videoInspection: { dealershipId } }),
-  VideoInspectionShare: (dealershipId) => ({ videoInspection: { dealershipId } }),
-  VideoInspectionSmsLog: (dealershipId) => ({ videoInspection: { dealershipId } }),
-  VoiceTranscriptSegment: (dealershipId) => ({ call: { dealershipId } }),
-};
-
-/** Catalog tables that also expose shared `__global__` rows to every rooftop. */
-const GLOBAL_CATALOG_MODELS = new Set(['Template', 'KnowledgeBase']);
-
-const GLOBAL_DEALERSHIP_ID = '__global__';
-
-/** Impossible dealership id — default-deny when enforced without an active rooftop. */
-export const RLS_DENY_DEALERSHIP_ID = '__rls_deny_no_dealership__';
+const RELATION_TENANT_WHERE: Record<string, (dealershipId: string) => Record<string, unknown>> =
+  Object.fromEntries(
+    Object.keys(RELATION_SCOPED_MODELS).map((model) => [
+      model,
+      (dealershipId: string) => buildRelationTenantWhere(model, dealershipId)!,
+    ])
+  );
 
 const READ_OPS = new Set([
   'findUnique',
@@ -90,7 +62,11 @@ const WHERE_WRITE_OPS = new Set([
 const CREATE_OPS = new Set(['create', 'createMany']);
 
 function isTenantModel(model: string): boolean {
-  return DIRECT_DEALERSHIP_MODELS.has(model) || model in RELATION_TENANT_WHERE;
+  return registryIsTenantModel(model);
+}
+
+function isRelationTenantModel(model: string): boolean {
+  return isRelationScopedModel(model);
 }
 
 function shouldEnforce(ctx: RlsContext): boolean {
@@ -199,10 +175,10 @@ function buildFindFirstTenantWhere(
 }
 
 function buildTenantWhere(model: string, dealershipId: string): Record<string, unknown> {
-  if (model in RELATION_TENANT_WHERE) {
-    return RELATION_TENANT_WHERE[model](dealershipId);
+  if (isRelationTenantModel(model)) {
+    return RELATION_TENANT_WHERE[model]!(dealershipId);
   }
-  if (GLOBAL_CATALOG_MODELS.has(model) && dealershipId !== RLS_DENY_DEALERSHIP_ID) {
+  if (isGlobalCatalogModel(model) && dealershipId !== RLS_DENY_DEALERSHIP_ID) {
     return {
       dealershipId: { in: [dealershipId, GLOBAL_DEALERSHIP_ID] },
     };
@@ -217,7 +193,7 @@ function injectCreateData(
 ): Record<string, unknown> {
   if (!data) return { dealershipId };
   // Relation-scoped models: do not invent dealershipId column
-  if (model in RELATION_TENANT_WHERE) {
+  if (isRelationTenantModel(model)) {
     return data;
   }
   // Never allow client to override tenant column when enforced
@@ -233,7 +209,7 @@ function injectCreateManyData(
   data: unknown,
   dealershipId: string
 ): unknown {
-  if (model in RELATION_TENANT_WHERE) return data;
+  if (isRelationTenantModel(model)) return data;
   if (Array.isArray(data)) {
     return data.map((row) =>
       injectCreateData(model, (row ?? {}) as Record<string, unknown>, dealershipId)
@@ -284,7 +260,7 @@ export function createRlsEnforcedClient(
                 upsertArgs.where,
                 tenantDealershipId
               );
-              if (!(model in RELATION_TENANT_WHERE)) {
+              if (!isRelationTenantModel(model)) {
                 upsertArgs.create = injectCreateData(
                   model,
                   upsertArgs.create,
@@ -425,7 +401,7 @@ export type RlsEnforcedClient = PrismaClient;
 
 /** Test helper — exposes tenant model set for unit assertions. */
 export function listDirectDealershipModelsForTests(): string[] {
-  return [...DIRECT_DEALERSHIP_MODELS].sort();
+  return listDirectDealershipModels();
 }
 
 export function isRlsTenantModelForTests(model: string): boolean {

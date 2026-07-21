@@ -10,9 +10,10 @@
 
 | Role | Read first | Then use |
 |------|------------|----------|
+| **Ops / multi-rooftop rollout** | **[Rollout Runbook](./Rollout-Runbook.md)** (canonical sequence) | [Production-Readiness-Checklist](./Production-Readiness-Checklist.md) |
 | **General Manager / Fixed Ops Director** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Go-Live Summary](./Go-Live-Summary.md) |
 | **Service Manager** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Rollout Checklist](./Rollout-Checklist.md) · [Go-Live Email](./Go-Live-Email-Template.md) |
-| **Dealership IT** | [Admin Setup Guide](./Admin-Setup-Guide.md) | [Go-Live Checklist](./Go-Live-Checklist.md) · [Support Playbook](./Support-Playbook.md) |
+| **Dealership IT** | [Admin Setup Guide](./Admin-Setup-Guide.md) · [Rollout Runbook](./Rollout-Runbook.md) | [Go-Live Checklist](./Go-Live-Checklist.md) · [Support Playbook](./Support-Playbook.md) |
 | **Trainer / Lead Technician** | [Training Outline](./Training-Outline.md) | [Technician Quick Start](./Technician-Quick-Start.md) |
 | **Service Technician** | [Bay Reference Card](./Bay-Reference-Card.md) | [Technician Quick Start](./Technician-Quick-Start.md) |
 
@@ -24,7 +25,10 @@
 | Document | Purpose |
 |----------|---------|
 | [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
-| [Master-Rollout-Document.md](./Master-Rollout-Document.md) | Single authoritative rollout overview (< 10 min) |
+| [**Rollout-Runbook.md**](./Rollout-Runbook.md) | **Canonical multi-store rollout sequence** (prefer over older overlapping checklists) |
+| [Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md) | D1 app-layer tenancy vs future Postgres RLS (P3-1) |
+| [CDK-Sync-Deferred.md](./CDK-Sync-Deferred.md) | Why live CDK API is deferred; clipboard paste remains (P3-3) |
+| [Master-Rollout-Document.md](./Master-Rollout-Document.md) | Leadership rollout overview (< 10 min) |
 | [Go-Live-Summary.md](./Go-Live-Summary.md) | One-page executive approval brief |
 
 ### Enterprise reference (IT, legal, due diligence)
@@ -32,8 +36,8 @@
 |----------|---------|
 | [Technical-Specification-and-Architecture.md](./Technical-Specification-and-Architecture.md) | System design, workflows, API routes, voice architecture |
 | [Compliance-Security-Audit-and-Legal.md](./Compliance-Security-Audit-and-Legal.md) | Security controls, audit spec, legal framework |
-| [Full-Enterprise-Audit-History-and-Validation.md](./Full-Enterprise-Audit-History-and-Validation.md) | 99/100 audit certificate, C1–L5 registry, validation results |
-| [Deployment-Checklist-and-Operations.md](./Deployment-Checklist-and-Operations.md) | Environment variables, pre-rollout, Vercel KV, go-live checklists |
+| [Full-Enterprise-Audit-History-and-Validation.md](./Full-Enterprise-Audit-History-and-Validation.md) | Historical audit notes (do not treat badge scores as current readiness) |
+| [Deployment-Checklist-and-Operations.md](./Deployment-Checklist-and-Operations.md) | Environment variables, pre-rollout, Cloudflare Workers KV/D1, go-live checklists |
 
 ### Technical setup
 | Document | Purpose |

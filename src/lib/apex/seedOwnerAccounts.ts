@@ -326,35 +326,93 @@ export async function runApexOwnerSeedIfConfigured(): Promise<ApexOwnerSeedResul
   return seedApexOwnerAccounts(config);
 }
 
+export {
+  evaluateOwnerSeedSecretPolicy,
+  shouldRunOwnerSeedOnStartup,
+  clearOwnerSeedSecretsFromProcessEnv,
+  listPresentOwnerSeedPasswordKeys,
+  isOwnerSeedBootstrapAllowed,
+  OWNER_SEED_PASSWORD_ENV_KEYS,
+  OWNER_SEED_SECRET_DELETE_HINT,
+} from '@/lib/apex/ownerSeedSecurity';
+
 /**
  * Ensure platform owners from env exist (create-only).
- * Never rewrites passwords. Safe for instrumentation startup.
- * Must NOT be called from login failure paths to "heal" wrong passwords.
+ * Never rewrites passwords. Must NOT be called from login failure paths.
  *
- * P0 ops: OWNER_SEED_* secrets are one-time bootstrap only. After owners exist,
- * remove OWNER_SEED_PASSWORD (and related) from the Cloudflare Worker secrets store.
+ * Production: only runs when ALLOW_OWNER_SEED_BOOTSTRAP=1 (one-shot).
+ * After seed, clears OWNER_SEED_* from process.env for this isolate and logs
+ * that operators must delete Cloudflare Worker secrets.
+ *
+ * P0: OWNER_SEED_PASSWORD* must not remain on long-lived production Workers.
  */
 export async function ensureApexPlatformOwners(): Promise<ApexOwnerSeedResult | null> {
+  const {
+    evaluateOwnerSeedSecretPolicy,
+    shouldRunOwnerSeedOnStartup,
+    clearOwnerSeedSecretsFromProcessEnv,
+    OWNER_SEED_SECRET_DELETE_HINT,
+  } = await import('@/lib/apex/ownerSeedSecurity');
+
   try {
-    if (process.env.OWNER_SEED_PASSWORD?.trim() && process.env.NODE_ENV === 'production') {
-      const { logger } = await import('@/lib/logger');
-      logger.warn('apex.owner_seed_secret_still_set', {
-        message:
-          'OWNER_SEED_PASSWORD is set in production — delete seed secrets from Worker after bootstrap (one-time use only).',
+    const policy = evaluateOwnerSeedSecretPolicy();
+
+    if (policy.violation) {
+      logger.error('apex.owner_seed_secret_policy_violation', {
+        presentPasswordKeys: policy.presentPasswordKeys,
+        message: policy.message,
+        hint: OWNER_SEED_SECRET_DELETE_HINT,
+      });
+      // Do not seed when production still has passwords without bootstrap flag.
+      return null;
+    }
+
+    if (policy.production && policy.presentPasswordKeys.length > 0 && policy.bootstrapAllowed) {
+      logger.warn('apex.owner_seed_bootstrap_window', {
+        presentPasswordKeys: policy.presentPasswordKeys,
+        message: policy.message,
+        hint: OWNER_SEED_SECRET_DELETE_HINT,
       });
     }
+
+    if (!shouldRunOwnerSeedOnStartup()) {
+      // Production cold starts: never re-seed. Owners already exist in D1.
+      if (policy.presentPasswordKeys.length > 0) {
+        logger.error('apex.owner_seed_skipped_production_secrets_present', {
+          presentPasswordKeys: policy.presentPasswordKeys,
+          message: policy.message,
+          hint: OWNER_SEED_SECRET_DELETE_HINT,
+        });
+      } else {
+        logger.info('apex.owner_seed_skipped_production', {
+          message: 'Owner seed skipped on production startup (no ALLOW_OWNER_SEED_BOOTSTRAP)',
+        });
+      }
+      return null;
+    }
+
     const result = await runApexOwnerSeedIfConfigured();
     if (result) {
-      const created = result.owners.filter((o) => o.created).map((o) => o.email);
-      const existing = result.owners.filter((o) => !o.created).map((o) => o.email);
+      const createdCount = result.owners.filter((o) => o.created).length;
+      const existingCount = result.owners.filter((o) => !o.created).length;
       logger.info('apex.owner_seed_ensured', {
-        createdCount: created.length,
-        existingCount: existing.length,
-        // emails are operational identities for owners — avoid logging full lists in production noise
-        created: created.length,
-        skippedExisting: existing.length,
+        createdCount,
+        existingCount,
+        created: createdCount,
+        skippedExisting: existingCount,
       });
     }
+
+    // Wipe process.env slots for this isolate so passwords do not linger in memory.
+    // Cloudflare dashboard secrets still require manual wrangler secret delete.
+    const cleared = clearOwnerSeedSecretsFromProcessEnv();
+    if (cleared.length > 0) {
+      logger.warn('apex.owner_seed_secrets_cleared_from_process_env', {
+        clearedKeys: cleared,
+        hint: OWNER_SEED_SECRET_DELETE_HINT,
+      });
+    }
+
     return result;
   } catch (error) {
     logger.error('apex.owner_seed_ensure_failed', {

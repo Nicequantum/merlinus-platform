@@ -10,12 +10,23 @@
 
 Merlin is a secure, cloud-hosted warranty documentation platform. Each dealership deployment requires:
 
-- A **PostgreSQL database** (Prisma Data Platform, Neon, Supabase, or Vercel Postgres)
-- **Server-side secrets** (never exposed to browsers or tablets)
+- A **database** (Cloudflare D1 for Workers production; local SQLite for dev)
+- **Server-side secrets** (never exposed to browsers or tablets; never committed)
 - **Chrome/Edge tablets** on the shop floor for voice input
 - A signed **xAI Data Processing Agreement** before processing real customer data
 
 This guide walks through setup from empty environment to production-ready rollout.
+
+### P0 — National owner seed secrets (Apex)
+
+| Do | Don't |
+|----|--------|
+| Use `.owner-seed.local.env` (gitignored) for one-time local/remote seed scripts | Commit seed env files or bake passwords into the repo |
+| After owners exist: `npx wrangler secret delete OWNER_SEED_PASSWORD` | Leave `OWNER_SEED_PASSWORD` on the production Worker forever |
+| Set `APEX_PLATFORM_OWNER_EMAILS` for ongoing operator access | Rely on seed env as long-lived platform allowlist + password store |
+| One-shot prod: `ALLOW_OWNER_SEED_BOOTSTRAP=1` then remove | Re-seed on every Worker cold start |
+
+Production health treats lingering owner seed **passwords** as a **critical** failure (`ownerSeedSecrets`). CI runs `npm run check:seed-secrets`.
 
 ---
 

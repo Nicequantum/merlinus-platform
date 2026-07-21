@@ -18,7 +18,7 @@ The platform is **modular**: each dealership (rooftop) only sees and can call fe
 | `parts` | Parts department | Parts inbox |
 | `sales` | Sales department | Sales inbox |
 | `service` | Service department | Service inbox |
-| `cdk_sync` | CDK Global Sync | Live CDK API (deferred; credentials required) |
+| `cdk_sync` | CDK Global Sync | Live CDK API — **deferred** ([CDK-Sync-Deferred.md](./CDK-Sync-Deferred.md)); clipboard paste works without this module |
 
 ### Env aliases (break-glass only)
 
@@ -56,6 +56,18 @@ Production should rely on **DealershipModule** rows, not force flags.
 
 - Manager nav tiles for Voice / Calendar hub only render when the module is **enabled**.
 - Module surfaces show `ModuleDisabledNotice` if opened while disabled.
+
+---
+
+## Defaults (P1-4 commercial packaging)
+
+| Constant | Used by | Default enabled modules |
+|----------|---------|-------------------------|
+| `PROVISION_DEFAULT_MODULE_IDS` | Franchise `provisionDealer` | **None** (empty — opt-in per contract) |
+| `SEED_ENABLED_MODULE_IDS` | Alias of provision defaults | **None** |
+| `DEMO_SEED_MODULE_IDS` | Local `npm run db:seed` / staging pilots | video_mpi, maintenance, voice_agent, calendar_hub, loaner, parts, sales, service |
+
+`core_story` is always on and is never in these lists. `cdk_sync` stays deferred.
 
 ---
 

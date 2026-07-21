@@ -214,3 +214,19 @@ When a call **completes**, the platform runs **hub call ingest**:
 
 See **`docs/VOICE-AGENT-REGISTRY-AND-HUB.md`** for multi-agent extension and architecture.
 
+
+---
+
+## P3-2 — Premium realtime WebSocket (optional)
+
+Production on Cloudflare Workers remains **Twilio Gather + Grok tools**.
+
+| Item | Detail |
+|------|--------|
+| Flag | `VOICE_REALTIME_PREMIUM=true` |
+| Library | `src/lib/voiceAgent/realtimeSophia.ts` (`createReceptionistAgent`) |
+| Config | `src/lib/voiceAgent/realtimeConfig.ts` |
+| API scaffold | `GET/POST /api/voice/realtime/session` (requires `voice_agent` module) |
+| Host | Node sidecar with long-lived WebSockets — not Workerd Gather |
+
+When premium is off, `/api/voice/realtime/session` returns **501** with `VOICE_REALTIME_DISABLED`.

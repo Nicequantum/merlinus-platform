@@ -8,6 +8,8 @@
  * - 500 on GET/HEAD (Workers cold-start + first D1 query)
  * - 500 on POST when `retryPostServerError: true` (enter/exit dealership, etc.)
  */
+import { readJsonBodySafe } from '@/lib/apiResponseParse';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,
@@ -74,8 +76,14 @@ export async function fetchWithClientRetry(
       timeoutMs && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     try {
+      const csrf = readCsrfTokenFromDocument();
+      const headers = new Headers(init.headers || undefined);
+      if (csrf && !headers.has(CSRF_HEADER)) {
+        headers.set(CSRF_HEADER, csrf);
+      }
       const res = await fetch(path, {
         ...init,
+        headers,
         credentials: init.credentials ?? 'include',
         cache: init.cache ?? 'no-store',
         signal: controller.signal,
@@ -128,26 +136,35 @@ export async function fetchJsonWithClientRetry<T>(
     },
   });
 
-  const data = (await res.json().catch(() => ({}))) as T & {
-    error?: string;
-    message?: string;
-  };
-
-  if (!res.ok) {
-    const msg =
-      (typeof data === 'object' && data && ('error' in data || 'message' in data)
-        ? data.error || data.message
-        : null) || `Request failed (${res.status})`;
-    throw new Error(msg);
+  const parsed = await readJsonBodySafe<T>(res);
+  if (!parsed.ok) {
+    // parseApiErrorResponse already used inside readJsonBodySafe for !res.ok
+    throw new Error(parsed.error.message || `Request failed (${res.status})`);
   }
-
-  return data as T;
+  return parsed.data;
 }
 
 /** Fire-and-forget isolate/D1 warm — never throws to callers. */
 export async function warmOwnerIsolate(): Promise<boolean> {
   try {
     const res = await fetchWithClientRetry('/api/owner/warmup', {
+      method: 'GET',
+      timeoutMs: 12_000,
+      maxRetries: 2,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * P1-2 — Warm auth + D1 path for any signed-in user (technician, manager, owner).
+ * Prefer this after login and on bay session keep-alive.
+ */
+export async function warmSessionIsolate(): Promise<boolean> {
+  try {
+    const res = await fetchWithClientRetry('/api/session/warmup', {
       method: 'GET',
       timeoutMs: 12_000,
       maxRetries: 2,
@@ -171,4 +188,28 @@ export async function keepAlivePublicStatus(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * P1-2 — Soft interval keep-alive while the authenticated shell is mounted.
+ * Alternates session warmup with public status so cold starts stay rare.
+ */
+export function startBaySessionKeepAlive(options?: {
+  intervalMs?: number;
+}): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const intervalMs = options?.intervalMs ?? 90_000;
+  let ticks = 0;
+  const tick = () => {
+    ticks += 1;
+    if (ticks % 2 === 1) {
+      void warmSessionIsolate();
+    } else {
+      void keepAlivePublicStatus();
+    }
+  };
+  // Immediate warm after login / shell mount
+  void warmSessionIsolate();
+  const id = window.setInterval(tick, intervalMs);
+  return () => window.clearInterval(id);
 }

@@ -78,6 +78,18 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # P0: fail if owner-seed password material is tracked in the repo
+      - name: Check no seed secrets in repo
+        run: npm run check:seed-secrets
+
+      # P0-5: fail if Prisma tenant models drift from RLS registry
+      - name: Check RLS tenant registry vs schema
+        run: npm run check:rls-registry
+
+      # P0-4: every API route uses withAuth / withPublicRoute / withStoryAiRoute or bare allowlist
+      - name: Check API route default-deny wrappers
+        run: npm run check:api-routes
+
       - name: Unit tests
         run: npm test
 

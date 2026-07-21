@@ -778,10 +778,12 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       });
     }
 
-    // Product modules: enable shippable modules; leave cdk_sync off until credentials.
+    // P1-4: commercial provision — all product modules OFF by default (contract enable later).
+    // core_story remains always-on outside this table. Pass enableIds to opt-in per deal.
     await ensureDealershipModuleDefaults(dealership.id, {
       db: tx,
       enabledById: manager.id,
+      // explicit empty uses PROVISION_DEFAULT_MODULE_IDS via SEED_ENABLED_MODULE_IDS alias
     });
 
     const ownerOutcome: 'created' | 'linked' | 'none' = ownerCreated

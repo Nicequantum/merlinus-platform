@@ -4,6 +4,8 @@ export {
   MODULE_ENV_ALIASES,
   PRODUCT_MODULE_IDS,
   SEED_ENABLED_MODULE_IDS,
+  PROVISION_DEFAULT_MODULE_IDS,
+  DEMO_SEED_MODULE_IDS,
   getModuleCatalogEntry,
   isProductModuleId,
   parseForcedModules,

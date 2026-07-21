@@ -8,7 +8,10 @@ import {
   findDepartmentRequestForSession,
 } from '@/lib/department/access';
 import { PARTS_LINE_STATUSES } from '@/lib/department/constants';
-import { assertDepartmentModuleEnabled } from '@/lib/department/moduleGate';
+import {
+  assertDepartmentModuleEnabled,
+  departmentModuleDisabledResponse,
+} from '@/lib/department/moduleGate';
 import { mapDepartmentRequestDetail, mapPartsLine } from '@/lib/department/mappers';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody, parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
@@ -48,7 +51,7 @@ export async function PUT(
       const existing = await findDepartmentRequestForSession(session, routeParams.data.id, 'parts');
       if (!existing) return apiError(NOT_FOUND_ERROR, 404);
       const mod = await assertDepartmentModuleEnabled(session.dealershipId, 'parts');
-      if (!mod.ok) return apiError(mod.message, 403);
+      if (!mod.ok) return departmentModuleDisabledResponse(mod);
       const access = assertDepartmentInboxAccess(session, 'parts');
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
 

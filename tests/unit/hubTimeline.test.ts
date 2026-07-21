@@ -58,9 +58,13 @@ describe('Unified Calendar & Conversation Hub', () => {
   });
 
   test('RLS includes hub models', () => {
-    const rls = readFileSync(resolve(root, 'src/lib/apex/rlsPrismaExtension.ts'), 'utf8');
+    // P0-5: registry is the single source of truth (extension imports it).
+    const rls = readFileSync(resolve(root, 'src/lib/apex/rlsTenantRegistry.ts'), 'utf8');
     assert.match(rls, /ServiceAppointment/);
     assert.match(rls, /ConversationInsight/);
     assert.match(rls, /HubAuditEvent/);
+    const ext = readFileSync(resolve(root, 'src/lib/apex/rlsPrismaExtension.ts'), 'utf8');
+    assert.match(ext, /rlsTenantRegistry/);
   });
 });
+

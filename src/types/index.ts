@@ -572,6 +572,10 @@ export interface TechnicianSession {
   dealerGroupName?: string;
   /** True until first successful password change after provision/admin reset. */
   mustChangePassword?: boolean;
+  /** P1-3 MFA — enrolled and/or required for role when MERLIN_MFA_ENFORCE is on. */
+  mfaEnabled?: boolean;
+  mfaEnrolled?: boolean;
+  mfaRequired?: boolean;
   /** Phase 7.3 — IANA timezone for active rooftop day boundaries / usage. */
   dealershipTimezone?: string;
   /**

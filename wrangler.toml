@@ -19,22 +19,24 @@ compatibility_date = "2025-08-05"
 # Wrangler v4: use nodejs_compat (legacy node_compat = true is rejected).
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
-# Workers Observability (dashboard logs + traces) — audit period: full capture
+# Workers Observability (dashboard logs + traces)
+# P2-4: lower head sampling after full-capture audit window (cost/noise control).
+# Raise temporarily to 1 for incident forensics, then return to 0.1.
 # Must come after top-level Worker keys in TOML
 [observability]
 enabled = true
-head_sampling_rate = 1
+head_sampling_rate = 0.1
 
 [observability.logs]
 enabled = true
-head_sampling_rate = 1
+head_sampling_rate = 0.1
 persist = true
 invocation_logs = true
 
 [observability.traces]
 enabled = true
 persist = true
-head_sampling_rate = 1
+head_sampling_rate = 0.1
 
 # Static assets from the OpenNext build (not .vercel/output — that is Vercel-only)
 [assets]

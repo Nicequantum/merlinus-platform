@@ -16,6 +16,13 @@ export function needsPasswordChange(
   return Boolean(session.mustChangePassword);
 }
 
+/** P1-3 — MFA enrollment required when MERLIN_MFA_ENFORCE is on for this role. */
+export function needsMfaEnrollment(
+  session: Pick<TechnicianSession, 'mfaRequired'>
+): boolean {
+  return Boolean(session.mfaRequired);
+}
+
 /** True when privacy consent is missing or policy version changed. */
 export function needsConsent(session: ComplianceSessionFields): boolean {
   return !session.consentAt?.trim() || session.consentVersion !== CONSENT_VERSION;

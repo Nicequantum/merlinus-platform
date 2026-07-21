@@ -51,9 +51,57 @@ Open [http://localhost:3000](http://localhost:3000) after configuring environmen
 | `NEXT_PUBLIC_APP_URL` | Yes | Production dealership URL |
 | `DEALERSHIP_DISPLAY_NAME` | Per site | PDF headers and UI branding |
 | `MERLIN_MAINTENANCE_MODE` | Optional | `true` pauses AI routes during maintenance |
-| `ADMIN_SEED_PASSWORD` / `TECH_SEED_PASSWORD` | For seed | Set in `.env.local`; rotate before go-live |
+| `ADMIN_SEED_PASSWORD` / `TECH_SEED_PASSWORD` | For seed | Set in `.env.local` only; rotate before go-live — **never** leave on production Worker |
+| `OWNER_SEED_PASSWORD` / `OWNER_SEED_PASSWORD_2` | **One-time bootstrap only** | Prefer `.owner-seed.local.env` (gitignored) + `scripts/seed-owner-d1-remote.mjs`. Production Worker: set only with `ALLOW_OWNER_SEED_BOOTSTRAP=1`, then **delete** secrets. Health **fails** if passwords remain without the flag. |
+| `ALLOW_OWNER_SEED_BOOTSTRAP` | One-shot | `1` / `true` only during first owner create on production; remove after seed |
+| `APEX_PLATFORM_OWNER_EMAILS` | Production owners | Ongoing national operator allowlist (after seed passwords deleted) |
 
 Build-time validation runs automatically via `npm run validate:env` (included in `npm run build`).
+
+### P0 — Owner seed secrets (must pass before multi-rooftop traffic)
+
+1. **Never commit** `.owner-seed.local.env` or `*seed*.local.env` (gitignored; `npm run check:seed-secrets` in CI).
+2. Bootstrap national owners **once** (local script or one deploy with `ALLOW_OWNER_SEED_BOOTSTRAP=1`).
+3. Immediately delete from Cloudflare:
+   ```bash
+   npx wrangler secret delete OWNER_SEED_PASSWORD
+   npx wrangler secret delete OWNER_SEED_PASSWORD_2   # if used
+   npx wrangler secret delete MULTI_ROOFTOP_SEED_PASSWORD  # if used
+   # also remove ALLOW_OWNER_SEED_BOOTSTRAP variable
+   ```
+4. Set `APEX_PLATFORM_OWNER_EMAILS` for ongoing platform operator access.
+5. Confirm manager `/api/health` shows `ownerSeedSecrets: ok` (critical in production — 503 if passwords still set).
+6. `npm run ready-to-deploy` runs `check:seed-secrets` + pre-deploy owner-seed gate.
+
+### P0-5 — RLS tenant model registry
+
+App-layer isolation depends on every rooftop model being listed in `src/lib/apex/rlsTenantRegistry.ts`:
+
+| Schema shape | Registry |
+|--------------|----------|
+| Has `dealershipId` | `DIRECT_DEALERSHIP_MODELS` |
+| Child of tenant row (no `dealershipId`) | `RELATION_SCOPED_MODELS` (parent relation field) |
+| Platform / hierarchy only | `PLATFORM_NON_TENANT_MODELS` |
+
+```bash
+npm run check:rls-registry   # must exit 0 before deploy
+```
+
+`ready-to-deploy` and CI run this check. PR template includes the registry checklist when schema changes.
+
+### P0-4 — API default-deny
+
+```bash
+npm run check:api-routes   # every route uses withAuth / withPublicRoute / withStoryAiRoute or intentional bare allowlist
+```
+
+### P0-3 — Production health (manager)
+
+After deploy, sign in as manager and GET `/api/health`:
+
+- Critical (`503` if error in production): `database`, `kv`, `ownerSeedSecrets`
+- Module-aware: `twilioVoice` errors when `voice_agent` enabled without Twilio credentials
+- Payload includes `modules` / `modulesEnabled` for the active rooftop
 
 ---
 

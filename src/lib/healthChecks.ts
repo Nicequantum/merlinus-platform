@@ -7,6 +7,10 @@ import 'server-only';
 
 import { prisma, probeDatabaseConnection } from './db';
 import { getDatabaseBackendSummary } from '@/lib/apex/databaseConfig';
+import { evaluateOwnerSeedSecretPolicy } from '@/lib/apex/ownerSeedSecurity';
+import { getCdkLiveSyncStatus } from '@/lib/cdk/status';
+import { describeTenantIsolation } from '@/lib/tenantIsolation';
+import { getVoiceRealtimeStatus } from '@/lib/voiceAgent/realtimeConfig';
 import { isCiOrTestRuntime, isKvConfigured, isProductionEnv } from './rate-limit';
 import { logger } from './logger';
 import { isApexSupabaseProductionReady } from '@/lib/supabaseEnv';
@@ -334,6 +338,41 @@ export function checkMaintenanceMode(): DependencyCheck {
   return { status: 'ok', detail: 'Normal operation' };
 }
 
+/**
+ * P0 — Owner seed passwords must not remain on production Workers after bootstrap.
+ * FAIL (error) in production when OWNER_SEED_PASSWORD* present without ALLOW_OWNER_SEED_BOOTSTRAP.
+ * WARN during one-shot bootstrap window. OK when secrets absent.
+ */
+export function checkOwnerSeedSecrets(): DependencyCheck {
+  const policy = evaluateOwnerSeedSecretPolicy();
+
+  if (policy.violation) {
+    return {
+      status: 'error',
+      detail: policy.message,
+    };
+  }
+
+  if (policy.production && policy.presentPasswordKeys.length > 0 && policy.bootstrapAllowed) {
+    return {
+      status: 'warn',
+      detail: policy.message,
+    };
+  }
+
+  if (!policy.production && policy.presentPasswordKeys.length > 0) {
+    return {
+      status: 'ok',
+      detail: `Dev/test owner seed passwords present (${policy.presentPasswordKeys.join(', ')})`,
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: 'No owner seed password secrets in environment',
+  };
+}
+
 /** APEX NATIONAL PLATFORM — optional Supabase API probe (warn when partially configured). */
 export async function checkSupabase(): Promise<DependencyCheck> {
   const backend = getDatabaseBackendSummary();
@@ -361,6 +400,7 @@ export async function runAllHealthChecks(): Promise<Record<string, DependencyChe
   const environment = checkEnvironmentConfig();
   const voice = checkVoiceInput();
   const maintenance = checkMaintenanceMode();
+  const ownerSeedSecrets = checkOwnerSeedSecrets();
   const [database, encryption, session, blob, grok, kv, advisorIntelligence, supabase] = await Promise.all([
     checkDatabase(),
     checkEncryption(),
@@ -382,27 +422,186 @@ export async function runAllHealthChecks(): Promise<Record<string, DependencyChe
     kv,
     voice,
     maintenance,
+    ownerSeedSecrets,
     advisorIntelligence,
     supabase,
   };
 }
 
+/** Twilio voice credentials (SID + auth token) — required when voice_agent is enabled. */
+export function checkTwilioVoiceConfig(options?: {
+  voiceAgentEnabled?: boolean;
+}): DependencyCheck {
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const skipSig =
+    process.env.VOICE_TWILIO_SKIP_SIGNATURE?.trim().toLowerCase() === 'true' ||
+    process.env.VOICE_TWILIO_SKIP_SIGNATURE?.trim() === '1';
+
+  if (skipSig && isProductionEnv()) {
+    return {
+      status: 'error',
+      detail: 'VOICE_TWILIO_SKIP_SIGNATURE must not be enabled in production',
+    };
+  }
+
+  if (sid && token) {
+    return {
+      status: skipSig ? 'warn' : 'ok',
+      detail: skipSig
+        ? 'Twilio voice credentials set but signature verification skipped (dev only)'
+        : 'Twilio voice credentials configured',
+    };
+  }
+
+  if (options?.voiceAgentEnabled) {
+    return {
+      status: 'error',
+      detail:
+        'voice_agent is enabled for this rooftop but TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN are missing',
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: 'Twilio voice not required (voice_agent off or not scoped)',
+  };
+}
+
+/** SMS for Video MPI customer links — only required when SMS_ENABLED and video_mpi on. */
+export function checkTwilioSmsConfig(options?: {
+  videoMpiEnabled?: boolean;
+}): DependencyCheck {
+  const smsFlag = process.env.SMS_ENABLED?.trim().toLowerCase();
+  const smsOn = smsFlag === '1' || smsFlag === 'true' || smsFlag === 'yes';
+  if (!smsOn) {
+    return {
+      status: 'ok',
+      detail: 'SMS_ENABLED is off — customer SMS delivery disabled',
+    };
+  }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const from = process.env.TWILIO_FROM_NUMBER?.trim();
+  if (sid && token && from) {
+    return { status: 'ok', detail: 'Twilio SMS credentials configured' };
+  }
+
+  if (options?.videoMpiEnabled || isProductionEnv()) {
+    return {
+      status: 'error',
+      detail:
+        'SMS_ENABLED is true but TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER are incomplete',
+    };
+  }
+
+  return {
+    status: 'warn',
+    detail: 'SMS_ENABLED but Twilio SMS credentials incomplete',
+  };
+}
+
+export interface ModuleHealthSummary {
+  moduleId: string;
+  enabled: boolean;
+  source: string;
+}
+
 /**
- * Manager-authenticated enterprise health matrix — probes Database, KV, Encryption, and Grok API.
+ * Resolve enabled product modules for a rooftop (manager health module matrix).
+ */
+export async function resolveModuleHealthSummary(
+  dealershipId: string | null | undefined
+): Promise<ModuleHealthSummary[]> {
+  const id = dealershipId?.trim() || '';
+  if (!id) return [];
+
+try {
+    const { listModuleStatuses } = await import('@/lib/modules/entitlements');
+    const statuses = await listModuleStatuses(id);
+    return statuses.map((s) => ({
+      moduleId: s.moduleId,
+      enabled: s.enabled,
+      source: s.source,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface AuthenticatedHealthOptions {
+  /** Active rooftop — enables module-aware Twilio / SKU summary. */
+  dealershipId?: string | null;
+}
+
+/**
+ * Manager-authenticated enterprise health matrix.
+ * P0-3: includes R2, owner seed secrets, and module-aware Twilio when rooftop known.
  * Error details are logged server-side only; API returns status + latency per service.
  */
-export async function runAuthenticatedHealthChecks(): Promise<Record<string, DependencyCheck>> {
+export async function runAuthenticatedHealthChecks(
+  options: AuthenticatedHealthOptions = {}
+): Promise<Record<string, DependencyCheck>> {
   const voice = checkVoiceInput();
   const maintenance = checkMaintenanceMode();
-  const [database, encryption, kv, grokConfig, grok] = await Promise.all([
+  const ownerSeedSecrets = checkOwnerSeedSecrets();
+
+  let voiceAgentEnabled = false;
+  let videoMpiEnabled = false;
+  const dealershipId = options.dealershipId?.trim() || '';
+  if (dealershipId) {
+    try {
+      const { isModuleEnabled } = await import('@/lib/modules/entitlements');
+      voiceAgentEnabled = await isModuleEnabled(dealershipId, 'voice_agent');
+      videoMpiEnabled = await isModuleEnabled(dealershipId, 'video_mpi');
+    } catch {
+      // module probe optional
+    }
+  }
+
+  const twilioVoice = checkTwilioVoiceConfig({ voiceAgentEnabled });
+  const twilioSms = checkTwilioSmsConfig({ videoMpiEnabled });
+
+  const [database, encryption, kv, grokConfig, grok, objectStorage] = await Promise.all([
     checkDatabase(),
     checkEncryption(),
     checkKvStore(),
     checkGrokApi(),
     checkGrokApiConnectivity(),
+    checkBlobStorage(),
   ]);
 
-  return { database, encryption, kv, grokConfig, grok, voice, maintenance };
+  const tenantIsolation = describeTenantIsolation();
+  const cdk = getCdkLiveSyncStatus();
+  const voiceRealtime = getVoiceRealtimeStatus();
+
+  return {
+    database,
+    encryption,
+    kv,
+    grokConfig,
+    grok,
+    objectStorage,
+    twilioVoice,
+    twilioSms,
+    voice,
+    maintenance,
+    ownerSeedSecrets,
+    // Informational (never critical) — ops visibility for P3 roadmap items
+    tenantIsolation: {
+      status: tenantIsolation.databaseEnforced ? 'ok' : 'ok',
+      detail: `${tenantIsolation.mode}; databaseEnforced=${tenantIsolation.databaseEnforced}`,
+    } satisfies DependencyCheck,
+    cdkLiveSync: {
+      status: cdk.available ? 'ok' : 'ok',
+      detail: cdk.reason,
+    } satisfies DependencyCheck,
+    voiceRealtime: {
+      status: voiceRealtime.premiumEnabled ? 'warn' : 'ok',
+      detail: voiceRealtime.message,
+    } satisfies DependencyCheck,
+  };
 }
 
 export function aggregateHealthStatus(
@@ -416,7 +615,10 @@ export function aggregateHealthStatus(
 
 /** Critical deps that map to HTTP 503 on manager /api/health. */
 export function getCriticalHealthServices(): string[] {
-  return isProductionEnv() ? ['database', 'kv'] : ['database'];
+  // ownerSeedSecrets: production must not keep OWNER_SEED_PASSWORD* on the Worker.
+  return isProductionEnv()
+    ? ['database', 'kv', 'ownerSeedSecrets']
+    : ['database'];
 }
 
 /** Manager /api/health — 503 only when a critical dependency fails. */

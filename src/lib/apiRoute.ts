@@ -54,6 +54,15 @@ interface RouteOptions {
    * Default false — PII routes blocked until password rotated after provision.
    */
   skipPasswordChange?: boolean;
+  /**
+   * P1-3 — allow while MFA enrollment is still required (mfa routes, logout, me).
+   * Default false when MERLIN_MFA_ENFORCE blocks PII until enrolled.
+   */
+  skipMfa?: boolean;
+  /**
+   * P1-6 — skip CSRF double-submit check (rare; prefer not to use on browser session routes).
+   */
+  skipCsrf?: boolean;
   /** Block when MERLIN_MAINTENANCE_MODE is enabled (AI and heavy write paths). */
   blockInMaintenance?: boolean;
   /** APEX Phase 5.5 — owner-only routes (enter/exit dealership, national console). */
@@ -124,6 +133,15 @@ async function withAuthInner<T>(
     if (rateLimited) {
       applyRequestIdHeader(rateLimited, requestId);
       return rateLimited;
+    }
+  }
+
+  // P1-6 CSRF double-submit (mutating methods only; skipped in test/CI)
+  if (!options.skipCsrf) {
+    const { validateCsrfRequest } = await import('@/lib/csrf');
+    const csrfError = validateCsrfRequest(request, { skipCsrf: options.skipCsrf });
+    if (csrfError) {
+      return apiError(csrfError, 403);
     }
   }
 
@@ -226,6 +244,14 @@ async function withAuthInner<T>(
   if (!options.skipPasswordChange && session.mustChangePassword) {
     return NextResponse.json(
       { error: PASSWORD_CHANGE_REQUIRED_ERROR, code: 'PASSWORD_CHANGE_REQUIRED' },
+      { status: 403 }
+    );
+  }
+
+  if (!options.skipMfa && session.mfaRequired) {
+    const { MFA_REQUIRED_ERROR } = await import('@/lib/mfa/policy');
+    return NextResponse.json(
+      { error: MFA_REQUIRED_ERROR, code: 'MFA_REQUIRED' },
       { status: 403 }
     );
   }
@@ -364,6 +390,11 @@ async function withAuthInner<T>(
   }
 }
 
+/**
+ * Public / unauthenticated API gateway (P0-4).
+ * Applies request id, optional rate limit, maintenance block, JSON error mapping.
+ * Use for token-gated public routes and lightweight status — never for rooftop PII without a share token.
+ */
 export async function withPublicRoute<T>(
   request: Request,
   handler: () => Promise<T>,
@@ -377,14 +408,25 @@ export async function withPublicRoute<T>(
       return apiError(MAINTENANCE_MODE_ERROR, 503);
     }
 
-    const rateLimited = await checkRateLimit(
-      request,
-      routeKey,
-      options.rateLimit || RATE_LIMITS.default
-    );
-    if (rateLimited) {
-      applyRequestIdHeader(rateLimited, requestId);
-      return rateLimited;
+    if (!options.skipRateLimit) {
+      const rateLimited = await checkRateLimit(
+        request,
+        routeKey,
+        options.rateLimit || RATE_LIMITS.default
+      );
+      if (rateLimited) {
+        applyRequestIdHeader(rateLimited, requestId);
+        return rateLimited;
+      }
+    }
+
+    // Public token routes may still mutate (rare); allow skipCsrf for media/passcode paths
+    if (!options.skipCsrf) {
+      const { validateCsrfRequest } = await import('@/lib/csrf');
+      const csrfError = validateCsrfRequest(request, { skipCsrf: options.skipCsrf });
+      if (csrfError) {
+        return apiError(csrfError, 403);
+      }
     }
 
     const startedAt = Date.now();
@@ -419,6 +461,7 @@ export async function withPublicRoute<T>(
       if (options.perfEvent) {
         logPerformance(options.perfEvent, Date.now() - startedAt, { routeKey, failed: true });
       }
+      // Always JSON — never leak HTML stack pages to API clients
       return handleRouteError(error, routeKey);
     }
   });

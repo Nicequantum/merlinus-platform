@@ -6,13 +6,14 @@
 
 **Mercedes-Benz Warranty Narrative Intelligence + Modular Dealership OS**
 
-![Enterprise Audit](https://img.shields.io/badge/Enterprise_Audit-99%2F100-0A2540?style=for-the-badge&logo=shield&logoColor=white)
-![Production Hardened](https://img.shields.io/badge/Production_Hardened-Mercedes--Benz_Franchise_Approved-00ADEF?style=for-the-badge)
+![Pilot readiness](https://img.shields.io/badge/Pilot_readiness-Conditional_multi--store-0A2540?style=for-the-badge&logo=shield&logoColor=white)
+![Stack](https://img.shields.io/badge/Cloudflare_Workers%20%2B%20D1%20%2B%20R2-00ADEF?style=for-the-badge)
 ![Version](https://img.shields.io/badge/v4.0.0-1a1a2e?style=for-the-badge)
 
-**The only warranty narrative system that turns raw bay evidence into auditor-proof, OEM-aligned stories in minutes — while delivering a complete, tamper-evident audit trail that protects every dollar of revenue — now with optional modular products for video MPI, departments, loaner, and multi-agent voice.**
+Warranty narrative system for fixed ops: bay evidence → OEM-aligned stories, audit trail, and optional modular products (Video MPI, departments, loaner, AI voice, calendar hub).
 
-**Production Ready** — Ready for Validation and franchise go-live. Sign-off checklist: **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
+**Readiness:** Conditional pilot / multi-dealership rollout after secrets, health, and module gates.  
+**Start:** **[docs/Rollout-Runbook.md](./docs/Rollout-Runbook.md)** · sign-off **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
 
 ---
 

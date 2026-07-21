@@ -8,7 +8,11 @@ import { clearSessionCookie, hashPassword, verifyPassword } from '@/lib/auth';
 import { apiError } from '@/lib/errors';
 import { getRequestIp } from '@/lib/rate-limit';
 import { revokeAllSessionsForTechnician } from '@/lib/sessionRevocation';
-import { changePasswordSchema, parseRequestBody } from '@/lib/validation';
+import {
+  assertPasswordMeetsPolicy,
+  changePasswordSchema,
+  parseRequestBody,
+} from '@/lib/validation';
 
 export async function POST(request: Request) {
   return withAuth(
@@ -16,6 +20,15 @@ export async function POST(request: Request) {
     async (session) => {
       const parsed = await parseRequestBody(request, changePasswordSchema);
       if ('error' in parsed) return parsed.error;
+
+      // P2-5 — manager/owner/admin need elevated password complexity
+      const policyError = assertPasswordMeetsPolicy(parsed.data.newPassword, {
+        role: session.role,
+        isAdmin: session.isAdmin,
+      });
+      if (policyError) {
+        return apiError(policyError, 400);
+      }
 
       // Phase 7.1 H1 — control-plane bypass for credential change (Technician RLS)
       const tech = await withRlsBypass(async () =>

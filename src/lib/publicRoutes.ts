@@ -13,6 +13,8 @@ export const MERLIN_PUBLIC_ROUTE_PATTERNS = [
   '/api/auth/me',
   '/api/auth/logout',
   '/api/auth/clerk/link',
+  '/api/auth/password-recovery/request',
+  '/api/auth/password-recovery/confirm',
   '/api/webhooks/clerk',
   '/api/public/video(.*)',
   '/api/public/hub(.*)',
@@ -33,11 +35,14 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/me',
   '/api/auth/logout',
   '/api/auth/clerk/link',
+  '/api/auth/password-recovery/request',
+  '/api/auth/password-recovery/confirm',
   '/api/webhooks/clerk',
 ]);
 
 export function isMerlinPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
+  if (pathname.startsWith('/api/auth/password-recovery/')) return true;
   if (pathname.startsWith('/sign-in/')) return true;
   if (pathname.startsWith('/v/') || pathname === '/v') return true;
   if (pathname.startsWith('/portal/') || pathname === '/portal') return true;

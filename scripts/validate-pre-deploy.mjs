@@ -172,6 +172,79 @@ function checkForbiddenPublicGrokKeys() {
   pass('No forbidden NEXT_PUBLIC_* xAI API keys (GROK_API_KEY is server-only)');
 }
 
+/**
+ * P0 — OWNER_SEED_PASSWORD* must not remain in production deploy context
+ * unless ALLOW_OWNER_SEED_BOOTSTRAP is explicitly set for a one-shot window.
+ */
+/**
+ * P0-5 — static guard that rlsPrismaExtension uses the registry module
+ * (full schema comparison is `npm run check:rls-registry`).
+ */
+function checkRlsRegistryWiring() {
+  const registryPath = resolve(ROOT, 'src/lib/apex/rlsTenantRegistry.ts');
+  const extPath = resolve(ROOT, 'src/lib/apex/rlsPrismaExtension.ts');
+  const validationPath = resolve(ROOT, 'src/lib/apex/rlsRegistryValidation.ts');
+  if (!existsSync(registryPath) || !existsSync(extPath) || !existsSync(validationPath)) {
+    fail(
+      'P0-5 RLS registry files missing — expected rlsTenantRegistry.ts, rlsPrismaExtension.ts, rlsRegistryValidation.ts'
+    );
+    return;
+  }
+  const registry = readFileSync(registryPath, 'utf8');
+  const ext = readFileSync(extPath, 'utf8');
+  if (!registry.includes('DIRECT_DEALERSHIP_MODELS') || !registry.includes('RELATION_SCOPED_MODELS')) {
+    fail('rlsTenantRegistry.ts incomplete (DIRECT / RELATION sets)');
+    return;
+  }
+  if (!ext.includes('rlsTenantRegistry') || !ext.includes('RELATION_SCOPED_MODELS')) {
+    fail('rlsPrismaExtension.ts must import tenant model registry from rlsTenantRegistry.ts');
+    return;
+  }
+  if (!registry.includes('PLATFORM_NON_TENANT_MODELS')) {
+    fail('rlsTenantRegistry.ts must declare PLATFORM_NON_TENANT_MODELS for non-rooftop models');
+    return;
+  }
+  pass('RLS tenant registry wired (single source of truth + validation module present)');
+}
+
+function checkOwnerSeedSecrets() {
+  const passwordKeys = [
+    'OWNER_SEED_PASSWORD',
+    'OWNER_SEED_PASSWORD_2',
+    'MULTI_ROOFTOP_SEED_PASSWORD',
+  ];
+  const present = passwordKeys.filter((k) => process.env[k]?.trim());
+  const bootstrap = ['1', 'true', 'yes', 'on'].includes(
+    (process.env.ALLOW_OWNER_SEED_BOOTSTRAP || '').trim().toLowerCase()
+  );
+
+  if (present.length === 0) {
+    pass('No owner seed password secrets in deploy environment');
+    return;
+  }
+
+  if (isStrictProductionDeployGate() && !bootstrap) {
+    fail(
+      `Production deploy gate: owner seed password secret(s) still set: ${present.join(', ')}. ` +
+        'Delete from Cloudflare Worker secrets after bootstrap. ' +
+        'One-shot only: ALLOW_OWNER_SEED_BOOTSTRAP=1 then remove secrets. ' +
+        'Use APEX_PLATFORM_OWNER_EMAILS for ongoing national operators.'
+    );
+    return;
+  }
+
+  if (bootstrap) {
+    warn(
+      `ALLOW_OWNER_SEED_BOOTSTRAP set with ${present.join(', ')} — remove after owners exist`
+    );
+    return;
+  }
+
+  warn(
+    `Owner seed passwords present (${present.join(', ')}) — local/CI only; never leave on production Worker`
+  );
+}
+
 function checkScanningEnvironment() {
   const scanningRequired = ['BLOB_READ_WRITE_TOKEN', 'GROK_API_KEY'];
   const missing = scanningRequired.filter((key) => !process.env[key]?.trim());
@@ -420,6 +493,8 @@ async function main() {
 
   checkProductionEnv();
   checkForbiddenPublicGrokKeys();
+  checkOwnerSeedSecrets();
+  checkRlsRegistryWiring();
   checkScanningEnvironment();
   checkSentryDsn();
   checkAiRouteMaxDuration();

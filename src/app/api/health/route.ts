@@ -4,6 +4,7 @@ import {
   buildHealthServicesPayload,
   logUnhealthyServices,
   resolveAuthenticatedHealthHttpStatus,
+  resolveModuleHealthSummary,
   runAuthenticatedHealthChecks,
 } from '@/lib/healthChecks';
 import { getRuntimeConfig } from '@/lib/env';
@@ -15,20 +16,24 @@ export const dynamic = 'force-dynamic';
 const startedAt = Date.now();
 
 /**
- * Manager-authenticated enterprise health — probes Database, KV, Encryption, and Grok API.
- * Returns per-service status + latency; error details are logged server-side only.
+ * Manager-authenticated enterprise health.
+ * P0-3: module-aware Twilio/SMS checks when dealership context is present;
+ * returns enabled SKU summary for the active rooftop.
+ * Error details logged server-side only (not in services payload).
  */
 export async function GET(request: Request) {
   return withAuth(
     request,
-    async () => {
-      const checks = await runAuthenticatedHealthChecks();
+    async (session) => {
+      const dealershipId = session.dealershipId?.trim() || null;
+      const checks = await runAuthenticatedHealthChecks({ dealershipId });
       const status = aggregateAuthenticatedHealthStatus(checks);
       logUnhealthyServices(checks);
 
       if (status !== 'ok') {
         logger.warn('health.summary', {
           status,
+          dealershipId,
           failed: Object.entries(checks)
             .filter(([, c]) => c.status === 'error')
             .map(([name]) => name),
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
         });
       }
 
+      const modules = await resolveModuleHealthSummary(dealershipId);
       const config = getRuntimeConfig(PROMPT_VERSION);
       const payload = {
         status,
@@ -45,6 +51,9 @@ export async function GET(request: Request) {
         promptVersion: PROMPT_VERSION,
         uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
         timestamp: new Date().toISOString(),
+        dealershipId,
+        modules,
+        modulesEnabled: modules.filter((m) => m.enabled).map((m) => m.moduleId),
         services: buildHealthServicesPayload(checks),
       };
 
@@ -54,6 +63,12 @@ export async function GET(request: Request) {
         headers: { 'Cache-Control': 'no-store' },
       });
     },
-    { rateLimitKey: 'health', requireManager: true, skipRateLimit: true }
+    {
+      rateLimitKey: 'health',
+      requireManager: true,
+      skipRateLimit: true,
+      // National owner without enter-dealership can still probe platform deps
+      requireDealershipContext: false,
+    }
   );
 }

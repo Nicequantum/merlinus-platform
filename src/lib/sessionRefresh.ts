@@ -7,6 +7,7 @@ import {
   type ApexAccessClaims,
 } from '@/lib/apex/apexSession';
 import { isApexPlatformMode } from '@/lib/platformMode';
+import { applyCsrfCookieToResponse } from '@/lib/csrf';
 import {
   applySessionCookieToResponse,
   createSessionToken,
@@ -52,6 +53,9 @@ export function toTechnicianSession(payload: SessionPayload): TechnicianSession 
     activeDealerGroupId: payload.activeDealerGroupId,
     dealerGroupName: payload.dealerGroupName,
     mustChangePassword: payload.mustChangePassword,
+    mfaEnabled: payload.mfaEnabled,
+    mfaEnrolled: payload.mfaEnrolled,
+    mfaRequired: payload.mfaRequired,
     dealershipTimezone: payload.dealershipTimezone,
     viewAsRole: payload.viewAsRole,
     viewAsAdmin: payload.viewAsAdmin,
@@ -101,6 +105,7 @@ export async function jsonWithSessionCookie(
   jwtPayload: SessionPayload | ApexAccessClaims | null = null
 ): Promise<NextResponse> {
   const response = NextResponse.json(body);
+  applyCsrfCookieToResponse(response);
   return attachRefreshedSessionCookie(response, session, jwtPayload);
 }
 
@@ -110,6 +115,7 @@ export async function jsonWithFreshSessionCookie(
   session: SessionPayload
 ): Promise<NextResponse> {
   const response = NextResponse.json(body);
+  applyCsrfCookieToResponse(response);
   await applyRefreshedSessionCookie(response, session, null);
   return response;
 }

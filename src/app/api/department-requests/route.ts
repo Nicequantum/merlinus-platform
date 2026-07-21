@@ -16,7 +16,10 @@ import {
   moduleForDepartment,
   type DepartmentId,
 } from '@/lib/department/constants';
-import { assertDepartmentModuleEnabled } from '@/lib/department/moduleGate';
+import {
+  assertDepartmentModuleEnabled,
+  departmentModuleDisabledResponse,
+} from '@/lib/department/moduleGate';
 import {
   last8OfVin,
   mapDepartmentRequestDetail,
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
     request,
     async (session) => {
       const mod = await assertDepartmentModuleEnabled(session.dealershipId, department);
-      if (!mod.ok) return apiError(mod.message, 403);
+      if (!mod.ok) return departmentModuleDisabledResponse(mod);
 
       const access = assertDepartmentInboxAccess(session, department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);
@@ -154,7 +157,7 @@ export async function POST(request: Request) {
       }
 
       const mod = await assertDepartmentModuleEnabled(session.dealershipId, department);
-      if (!mod.ok) return apiError(mod.message, 403);
+      if (!mod.ok) return departmentModuleDisabledResponse(mod);
 
       const access = assertDepartmentInboxAccess(session, department);
       if (!access.ok) return apiError(access.message || FORBIDDEN_ERROR, 403);

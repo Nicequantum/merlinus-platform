@@ -14,6 +14,7 @@ import {
 import { auditDealerIdFromSession } from '@/lib/audit';
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { applySessionCookieToResponse, createSessionToken, loginTechnician } from '@/lib/auth';
+import { applyCsrfCookieToResponse } from '@/lib/csrf';
 import { isLegacyAuthPathEnabled } from '@/lib/authMode';
 import { getDb } from '@/lib/db';
 import { isApexPlatformMode } from '@/lib/platformMode';
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
 
       const response = NextResponse.json({ session, authSource: 'legacy' as const });
       applySessionCookieToResponse(response, token);
+      applyCsrfCookieToResponse(response);
       logApiWriteRequest({
         routeKey: 'auth.login',
         method: request.method,
@@ -151,6 +153,7 @@ export async function POST(request: Request) {
       credentialType: loginResult.credentialType,
     });
     await issueApexSessionCookies(response, clientSession, request, { authSource: 'legacy' });
+    applyCsrfCookieToResponse(response);
     logApiWriteRequest({
       routeKey: 'auth.login',
       method: request.method,
