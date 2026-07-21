@@ -190,8 +190,10 @@ export function HubDashboard({
       toast.success('AI summary ready');
       // Optimistic: refresh timeline
       void refresh();
-      if (insight.summary) {
-        toast.message(insight.summary.slice(0, 140) + (insight.summary.length > 140 ? '…' : ''));
+      const summary =
+        typeof insight.summary === 'string' ? insight.summary : '';
+      if (summary) {
+        toast.message(summary.slice(0, 140) + (summary.length > 140 ? '…' : ''));
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Summarize failed');
