@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       rateLimitKey: 'hub.analytics',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }

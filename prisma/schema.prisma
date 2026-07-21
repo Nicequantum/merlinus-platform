@@ -180,6 +180,8 @@ enum ModuleId {
   video_mpi
   maintenance
   voice_agent
+  /** Unified Calendar & Conversation Hub (appointments + call intelligence) */
+  calendar_hub
   loaner
   parts
   sales

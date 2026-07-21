@@ -98,6 +98,7 @@ describe('PR-M0 product module entitlements', () => {
       'video_mpi',
       'maintenance',
       'voice_agent',
+      'calendar_hub',
       'loaner',
       'parts',
       'sales',
@@ -108,6 +109,33 @@ describe('PR-M0 product module entitlements', () => {
     assert.ok(!SEED_ENABLED_MODULE_IDS.includes('cdk_sync'));
     assert.ok(DEFERRED_MODULE_IDS.includes('cdk_sync'));
     assert.ok(!SEED_ENABLED_MODULE_IDS.includes('core_story' as never));
+  });
+
+  test('catalog includes calendar_hub and voice_agent product modules', () => {
+    assert.ok(PRODUCT_MODULE_IDS.includes('calendar_hub'));
+    assert.ok(PRODUCT_MODULE_IDS.includes('voice_agent'));
+    assert.ok(MODULE_CATALOG.some((m) => m.id === 'calendar_hub'));
+  });
+
+  test('MODULE_HUB_ENABLED / MODULE_VOICE_ENABLED force aliases', () => {
+    const prevHub = process.env.MODULE_HUB_ENABLED;
+    const prevVoice = process.env.MODULE_VOICE_ENABLED;
+    const prevForce = process.env.MODULES_FORCE_ENABLE;
+    try {
+      delete process.env.MODULES_FORCE_ENABLE;
+      process.env.MODULE_HUB_ENABLED = 'true';
+      process.env.MODULE_VOICE_ENABLED = '1';
+      const forced = parseForcedModules();
+      assert.ok(forced.has('calendar_hub'));
+      assert.ok(forced.has('voice_agent'));
+    } finally {
+      if (prevHub === undefined) delete process.env.MODULE_HUB_ENABLED;
+      else process.env.MODULE_HUB_ENABLED = prevHub;
+      if (prevVoice === undefined) delete process.env.MODULE_VOICE_ENABLED;
+      else process.env.MODULE_VOICE_ENABLED = prevVoice;
+      if (prevForce === undefined) delete process.env.MODULES_FORCE_ENABLE;
+      else process.env.MODULES_FORCE_ENABLE = prevForce;
+    }
   });
 
   test('seed and provision wire module defaults; manager UI can toggle', () => {

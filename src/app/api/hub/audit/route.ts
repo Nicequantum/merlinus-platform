@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       rateLimitKey: 'hub.audit',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }

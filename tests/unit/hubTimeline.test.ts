@@ -46,6 +46,7 @@ describe('Unified Calendar & Conversation Hub', () => {
       'utf8'
     );
     assert.match(timeline, /buildHubTimeline/);
+    assert.match(timeline, /requireModule:\s*'calendar_hub'/);
     const portal = readFileSync(
       resolve(root, 'src/app/api/public/hub/appointment/[token]/route.ts'),
       'utf8'

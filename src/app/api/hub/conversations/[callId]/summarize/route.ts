@@ -151,6 +151,7 @@ export async function POST(
       rateLimit: RATE_LIMITS.generate,
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
       trackUsage: true,
       blockInMaintenance: true,
     }

@@ -62,6 +62,7 @@ export async function GET(request: Request) {
       rateLimitKey: 'hub.timeline',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }

@@ -112,6 +112,7 @@ export async function POST(
       rateLimitKey: 'hub.conversation.create_appointment',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }

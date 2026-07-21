@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import type { TechnicianSession } from '@/types';
 
 type TimelineItem =
@@ -103,6 +104,7 @@ export function HubDashboard({
     insightsGenerated: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [moduleDisabled, setModuleDisabled] = useState(false);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -140,6 +142,7 @@ export function HubDashboard({
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setModuleDisabled(false);
     try {
       const [data, analyticsRes] = await Promise.all([
         api.getHubTimeline({ q: q || undefined, limit: 100 }),
@@ -164,7 +167,12 @@ export function HubDashboard({
         });
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load hub');
+      const msg = e instanceof Error ? e.message : 'Failed to load hub';
+      if (/module|not enabled|MODULE_DISABLED|calendar_hub/i.test(msg)) {
+        setModuleDisabled(true);
+      } else {
+        toast.error(msg);
+      }
       setItems([]);
     } finally {
       setLoading(false);
@@ -361,6 +369,16 @@ export function HubDashboard({
         </p>
       </div>
 
+      {moduleDisabled ? (
+        <ModuleDisabledNotice
+          title="Calendar & Conversation Hub"
+          moduleId="calendar_hub"
+          hint="This product is sold as a modular add-on. Enable calendar_hub for this rooftop to use appointments, call insights, and the customer portal."
+        />
+      ) : null}
+
+      {!moduleDisabled ? (
+      <>
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <div className="benz-card p-4">
@@ -738,6 +756,8 @@ export function HubDashboard({
           ))}
         </div>
       )}
+      </>
+      ) : null}
     </div>
   );
 }

@@ -13,6 +13,7 @@ export const PRODUCT_MODULE_IDS: readonly ProductModuleId[] = [
   'video_mpi',
   'maintenance',
   'voice_agent',
+  'calendar_hub',
   'loaner',
   'parts',
   'sales',
@@ -40,8 +41,15 @@ export const MODULE_CATALOG: readonly ModuleCatalogEntry[] = [
   },
   {
     id: 'voice_agent',
-    name: 'AI Voice Agent',
-    description: 'Phone receptionist and specialist agents that route work to departments.',
+    name: 'AI Voice Agents (Sophia + specialists)',
+    description:
+      'Inbound phone AI (Sophia receptionist and department specialists). Requires Twilio DID configuration.',
+  },
+  {
+    id: 'calendar_hub',
+    name: 'Calendar & Conversation Hub',
+    description:
+      'Unified appointments timeline, AI call insights, smart booking suggestions, and customer appointment portal.',
   },
   {
     id: 'loaner',
@@ -96,11 +104,25 @@ export const SEED_ENABLED_MODULE_IDS: readonly ProductModuleId[] = [
   'video_mpi',
   'maintenance',
   'voice_agent',
+  'calendar_hub',
   'loaner',
   'parts',
   'sales',
   'service',
 ] as const;
+
+/**
+ * Env break-glass aliases (optional) — maps business names to ProductModuleId.
+ * Prefer MODULES_FORCE_ENABLE=calendar_hub,voice_agent (canonical ids).
+ * MODULE_HUB_ENABLED / MODULE_VOICE_ENABLED are accepted as soft aliases in parseForcedModules.
+ */
+export const MODULE_ENV_ALIASES: Record<string, ProductModuleId> = {
+  MODULE_HUB_ENABLED: 'calendar_hub',
+  MODULE_VOICE_ENABLED: 'voice_agent',
+  hub: 'calendar_hub',
+  voice: 'voice_agent',
+  calendar: 'calendar_hub',
+};
 
 /** Modules deferred until external integrations are configured. */
 export const DEFERRED_MODULE_IDS: readonly ProductModuleId[] = ['cdk_sync'] as const;
@@ -111,10 +133,21 @@ export const DEFERRED_MODULE_IDS: readonly ProductModuleId[] = ['cdk_sync'] as c
  */
 export function parseForcedModules(envValue = process.env.MODULES_FORCE_ENABLE): Set<ProductModuleId> {
   const forced = new Set<ProductModuleId>();
-  if (!envValue?.trim()) return forced;
-  for (const raw of envValue.split(',')) {
-    const id = raw.trim();
-    if (isProductModuleId(id)) forced.add(id);
+  if (envValue?.trim()) {
+    for (const raw of envValue.split(',')) {
+      const id = raw.trim();
+      if (isProductModuleId(id)) forced.add(id);
+      else if (MODULE_ENV_ALIASES[id]) forced.add(MODULE_ENV_ALIASES[id]!);
+    }
   }
+  // Boolean-style aliases for ops docs / business model language
+  if (isTruthyEnv(process.env.MODULE_HUB_ENABLED)) forced.add('calendar_hub');
+  if (isTruthyEnv(process.env.MODULE_VOICE_ENABLED)) forced.add('voice_agent');
   return forced;
+}
+
+function isTruthyEnv(value: string | undefined): boolean {
+  if (!value) return false;
+  const n = value.trim().toLowerCase();
+  return n === '1' || n === 'true' || n === 'yes' || n === 'on';
 }

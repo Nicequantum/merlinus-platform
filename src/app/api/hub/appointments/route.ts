@@ -53,6 +53,7 @@ export async function GET(request: Request) {
       rateLimitKey: 'hub.appointments.list',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
       rateLimitKey: 'hub.appointments.create',
       requireManager: true,
       requireDealershipContext: true,
+      requireModule: 'calendar_hub',
     }
   );
 }

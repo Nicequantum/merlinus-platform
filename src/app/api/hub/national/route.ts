@@ -1,10 +1,11 @@
 import { withAuth } from '@/lib/apiRoute';
 import { getDb } from '@/lib/db';
 import { withRlsBypass } from '@/lib/apex/rlsContext';
+import { isModuleEnabled } from '@/lib/modules/entitlements';
 
 /**
  * High-level national owner overview for the Conversation Hub.
- * Aggregates appointments + call volume across rooftops (owner national scope).
+ * Only includes rooftops with calendar_hub enabled (modular product surface).
  */
 export async function GET(request: Request) {
   return withAuth(
@@ -20,8 +21,24 @@ export async function GET(request: Request) {
           take: 100,
         });
 
+        const enabledRoofs: Array<{ id: string; name: string }> = [];
+        for (const d of dealerships) {
+          const on = await isModuleEnabled(d.id, 'calendar_hub', { db });
+          if (on) enabledRoofs.push(d);
+        }
+
+        if (enabledRoofs.length === 0) {
+          return {
+            rooftops: [],
+            totals: { appointments7d: 0, calls7d: 0, insights7d: 0 },
+            windowDays: 7,
+            module: 'calendar_hub',
+            note: 'No rooftops have calendar_hub enabled',
+          };
+        }
+
         const rows = await Promise.all(
-          dealerships.map(async (d) => {
+          enabledRoofs.map(async (d) => {
             const [apptCount, callCount, insightCount] = await Promise.all([
               db.serviceAppointment.count({
                 where: { dealershipId: d.id, startsAt: { gte: since } },
@@ -53,7 +70,7 @@ export async function GET(request: Request) {
           { appointments7d: 0, calls7d: 0, insights7d: 0 }
         );
 
-        return { rooftops: rows, totals, windowDays: 7 };
+        return { rooftops: rows, totals, windowDays: 7, module: 'calendar_hub' };
       });
 
       return data;

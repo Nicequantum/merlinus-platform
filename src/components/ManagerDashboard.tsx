@@ -91,6 +91,16 @@ function StatCard({
   );
 }
 
+/** Nav tiles only for modules enabled on this rooftop (or still loading → hide until known). */
+function isModuleUiEnabled(
+  modules: ModuleStatusRow[] | null,
+  moduleId: string
+): boolean {
+  if (!modules) return false;
+  const row = modules.find((m) => m.moduleId === moduleId);
+  return Boolean(row?.enabled);
+}
+
 export function ManagerDashboard({
   session,
   searchTerm,
@@ -331,7 +341,7 @@ export function ManagerDashboard({
                     <Car size={14} /> Loaner fleet
                   </button>
                 ) : null}
-                {onOpenVoice ? (
+                {onOpenVoice && isModuleUiEnabled(modules, 'voice_agent') ? (
                   <button
                     type="button"
                     onClick={onOpenVoice}
@@ -340,7 +350,7 @@ export function ManagerDashboard({
                     <Phone size={14} /> Voice agent
                   </button>
                 ) : null}
-                {onOpenHub ? (
+                {onOpenHub && isModuleUiEnabled(modules, 'calendar_hub') ? (
                   <button
                     type="button"
                     onClick={onOpenHub}

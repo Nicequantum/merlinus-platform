@@ -7,6 +7,7 @@
 
 import {
   isProductModuleId,
+  MODULE_ENV_ALIASES,
   PRODUCT_MODULE_IDS,
   type ProductModuleId,
 } from '@/lib/modules/catalog';
@@ -39,6 +40,7 @@ export function parseModulesForceEnableDetailed(
     const id = raw.trim();
     if (!id) continue;
     if (isProductModuleId(id)) forced.push(id);
+    else if (MODULE_ENV_ALIASES[id]) forced.push(MODULE_ENV_ALIASES[id]!);
     else invalid.push(id);
   }
   return { forced, invalid };

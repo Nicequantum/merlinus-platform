@@ -11,6 +11,7 @@ import { decryptSensitiveText, encryptSensitiveText } from '@/lib/encryption';
 import { writeHubAudit } from '@/lib/hub/audit';
 import { generateConversationInsight } from '@/lib/hub/insightAi';
 import { logger } from '@/lib/logger';
+import { isModuleEnabled } from '@/lib/modules/entitlements';
 import { categorizeCall, getVoiceAgent } from '@/lib/voiceAgent/registry';
 import { parseConversationState } from '@/lib/voiceAgent/runtime';
 
@@ -56,6 +57,12 @@ export async function ingestCompletedCallToHub(input: {
 
       if (!call) {
         return { ok: false, error: 'call_not_found' };
+      }
+
+      // Modular: only enrich Hub when calendar_hub is enabled for the rooftop
+      const hubOn = await isModuleEnabled(call.dealershipId, 'calendar_hub', { db });
+      if (!hubOn) {
+        return { ok: true, skipped: true, error: 'calendar_hub_disabled' };
       }
 
       const existing = await db.conversationInsight.findUnique({
