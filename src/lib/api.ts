@@ -1081,6 +1081,23 @@ export const api = {
       { method: 'POST', timeoutMs: 60_000, maxRetries: 0 }
     ),
 
+  createHubAppointmentFromCall: (callId: string) =>
+    apiFetch<{ appointment: Record<string, unknown> }>(
+      `/api/hub/conversations/${callId}/create-appointment`,
+      { method: 'POST' }
+    ),
+
+  getHubAnalytics: (days?: number) =>
+    apiFetch<{
+      analytics: Record<string, unknown>;
+      agents: Array<{
+        id: string;
+        displayName: string;
+        department: string;
+        description: string;
+      }>;
+    }>(`/api/hub/analytics${days ? `?days=${days}` : ''}`, { cache: 'no-store' }),
+
   getHubNationalOverview: () =>
     apiFetch<{
       totals: { appointments7d: number; calls7d: number; insights7d: number };

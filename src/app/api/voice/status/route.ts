@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const params = await parseTwilioForm(request);
     const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || '';
     const signature = request.headers.get('x-twilio-signature');
-    const url = absoluteVoiceUrl('/api/voice/status');
+    const url = absoluteVoiceUrl('/api/voice/status', request);
 
     if (
       !validateTwilioSignature({
@@ -33,12 +33,15 @@ export async function POST(request: Request) {
     const callSid = params.CallSid?.trim();
     const status = params.CallStatus?.trim() || 'completed';
     const duration = Number(params.CallDuration);
+    const normalized = ['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(status)
+      ? status
+      : 'completed';
     await markCallCompleted({
       callSid,
-      status: ['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(status)
-        ? status
-        : 'completed',
+      status: normalized,
       durationSec: Number.isFinite(duration) ? duration : undefined,
+      // Auto hub ingest on completed calls (Sophia → Calendar & Conversation Hub)
+      ingestToHub: normalized === 'completed',
     });
 
     return NextResponse.json({ ok: true });

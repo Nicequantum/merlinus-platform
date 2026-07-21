@@ -279,13 +279,15 @@ export async function processAgentTurn(input: {
       stateJson: JSON.stringify(state),
     },
   });
+  const callEnded = endCall || Boolean(dialHumanE164);
+
   await getRlsDb().voiceCall.update({
     where: { id: input.callId },
     data: {
       routingPathJson: JSON.stringify(state.routingPath),
       metricsJson: JSON.stringify(metrics),
-      status: endCall || dialHumanE164 ? 'completed' : 'in_progress',
-      ...(endCall || dialHumanE164
+      status: callEnded ? 'completed' : 'in_progress',
+      ...(callEnded
         ? {
             endedAt: new Date(),
             contained: metrics.contained ?? null,
@@ -296,7 +298,23 @@ export async function processAgentTurn(input: {
     },
   });
 
-  return { speech, activeAgent, endCall: endCall || Boolean(dialHumanE164), state, dialHumanE164 };
+  // Auto-ingest into Unified Hub (AI insight + tags) when the call ends
+  if (callEnded) {
+    try {
+      const { ingestCompletedCallToHubSafe } = await import('@/lib/hub/callIngest');
+      // Do not await long Grok work on the Twilio hot path — but Workers may freeze
+      // after response; await with a soft timeout via Promise.race when needed.
+      // Prefer await so CF Workers complete ingest before isolate freeze.
+      await ingestCompletedCallToHubSafe({
+        callId: input.callId,
+        skipIfExists: false,
+      });
+    } catch {
+      // never break TwiML
+    }
+  }
+
+  return { speech, activeAgent, endCall: callEnded, state, dialHumanE164 };
 }
 
 function ensureMetricsAgentName(state: ConversationState, name: string): void {

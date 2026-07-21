@@ -6,6 +6,8 @@ import { writeHubAudit } from '@/lib/hub/audit';
 import { generateConversationInsight } from '@/lib/hub/insightAi';
 import { parseJsonArray, parseJsonObject } from '@/lib/hub/mappers';
 import { RATE_LIMITS } from '@/lib/rate-limit';
+import { categorizeCall } from '@/lib/voiceAgent/registry';
+import { parseConversationState } from '@/lib/voiceAgent/runtime';
 import { parseRouteParams } from '@/lib/validation';
 import { z } from 'zod';
 
@@ -51,15 +53,9 @@ export async function POST(
       } catch {
         metrics = {};
       }
-      let slots: Record<string, unknown> = {};
-      try {
-        const state = JSON.parse(call.conversation?.stateJson || '{}') as {
-          slots?: Record<string, unknown>;
-        };
-        slots = state.slots || {};
-      } catch {
-        slots = {};
-      }
+      const state = parseConversationState(call.conversation?.stateJson);
+      const slots = (state.slots || {}) as Record<string, unknown>;
+      const routingPath = state.routingPath || [];
 
       const insight = await generateConversationInsight({
         dealershipName: session.dealershipName || 'Dealership',
@@ -67,6 +63,22 @@ export async function POST(
         metrics,
         slots,
       });
+
+      const tags = categorizeCall({
+        primaryIntent: insight.primaryIntent,
+        routingPath,
+        outcome: insight.outcome || call.outcome,
+        slots,
+      });
+      const suggested = {
+        ...(insight.suggestedAppointment || {}),
+        customerName: slots.customerName,
+        customerPhone: slots.customerPhone,
+        vehicleLabel: slots.vehicleLabel,
+        vin: slots.vin,
+        voiceCallId: call.id,
+        tags,
+      };
 
       const row = await getRlsDb().conversationInsight.upsert({
         where: { voiceCallId: call.id },
@@ -77,7 +89,7 @@ export async function POST(
           keyPointsJson: JSON.stringify(insight.keyPoints),
           sentiment: insight.sentiment,
           primaryIntent: insight.primaryIntent,
-          suggestedAppointmentJson: JSON.stringify(insight.suggestedAppointment || {}),
+          suggestedAppointmentJson: JSON.stringify(suggested),
           outcome: insight.outcome,
           promptVersion: insight.promptVersion,
         },
@@ -86,9 +98,23 @@ export async function POST(
           keyPointsJson: JSON.stringify(insight.keyPoints),
           sentiment: insight.sentiment,
           primaryIntent: insight.primaryIntent,
-          suggestedAppointmentJson: JSON.stringify(insight.suggestedAppointment || {}),
+          suggestedAppointmentJson: JSON.stringify(suggested),
           outcome: insight.outcome,
           promptVersion: insight.promptVersion,
+        },
+      });
+
+      await getRlsDb().voiceCall.update({
+        where: { id: call.id },
+        data: {
+          metricsJson: JSON.stringify({
+            ...metrics,
+            tags,
+            callSummary: insight.summary,
+            sentiment: insight.sentiment,
+            primaryIntent: insight.primaryIntent,
+            hubIngestedAt: new Date().toISOString(),
+          }),
         },
       });
 

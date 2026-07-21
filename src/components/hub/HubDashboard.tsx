@@ -46,11 +46,18 @@ type TimelineItem =
         durationSec: number | null;
         outcome: string | null;
         activeAgent: string | null;
+        agentDisplayName: string | null;
+        routingPath: string[];
+        tags: string[];
+        customerName: string | null;
+        vehicleLabel: string | null;
         sentiment: string | null;
         primaryIntent: string | null;
         summary: string | null;
         keyPoints: string[];
         hasInsight: boolean;
+        hasRecording: boolean;
+        recordingStatus: string | null;
         suggestedAppointment: Record<string, unknown> | null;
         createdAt: string;
       };
@@ -99,6 +106,16 @@ export function HubDashboard({
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [playingCallId, setPlayingCallId] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<{
+    callVolume: number;
+    avgDurationSec: number | null;
+    conversionRate: number | null;
+    bookedCount: number;
+    transferredCount: number;
+    peakHours: Array<{ hour: number; count: number }>;
+    appointmentsFromVoice: number;
+  } | null>(null);
   const [national, setNational] = useState<{
     totals: { appointments7d: number; calls7d: number; insights7d: number };
     rooftops: Array<{
@@ -124,9 +141,28 @@ export function HubDashboard({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getHubTimeline({ q: q || undefined, limit: 100 });
+      const [data, analyticsRes] = await Promise.all([
+        api.getHubTimeline({ q: q || undefined, limit: 100 }),
+        api.getHubAnalytics(30).catch(() => null),
+      ]);
       setItems(data.items as TimelineItem[]);
       setStats(data.stats);
+      if (analyticsRes?.analytics) {
+        const a = analyticsRes.analytics;
+        setAnalytics({
+          callVolume: Number(a.callVolume || 0),
+          avgDurationSec:
+            typeof a.avgDurationSec === 'number' ? a.avgDurationSec : null,
+          conversionRate:
+            typeof a.conversionRate === 'number' ? a.conversionRate : null,
+          bookedCount: Number(a.bookedCount || 0),
+          transferredCount: Number(a.transferredCount || 0),
+          peakHours: Array.isArray(a.peakHours)
+            ? (a.peakHours as Array<{ hour: number; count: number }>)
+            : [],
+          appointmentsFromVoice: Number(a.appointmentsFromVoice || 0),
+        });
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to load hub');
       setItems([]);
@@ -144,7 +180,10 @@ export function HubDashboard({
     void (async () => {
       try {
         const data = await api.getHubNationalOverview();
-        setNational(data as typeof national);
+        setNational({
+          totals: data.totals,
+          rooftops: data.rooftops,
+        });
       } catch {
         setNational(null);
       }
@@ -208,17 +247,51 @@ export function HubDashboard({
     setShowCreate(true);
     setTitle(String(sug.title || 'Service appointment'));
     setCategory(String(sug.category || 'service'));
+    setCustomerName(
+      call.call.customerName ||
+        (typeof sug.customerName === 'string' ? sug.customerName : '') ||
+        ''
+    );
+    setCustomerPhone(typeof sug.customerPhone === 'string' ? sug.customerPhone : '');
+    setVehicleLabel(
+      call.call.vehicleLabel ||
+        (typeof sug.vehicleLabel === 'string' ? sug.vehicleLabel : '') ||
+        ''
+    );
     setNotes(
-      [sug.notes, sug.preferredWindow ? `Preferred: ${sug.preferredWindow}` : '', `From call ${call.call.id.slice(0, 8)}`]
+      [
+        sug.notes,
+        sug.preferredWindow ? `Preferred: ${sug.preferredWindow}` : '',
+        `From call ${call.call.id.slice(0, 8)}`,
+      ]
         .filter(Boolean)
         .join('\n')
     );
-    // default start: tomorrow 9am local
     const d = new Date();
     d.setDate(d.getDate() + 1);
     d.setHours(9, 0, 0, 0);
-    setStartsAt(d.toISOString().slice(0, 16));
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    setStartsAt(local);
     toast.message('Review the suggested appointment and save');
+  };
+
+  const createFromCall = async (callId: string) => {
+    setBusy(true);
+    try {
+      const { appointment } = await api.createHubAppointmentFromCall(callId);
+      toast.success(
+        typeof appointment.title === 'string'
+          ? `Booked: ${appointment.title}`
+          : 'Appointment created from call'
+      );
+      void refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not create appointment');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const shareAppointment = async (id: string) => {
@@ -289,7 +362,7 @@ export function HubDashboard({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <div className="benz-card p-4">
           <div className="text-xs uppercase tracking-wide text-benz-secondary mb-1">Next 7 days</div>
           <div className="text-2xl font-bold tabular-nums">{stats.upcomingAppointments7d}</div>
@@ -303,7 +376,33 @@ export function HubDashboard({
         <div className="benz-card p-4">
           <div className="text-xs uppercase tracking-wide text-benz-secondary mb-1">AI insights</div>
           <div className="text-2xl font-bold tabular-nums">{stats.insightsGenerated}</div>
-          <div className="text-xs text-benz-muted">summaries stored</div>
+          <div className="text-xs text-benz-muted">summaries</div>
+        </div>
+        <div className="benz-card p-4">
+          <div className="text-xs uppercase tracking-wide text-benz-secondary mb-1">Call volume</div>
+          <div className="text-2xl font-bold tabular-nums">{analytics?.callVolume ?? '—'}</div>
+          <div className="text-xs text-benz-muted">30 days</div>
+        </div>
+        <div className="benz-card p-4">
+          <div className="text-xs uppercase tracking-wide text-benz-secondary mb-1">Conversion</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {analytics?.conversionRate != null
+              ? `${Math.round(analytics.conversionRate * 100)}%`
+              : '—'}
+          </div>
+          <div className="text-xs text-benz-muted">follow-up rate</div>
+        </div>
+        <div className="benz-card p-4">
+          <div className="text-xs uppercase tracking-wide text-benz-secondary mb-1">Avg duration</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {analytics?.avgDurationSec != null ? durationLabel(analytics.avgDurationSec) : '—'}
+          </div>
+          <div className="text-xs text-benz-muted">
+            peak{' '}
+            {analytics?.peakHours?.[0]
+              ? `${analytics.peakHours[0].hour}:00`
+              : '—'}
+          </div>
         </div>
       </div>
 
@@ -519,8 +618,15 @@ export function HubDashboard({
                             <span>{formatWhen(item.call.createdAt)}</span>
                             <span>· …{item.call.fromLast4}</span>
                             <span>· {durationLabel(item.call.durationSec)}</span>
-                            {item.call.activeAgent ? (
-                              <span className="text-benz-blue">{item.call.activeAgent}</span>
+                            {item.call.agentDisplayName || item.call.activeAgent ? (
+                              <span className="text-benz-blue">
+                                {item.call.agentDisplayName || item.call.activeAgent}
+                              </span>
+                            ) : null}
+                            {item.call.outcome ? (
+                              <span className="rounded-full bg-white/5 px-2 py-0.5">
+                                {item.call.outcome.replace(/_/g, ' ')}
+                              </span>
                             ) : null}
                             {item.call.sentiment ? (
                               <span className="rounded-full bg-white/5 px-2 py-0.5">
@@ -533,13 +639,21 @@ export function HubDashboard({
                               ? item.call.primaryIntent.replace(/_/g, ' ')
                               : 'Phone conversation'}
                           </h4>
+                          {(item.call.customerName || item.call.vehicleLabel) && (
+                            <p className="text-sm text-benz-secondary mt-1">
+                              {[item.call.customerName, item.call.vehicleLabel]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          )}
                           {item.call.summary ? (
                             <p className="text-sm text-benz-secondary mt-1.5 leading-relaxed">
                               {item.call.summary}
                             </p>
                           ) : (
                             <p className="text-sm text-benz-muted mt-1.5">
-                              No AI summary yet — generate key points for the team.
+                              Insight pending — auto-generated when the call completes, or run AI
+                              now.
                             </p>
                           )}
                           {item.call.keyPoints?.length ? (
@@ -552,6 +666,27 @@ export function HubDashboard({
                               ))}
                             </ul>
                           ) : null}
+                          {item.call.tags?.length ? (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {item.call.tags.slice(0, 8).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded-full border border-benz-border/40 px-2 py-0.5 text-[10px] text-benz-muted"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {playingCallId === item.call.id ? (
+                            <audio
+                              className="mt-3 w-full"
+                              controls
+                              autoPlay
+                              src={`/api/voice/calls/${item.call.id}/recording/media`}
+                              onEnded={() => setPlayingCallId(null)}
+                            />
+                          ) : null}
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button
                               type="button"
@@ -562,13 +697,34 @@ export function HubDashboard({
                               <Sparkles size={14} className="inline mr-1" />
                               {item.call.hasInsight ? 'Refresh AI' : 'AI summarize'}
                             </button>
+                            <button
+                              type="button"
+                              className="primary-btn min-h-10 px-3 text-xs"
+                              disabled={busy}
+                              onClick={() => void createFromCall(item.call.id)}
+                            >
+                              Create appointment
+                            </button>
                             {item.call.suggestedAppointment ? (
                               <button
                                 type="button"
                                 className="secondary-btn min-h-10 px-3 text-xs"
                                 onClick={() => void applySuggestion(item)}
                               >
-                                Suggest appointment
+                                Edit suggestion
+                              </button>
+                            ) : null}
+                            {item.call.hasRecording ? (
+                              <button
+                                type="button"
+                                className="secondary-btn min-h-10 px-3 text-xs"
+                                onClick={() =>
+                                  setPlayingCallId((id) =>
+                                    id === item.call.id ? null : item.call.id
+                                  )
+                                }
+                              >
+                                {playingCallId === item.call.id ? 'Hide audio' : 'Play recording'}
                               </button>
                             ) : null}
                           </div>

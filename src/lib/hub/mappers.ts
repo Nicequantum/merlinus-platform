@@ -81,11 +81,18 @@ export type TimelineItem =
         outcome: string | null;
         contained: boolean | null;
         activeAgent: string | null;
+        agentDisplayName: string | null;
+        routingPath: string[];
+        tags: string[];
+        customerName: string | null;
+        vehicleLabel: string | null;
         sentiment: string | null;
         primaryIntent: string | null;
         summary: string | null;
         keyPoints: string[];
         hasInsight: boolean;
+        hasRecording: boolean;
+        recordingStatus: string | null;
         suggestedAppointment: Record<string, unknown> | null;
         createdAt: string;
       };

@@ -164,7 +164,11 @@ export async function markCallCompleted(input: {
   callId?: string;
   durationSec?: number;
   status?: string;
+  /** When false, skip hub AI ingest (default: ingest completed/success paths) */
+  ingestToHub?: boolean;
 }): Promise<void> {
+  let resolvedCallId: string | undefined = input.callId;
+
   await withRlsBypass(async (tx) => {
     const where = input.callId
       ? { id: input.callId }
@@ -172,6 +176,15 @@ export async function markCallCompleted(input: {
         ? { externalCallId: input.callSid }
         : null;
     if (!where) return;
+
+    if (!resolvedCallId && input.callSid) {
+      const row = await tx.voiceCall.findUnique({
+        where: { externalCallId: input.callSid },
+        select: { id: true },
+      });
+      resolvedCallId = row?.id;
+    }
+
     await tx.voiceCall.updateMany({
       where,
       data: {
@@ -181,4 +194,17 @@ export async function markCallCompleted(input: {
       },
     });
   });
+
+  const status = input.status || 'completed';
+  const shouldIngest = input.ingestToHub !== false && status === 'completed';
+
+  if (shouldIngest && (resolvedCallId || input.callSid)) {
+    // Dynamic import avoids circular deps with hub → runtime
+    const { ingestCompletedCallToHubSafe } = await import('@/lib/hub/callIngest');
+    await ingestCompletedCallToHubSafe({
+      callId: resolvedCallId,
+      callSid: input.callSid,
+      skipIfExists: true,
+    });
+  }
 }

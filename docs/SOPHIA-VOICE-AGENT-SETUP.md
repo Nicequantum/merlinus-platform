@@ -202,3 +202,15 @@ Staging number `+14016454563` is pre-mapped to the Mercedes-Benz Staging profile
 ## 8. Support scenarios Sophia handles
 
 Hours · directions · service booking follow-up · parts · sales · loaner check · roadside guidance · warranty escalation · complaint empathy · human transfer (when configured) · multi-agent handoff with brief · end-of-call summary logging.
+
+## 9. Unified Hub (automatic)
+
+When a call **completes**, the platform runs **hub call ingest**:
+
+- Creates / refreshes `ConversationInsight` (AI summary, key points, sentiment, intent)
+- Tags the call (`dept:*`, `agent:*`, `outcome:*`, customer/vehicle linkage)
+- Surfaces the call on **Calendar & Conversation Hub** timeline
+- Enables **one-click Create appointment** and optional recording replay
+
+See **`docs/VOICE-AGENT-REGISTRY-AND-HUB.md`** for multi-agent extension and architecture.
+

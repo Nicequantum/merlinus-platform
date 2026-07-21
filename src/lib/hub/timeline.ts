@@ -130,6 +130,36 @@ export async function buildHubTimeline(input: {
       ? parseJsonObject(insight.suggestedAppointmentJson)
       : null;
 
+    const routingPath = (() => {
+      try {
+        const p = JSON.parse(c.routingPathJson || '[]') as unknown;
+        return Array.isArray(p) ? p.map(String) : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const tagsFromMetrics = Array.isArray(metrics.tags)
+      ? (metrics.tags as unknown[]).map(String)
+      : [];
+    const tagsFromSuggested = Array.isArray(suggested?.tags)
+      ? (suggested!.tags as unknown[]).map(String)
+      : [];
+    const tags = tagsFromMetrics.length ? tagsFromMetrics : tagsFromSuggested;
+
+    const customerName =
+      (typeof slots.customerName === 'string' && slots.customerName) ||
+      (typeof suggested?.customerName === 'string' ? String(suggested.customerName) : null);
+    const vehicleLabel =
+      (typeof slots.vehicleLabel === 'string' && slots.vehicleLabel) ||
+      (typeof suggested?.vehicleLabel === 'string' ? String(suggested.vehicleLabel) : null);
+
+    const agentDisplayName =
+      (typeof metrics.agentDisplayName === 'string' && metrics.agentDisplayName) ||
+      (typeof suggested?.agentDisplayName === 'string'
+        ? String(suggested.agentDisplayName)
+        : null);
+
     if (q) {
       const hay = [
         summary,
@@ -138,6 +168,9 @@ export async function buildHubTimeline(input: {
         c.fromLast4,
         c.outcome,
         c.conversation?.activeAgent,
+        customerName,
+        vehicleLabel,
+        tags.join(' '),
         keyPoints.join(' '),
       ]
         .filter(Boolean)
@@ -159,11 +192,18 @@ export async function buildHubTimeline(input: {
         outcome: c.outcome,
         contained: c.contained,
         activeAgent: c.conversation?.activeAgent ?? null,
+        agentDisplayName,
+        routingPath,
+        tags,
+        customerName,
+        vehicleLabel,
         sentiment,
         primaryIntent,
         summary,
         keyPoints,
         hasInsight: Boolean(insight),
+        hasRecording: Boolean(c.recordingPathname),
+        recordingStatus: c.recordingStatus || null,
         suggestedAppointment:
           suggested && Object.keys(suggested).length > 0 ? suggested : null,
         createdAt: c.createdAt.toISOString(),
