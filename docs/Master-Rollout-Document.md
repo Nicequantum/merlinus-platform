@@ -20,7 +20,22 @@
 
 This is the **single authoritative overview** for rolling out Merlin at [DEALERSHIP NAME]. It gives dealership leadership everything needed to approve, plan, and execute a successful launch — without reading the full technical library.
 
-**Audience:** Fixed Ops Directors, Service Managers, General Managers, and dealer group leadership.  
+**Audience:** Fixed Ops Directors, Service Managers, General Managers, and dealer group leadership.
+
+### Manager Control Center (ops home)
+
+After managers sign in, use **`/manager/center`** as the single pane of glass:
+
+| Section | Use for |
+|---------|---------|
+| Overview | RO / AI / voice KPIs, critical health, warm session, quick links |
+| AI Jobs | Real-time durable job monitor (retry/cancel) |
+| Voice | Department matrix + Personal Tailoring |
+| Modules | Per-rooftop SKU enable/disable |
+| Health | Full dependency matrix + queue isolate metrics |
+
+API: `GET /api/manager/center/summary` (manager/owner, dealership context required).  
+Live: `GET /api/manager/center/live` (SSE — jobs + health; auto-pauses when the tab is hidden).  
 **Reading time:** Under 10 minutes.  
 **Supporting detail:** Linked at the end of this document and in the [README](../README.md#documentation-library).
 

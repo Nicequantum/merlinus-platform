@@ -27,6 +27,10 @@ export interface RateLimitConfig {
 export const RATE_LIMITS = {
   /** Login, logout, seed — brute-force protection. */
   auth: { limit: 10, windowMs: 60_000 },
+  /** MFA setup / verify / login-verify — tighter than general auth. */
+  authMfa: { limit: 8, windowMs: 60_000 },
+  /** MFA login challenge — strict (credential already passed). */
+  authMfaLogin: { limit: 6, windowMs: 60_000 },
   /** Image blob uploads. */
   upload: { limit: 30, windowMs: 60_000 },
   /**
@@ -60,6 +64,7 @@ export function isAuthRateLimitRoute(routeKey: string): boolean {
     key.startsWith('auth.') ||
     key.includes('login') ||
     key.includes('password') ||
+    key.includes('mfa') ||
     key.includes('seed')
   );
 }

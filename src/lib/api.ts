@@ -201,9 +201,182 @@ async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number
 
 export const api = {
   login: (d7Number: string, password: string) =>
-    apiFetch<{ session: TechnicianSession }>('/api/auth/login', {
+    apiFetch<{
+      session?: TechnicianSession;
+      requiresMfa?: boolean;
+      mfaToken?: string;
+      technicianId?: string;
+      name?: string;
+      message?: string;
+    }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ d7Number, password }),
+    }),
+
+  /** Complete MFA challenge after password stage. */
+  verifyMfaLogin: (mfaToken: string, code: string) =>
+    apiFetch<{
+      session?: TechnicianSession;
+      requiresDealershipSelection?: boolean;
+      pendingToken?: string;
+      mfaVerified?: boolean;
+    }>('/api/auth/mfa/login-verify', {
+      method: 'POST',
+      body: JSON.stringify({ mfaToken, code }),
+    }),
+
+  mfaStatus: () =>
+    apiFetch<{
+      enforcementEnabled: boolean;
+      requiredRoles: string[];
+      mfaEnabled: boolean;
+      mfaEnrolled: boolean;
+      mfaRequired: boolean;
+      enrolledAt: string | null;
+      backupCodesRemaining: number;
+      role: string;
+    }>('/api/auth/mfa/status', { cache: 'no-store' }),
+
+  mfaSetup: (rotate?: boolean) =>
+    apiFetch<{
+      secret: string;
+      otpauthUrl: string;
+      qrCodeDataUrl?: string | null;
+      message?: string;
+    }>('/api/auth/mfa/setup', {
+      method: 'POST',
+      body: JSON.stringify({ rotate: Boolean(rotate) }),
+    }),
+
+  mfaVerifyEnroll: (code: string) =>
+    apiFetch<{
+      ok: boolean;
+      mfaEnabled: boolean;
+      requiresReauth?: boolean;
+      backupCodes?: string[];
+      message?: string;
+    }>('/api/auth/mfa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  mfaRegenerateBackupCodes: (code: string) =>
+    apiFetch<{
+      ok: boolean;
+      backupCodes: string[];
+      message?: string;
+    }>('/api/auth/mfa/backup-codes', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  listVoiceCustomizations: () =>
+    apiFetch<{
+      dealershipId: string;
+      departments: string[];
+      customizations: Array<{
+        id: string | null;
+        department: string;
+        customInstructions: string;
+        greeting: string;
+        disclaimers: string;
+        toneGuidelines: string;
+        version: number;
+        isCustomized: boolean;
+        updatedAt: string | null;
+      }>;
+    }>('/api/voice/customizations', { cache: 'no-store' }),
+
+  getVoiceCustomization: (department: string) =>
+    apiFetch<{
+      customization: {
+        id: string | null;
+        department: string;
+        customInstructions: string;
+        greeting: string;
+        disclaimers: string;
+        toneGuidelines: string;
+        version: number;
+        isCustomized: boolean;
+        updatedAt: string | null;
+      };
+      versions: Array<{
+        id: string;
+        version: number;
+        customInstructions: string;
+        greeting: string;
+        disclaimers: string;
+        toneGuidelines: string;
+        changeNote: string;
+        createdAt: string;
+      }>;
+    }>(`/api/voice/customizations/${encodeURIComponent(department)}`, {
+      cache: 'no-store',
+    }),
+
+  saveVoiceCustomization: (body: {
+    department: string;
+    customInstructions?: string;
+    greeting?: string;
+    disclaimers?: string;
+    toneGuidelines?: string;
+    changeNote?: string;
+  }) =>
+    apiFetch<{
+      ok: boolean;
+      customization: {
+        version: number;
+        isCustomized: boolean;
+        department: string;
+      };
+    }>('/api/voice/customizations', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  resetVoiceCustomization: (department: string) =>
+    apiFetch<{ ok: boolean; customization: unknown }>(
+      `/api/voice/customizations/${encodeURIComponent(department)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'reset' }),
+      }
+    ),
+
+  restoreVoiceCustomization: (department: string, version: number) =>
+    apiFetch<{ ok: boolean; customization: unknown }>(
+      `/api/voice/customizations/${encodeURIComponent(department)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'restore', version }),
+      }
+    ),
+
+  /** Manager preview of department Sophia with draft tailoring (no stream). */
+  previewVoiceDepartmentQuery: (
+    department: string,
+    message: string,
+    previewTailoring?: {
+      customInstructions?: string;
+      greeting?: string;
+      disclaimers?: string;
+      toneGuidelines?: string;
+    }
+  ) =>
+    apiFetch<{
+      speech: string;
+      conversationId: string;
+      activeAgent: string;
+      tailoringActive?: boolean;
+    }>(`/api/voice/${encodeURIComponent(department)}/query`, {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        stream: false,
+        previewTailoring: previewTailoring || null,
+      }),
+      timeoutMs: 45_000,
+      maxRetries: 0,
     }),
 
   logout: () => apiFetch<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
@@ -553,17 +726,138 @@ export const api = {
   generateStory: (
     roId: string,
     lineId: string,
-    body?: { technicianNotes?: string; warrantyStory?: string }
+    body?: {
+      technicianNotes?: string;
+      warrantyStory?: string;
+      /** Prefer durable queue / async job */
+      async?: boolean;
+      /** Force legacy synchronous Grok path */
+      sync?: boolean;
+    }
   ) =>
-    apiFetch<{ warrantyStory: string; quality: StoryQualityResult | null; cdkSanitized?: boolean }>(
-      `/api/repair-orders/${roId}/lines/${lineId}/generate-story`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body ?? {}),
-        timeoutMs: STORY_GENERATE_CLIENT_MS,
-        maxRetries: 0,
-      }
-    ),
+    apiFetch<
+      | { warrantyStory: string; quality: StoryQualityResult | null; cdkSanitized?: boolean; async?: false }
+      | {
+          async: true;
+          jobId: string;
+          status: string;
+          transport?: string;
+          phase?: string;
+          pollUrl: string;
+          message?: string;
+        }
+    >(`/api/repair-orders/${roId}/lines/${lineId}/generate-story`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+      timeoutMs: STORY_GENERATE_CLIENT_MS,
+      maxRetries: 0,
+    }),
+
+  /** Poll durable AI job (queue or inline). Luxury phases include ai_thinking. */
+  getAiJobStatus: (jobId: string) =>
+    apiFetch<{
+      jobId: string;
+      phase: 'queued' | 'processing' | 'ai_thinking' | 'complete' | 'failed' | 'cancelled' | string;
+      status: string;
+      progress: number;
+      kind: string;
+      errorMessage: string | null;
+      result: unknown;
+      pollUrl: string;
+      eventsUrl?: string;
+      technicianId?: string;
+      entityType?: string | null;
+      entityId?: string | null;
+    }>(`/api/queue/job-status/${jobId}`, {
+      method: 'GET',
+      timeoutMs: 15_000,
+      maxRetries: 1,
+    }),
+
+  /** Manager Job Monitor — list rooftop AI jobs. */
+  listManagerAiJobs: (params?: {
+    status?: string;
+    technicianId?: string;
+    entityId?: string;
+    kind?: string;
+    take?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.technicianId) query.set('technicianId', params.technicianId);
+    if (params?.entityId) query.set('entityId', params.entityId);
+    if (params?.kind) query.set('kind', params.kind);
+    if (params?.take) query.set('take', String(params.take));
+    const qs = query.toString();
+    return apiFetch<{
+      jobs: Array<{
+        id: string;
+        kind: string;
+        status: string;
+        progress: number;
+        phase?: string;
+        entityType: string | null;
+        entityId: string | null;
+        errorMessage: string | null;
+        result: unknown;
+        startedAt: string | null;
+        finishedAt: string | null;
+        createdAt: string;
+        technicianId?: string;
+      }>;
+      health: {
+        queued: number;
+        running: number;
+        failedLast24h: number;
+        succeededLast24h: number;
+        errorRate24h: number;
+        oldestQueuedAt: string | null;
+        oldestQueuedAgeMs: number | null;
+        queueDepth: number;
+      };
+      metrics: {
+        enqueued: number;
+        completed: number;
+        failed: number;
+        retried: number;
+        inlineFallback: number;
+        byPriority: Record<string, number>;
+        byJobType: Record<string, number>;
+      };
+    }>(`/api/queue/jobs${qs ? `?${qs}` : ''}`, {
+      method: 'GET',
+      cache: 'no-store',
+      timeoutMs: 20_000,
+    });
+  },
+
+  cancelManagerAiJob: (jobId: string) =>
+    apiFetch<{
+      ok: boolean;
+      jobId: string;
+      status: string;
+      message: string;
+    }>(`/api/queue/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      timeoutMs: 20_000,
+    }),
+
+  retryManagerAiJob: (jobId: string) =>
+    apiFetch<{
+      ok: boolean;
+      previousJobId: string;
+      jobId: string;
+      transport: string;
+      status: string;
+      pollUrl: string;
+      eventsUrl: string;
+      message: string;
+    }>(`/api/queue/jobs/${encodeURIComponent(jobId)}/retry`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      timeoutMs: 30_000,
+    }),
 
   scoreStory: (
     roId: string,
@@ -721,6 +1015,139 @@ export const api = {
   getAuditSummary: () => apiFetch<AuditDashboardSummary>('/api/audit-logs/summary'),
 
   getDashboardSummary: () => apiFetch<DashboardSummary>('/api/dashboard/summary'),
+
+  /** Manager Control Center aggregate (KPIs, health, jobs, modules, voice). */
+  getEncryptionRotationStatus: () =>
+    apiFetch<{
+      ok: boolean;
+      keys: {
+        primaryFingerprint: string;
+        previousFingerprint: string | null;
+        dualKeyActive: boolean;
+        recommendCloseDualKey: boolean;
+        candidateDecryptKeys: number;
+      };
+      rotation: {
+        id: string;
+        status: string;
+        progressPercent: number;
+        processedRecords: number;
+        totalRecords: number;
+        updatedRecords: number;
+        failedRecords: number;
+        currentTable: string;
+        dualKeyActive: boolean;
+        errorMessage: string | null;
+      } | null;
+      canStartReencrypt: boolean;
+      instructions: string[];
+    }>('/api/manager/encryption/rotate', { cache: 'no-store' }),
+
+  beginEncryptionRotation: () =>
+    apiFetch<{
+      ok: boolean;
+      newKey: string;
+      previousKeyFingerprint: string;
+      newKeyFingerprint: string;
+      rotation: unknown;
+      warning?: string;
+    }>('/api/manager/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'begin' }),
+    }),
+
+  startEncryptionReencrypt: (rotationId?: string) =>
+    apiFetch<{ ok: boolean; rotation: unknown; message?: string }>(
+      '/api/manager/encryption/rotate',
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'start-reencrypt', rotationId }),
+      }
+    ),
+
+  cancelEncryptionRotation: (rotationId?: string) =>
+    apiFetch<{ ok: boolean; rotation: unknown }>('/api/manager/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'cancel', rotationId }),
+    }),
+
+  getManagerCenterSummary: () =>
+    apiFetch<{
+      dealershipId: string;
+      generatedAt: string;
+      kpis: {
+        totalRepairOrders: number;
+        activeTechnicians: number;
+        warrantyStories: number;
+        auditEventsThisWeek: number;
+        aiJobsToday: number;
+        aiJobsActive: number;
+        voiceQueriesApprox7d: number;
+        modulesEnabled: number;
+        modulesTotal: number;
+      };
+      health: {
+        overall: 'ok' | 'degraded' | 'error';
+        maintenanceMode: boolean;
+        services: Record<string, { status: string; latencyMs?: number }>;
+        critical: Array<{
+          id: string;
+          label: string;
+          status: 'ok' | 'warn' | 'error';
+          latencyMs?: number;
+        }>;
+      };
+      queue: {
+        queued: number;
+        running: number;
+        failedLast24h: number;
+        succeededLast24h: number;
+        errorRate24h: number;
+        queueDepth: number;
+        oldestQueuedAgeMs: number | null;
+      };
+      queueMetrics: {
+        enqueued: number;
+        completed: number;
+        failed: number;
+        retried: number;
+        inlineFallback: number;
+        byJobType: Record<string, number>;
+        byPriority: Record<string, number>;
+      };
+      recentJobs: Array<{
+        id: string;
+        kind: string;
+        status: string;
+        progress: number;
+        phase?: string;
+        technicianId?: string;
+        createdAt: string;
+        errorMessage: string | null;
+      }>;
+      modules: Array<{
+        moduleId: string;
+        name: string;
+        description: string;
+        enabled: boolean;
+        source: string;
+      }>;
+      voice: {
+        parentEnabled: boolean;
+        departments: Array<{
+          department: string;
+          moduleId: string;
+          enabled: boolean;
+          tailoringActive: boolean;
+          tailoringVersion: number;
+        }>;
+      };
+      quickLinks: Array<{ id: string; label: string; href: string; description: string }>;
+    }>('/api/manager/center/summary', {
+      method: 'GET',
+      cache: 'no-store',
+      timeoutMs: 25_000,
+    }),
 
   /** PR-M0 — manager product module entitlements for active rooftop. */
   getModuleStatuses: () =>

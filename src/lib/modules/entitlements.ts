@@ -20,7 +20,12 @@ import {
   parseForcedModules,
   PRODUCT_MODULE_IDS,
   SEED_ENABLED_MODULE_IDS,
+  VOICE_DEPARTMENT_DOMAIN_MODULE,
+  VOICE_DEPARTMENT_MODULE_IDS,
+  VOICE_DEPARTMENT_TO_MODULE,
+  voiceDepartmentFromModuleId,
   type ProductModuleId,
+  type VoiceDepartmentId,
 } from '@/lib/modules/catalog';
 
 export type ModuleSource = 'force_env' | 'dealership' | 'dealer_group' | 'default';
@@ -119,13 +124,14 @@ export async function resolveModuleStatus(
   });
 
   if (dealershipRow) {
-    return {
+    const base: ModuleStatus = {
       moduleId: id,
       name: meta.name,
       description: meta.description,
       enabled: dealershipRow.enabled,
       source: 'dealership',
     };
+    return applyVoiceDepartmentGates(rooftopId, base, options);
   }
 
   const dealership = await db.dealership.findUnique({
@@ -149,23 +155,115 @@ export async function resolveModuleStatus(
       select: { enabled: true },
     });
     if (groupRow) {
-      return {
+      const base: ModuleStatus = {
         moduleId: id,
         name: meta.name,
         description: meta.description,
         enabled: groupRow.enabled,
         source: 'dealer_group',
       };
+      return applyVoiceDepartmentGates(rooftopId, base, options);
     }
   }
 
-  return {
+  const base: ModuleStatus = {
     moduleId: id,
     name: meta.name,
     description: meta.description,
     enabled: false,
     source: 'default',
   };
+  return applyVoiceDepartmentGates(rooftopId, base, options);
+}
+
+/**
+ * Department voice SKUs require parent `voice_agent` + domain module (service/loaner/…).
+ * When voice_agent is on but no department row exists, pilot departments default on
+ * only for service + loaner (high daily usage).
+ */
+async function applyVoiceDepartmentGates(
+  dealershipId: string,
+  status: ModuleStatus,
+  options?: { db?: DbClient }
+): Promise<ModuleStatus> {
+  const dept = voiceDepartmentFromModuleId(status.moduleId);
+  if (!dept) return status;
+
+  const parentOn = await isModuleEnabledRaw(dealershipId, 'voice_agent', options);
+  if (!parentOn) {
+    return { ...status, enabled: false };
+  }
+
+  const domainId = VOICE_DEPARTMENT_DOMAIN_MODULE[dept];
+  const domainOn = await isModuleEnabledRaw(dealershipId, domainId, options);
+  if (!domainOn) {
+    return {
+      ...status,
+      enabled: false,
+      description: `${status.description} (requires ${domainId} module + voice_agent)`,
+    };
+  }
+
+  // Pilot defaults: service + loaner on when no explicit row (source still default/false)
+  if (status.source === 'default' && !status.enabled) {
+    if (dept === 'service' || dept === 'loaner') {
+      return {
+        ...status,
+        enabled: true,
+        source: 'default',
+        description: `${status.description} (pilot default on)`,
+      };
+    }
+  }
+
+  return status;
+}
+
+/** Resolve without re-entering department gate recursion. */
+async function isModuleEnabledRaw(
+  dealershipId: string,
+  moduleId: ProductModuleId,
+  options?: { db?: DbClient }
+): Promise<boolean> {
+  const forced = parseForcedModules();
+  if (forced.has(moduleId)) return true;
+  const db = resolveDb(options?.db);
+  const rooftopId = dealershipId.trim();
+  if (!rooftopId) return false;
+  const dealershipRow = await db.dealershipModule.findUnique({
+    where: {
+      dealershipId_moduleId: {
+        dealershipId: rooftopId,
+        moduleId,
+      },
+    },
+    select: { enabled: true },
+  });
+  if (dealershipRow) return dealershipRow.enabled;
+  return false;
+}
+
+/** Assert department voice assistant is allowed for this rooftop. */
+export async function assertVoiceDepartmentEnabled(
+  dealershipId: string,
+  department: VoiceDepartmentId,
+  options?: { db?: DbClient }
+): Promise<void> {
+  const moduleId = VOICE_DEPARTMENT_TO_MODULE[department];
+  await assertModuleEnabled(dealershipId, moduleId, options);
+}
+
+export async function isVoiceDepartmentEnabled(
+  dealershipId: string,
+  department: VoiceDepartmentId,
+  options?: { db?: DbClient }
+): Promise<boolean> {
+  const moduleId = VOICE_DEPARTMENT_TO_MODULE[department];
+  return isModuleEnabled(dealershipId, moduleId, options);
+}
+
+export function isVoiceDepartmentModuleId(id: string): boolean {
+  return (VOICE_DEPARTMENT_MODULE_IDS as readonly string[]).includes(id);
 }
 
 /** Full catalog with enablement for manager UI. */

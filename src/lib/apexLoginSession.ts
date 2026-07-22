@@ -12,16 +12,41 @@ export type ApexLoginResult =
       status: 'select_dealership';
       pendingToken: string;
       dealerships: ApexLoginDealershipOption[];
+    }
+  | {
+      status: 'mfa_required';
+      mfaToken: string;
+      technicianId: string;
+      name?: string;
     };
 
 type LoginResponseBody = {
   session?: TechnicianSession;
   requiresDealershipSelection?: boolean;
+  requiresMfa?: boolean;
+  mfaToken?: string;
+  technicianId?: string;
+  name?: string;
   pendingToken?: string;
   dealerships?: ApexLoginDealershipOption[];
   error?: string;
   message?: string;
 };
+
+function normalizeSession(dataSession: TechnicianSession): TechnicianSession {
+  return dataSession.role === 'owner'
+    ? {
+        ...dataSession,
+        scopeMode:
+          dataSession.scopeMode === 'dealership'
+            ? 'dealership'
+            : dataSession.scopeMode === 'group'
+              ? 'group'
+              : 'national',
+        isOwner: true,
+      }
+    : dataSession;
+}
 
 export async function loginWithIdentifier(
   identifier: string,
@@ -41,6 +66,15 @@ export async function loginWithIdentifier(
     throw new Error(data.error || data.message || 'Login failed');
   }
 
+  if (data.requiresMfa && data.mfaToken) {
+    return {
+      status: 'mfa_required',
+      mfaToken: data.mfaToken,
+      technicianId: data.technicianId || '',
+      name: data.name,
+    };
+  }
+
   if (data.requiresDealershipSelection && data.pendingToken && data.dealerships?.length) {
     return {
       status: 'select_dealership',
@@ -53,26 +87,69 @@ export async function loginWithIdentifier(
     throw new Error('Login succeeded but no session was returned');
   }
 
-  // Normalize owner home routing — preserve group scope (PR-G2).
-  const session: TechnicianSession =
-    data.session.role === 'owner'
-      ? {
-          ...data.session,
-          scopeMode:
-            data.session.scopeMode === 'dealership'
-              ? 'dealership'
-              : data.session.scopeMode === 'group'
-                ? 'group'
-                : 'national',
-          isOwner: true,
-        }
-      : data.session;
+  const session = normalizeSession(data.session);
 
-  // Best-effort: warm D1 right after successful owner login so national dashboard is hot.
+  // Aggressive warm for all roles; owners also hit national warmup path.
+  void import('@/lib/bayWarmup')
+    .then(({ runAggressiveBayWarmup }) =>
+      runAggressiveBayWarmup({
+        prefetchRoList: session.role !== 'owner' || session.scopeMode === 'dealership',
+        technicianId: session.technicianId,
+        dealershipId: session.dealershipId,
+      })
+    )
+    .catch(() => undefined);
   if (session.role === 'owner') {
     void warmOwnerIsolate();
   }
 
+  return { status: 'success', session };
+}
+
+/** Complete MFA after password; may return dealership selection for multi-rooftop users. */
+export async function verifyMfaLoginWithIdentifier(
+  mfaToken: string,
+  code: string
+): Promise<ApexLoginResult> {
+  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+  const csrf = readCsrfTokenFromDocument();
+  const res = await fetch('/api/auth/mfa/login-verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+    },
+    credentials: 'include',
+    body: JSON.stringify({ mfaToken, code }),
+  });
+  const data = (await res.json().catch(() => ({}))) as LoginResponseBody;
+  if (!res.ok) {
+    throw new Error(data.error || data.message || 'MFA verification failed');
+  }
+  if (data.requiresDealershipSelection && data.pendingToken && data.dealerships?.length) {
+    return {
+      status: 'select_dealership',
+      pendingToken: data.pendingToken,
+      dealerships: data.dealerships,
+    };
+  }
+  if (!data.session) {
+    throw new Error('MFA verified but no session was returned');
+  }
+  const session = normalizeSession(data.session);
+  void import('@/lib/bayWarmup')
+    .then(({ runAggressiveBayWarmup }) =>
+      runAggressiveBayWarmup({
+        prefetchRoList: session.role !== 'owner' || session.scopeMode === 'dealership',
+        technicianId: session.technicianId,
+        dealershipId: session.dealershipId,
+      })
+    )
+    .catch(() => undefined);
+  if (session.role === 'owner') {
+    void warmOwnerIsolate();
+  }
   return { status: 'success', session };
 }
 

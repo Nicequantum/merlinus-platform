@@ -191,25 +191,73 @@ export async function keepAlivePublicStatus(): Promise<boolean> {
 }
 
 /**
- * P1-2 — Soft interval keep-alive while the authenticated shell is mounted.
+ * Soft interval keep-alive while the authenticated shell is mounted.
  * Alternates session warmup with public status so cold starts stay rare.
+ * Pauses when the tab is hidden (battery) and warms immediately on resume.
  */
 export function startBaySessionKeepAlive(options?: {
   intervalMs?: number;
+  /** When set, also seeds RO list cache on visibility resume */
+  technicianId?: string;
+  dealershipId?: string;
+  /** Default true — run aggressive warm (session + status + optional RO prefetch) on start */
+  aggressive?: boolean;
 }): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  const intervalMs = options?.intervalMs ?? 90_000;
+  const intervalMs = options?.intervalMs ?? 75_000;
   let ticks = 0;
+  let stopped = false;
+
   const tick = () => {
+    if (stopped) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     ticks += 1;
-    if (ticks % 2 === 1) {
+    if (ticks % 3 === 0 && options?.technicianId && options?.dealershipId) {
+      void import('@/lib/bayWarmup')
+        .then(({ prefetchTodayRoList }) =>
+          prefetchTodayRoList({
+            technicianId: options.technicianId,
+            dealershipId: options.dealershipId,
+          })
+        )
+        .catch(() => undefined);
+    } else if (ticks % 2 === 1) {
       void warmSessionIsolate();
     } else {
       void keepAlivePublicStatus();
     }
   };
+
   // Immediate warm after login / shell mount
-  void warmSessionIsolate();
+  if (options?.aggressive !== false) {
+    void import('@/lib/bayWarmup')
+      .then(({ runAggressiveBayWarmup }) =>
+        runAggressiveBayWarmup({
+          prefetchRoList: Boolean(options?.technicianId && options?.dealershipId),
+          technicianId: options?.technicianId,
+          dealershipId: options?.dealershipId,
+        })
+      )
+      .catch(() => {
+        void warmSessionIsolate();
+      });
+  } else {
+    void warmSessionIsolate();
+  }
+
   const id = window.setInterval(tick, intervalMs);
-  return () => window.clearInterval(id);
+
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      ticks = 0;
+      void warmSessionIsolate();
+    }
+  };
+  document.addEventListener('visibilitychange', onVisible);
+
+  return () => {
+    stopped = true;
+    window.clearInterval(id);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }

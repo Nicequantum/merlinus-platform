@@ -65,6 +65,10 @@ export const RUNTIME_ONLY_SECRET_NAMES = [
   // Grok proxy machine
   'GROK_PROXY_API_KEY',
   'GROK_PROXY_ALLOW_STATIC_BEARER',
+  // Durable AI queue consumer bridge
+  'AI_QUEUE_CONSUMER_SECRET',
+  'AI_JOBS_QUEUE_ENABLED',
+  'AI_STORY_FORCE_SYNC',
   // Supabase service
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_DATABASE_URL',

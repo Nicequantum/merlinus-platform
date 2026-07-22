@@ -109,6 +109,17 @@ export async function PATCH(request: Request) {
       });
 
       try {
+        const { publishModulesChangedToCenter } = await import('@/lib/manager/controlCenterHub');
+        publishModulesChangedToCenter({
+          dealershipId,
+          moduleId: parsed.data.moduleId,
+          enabled: result.enabled,
+        });
+      } catch {
+        // non-fatal
+      }
+
+      try {
         const Sentry = await import('@sentry/nextjs');
         Sentry.setTag('moduleId', parsed.data.moduleId);
         Sentry.addBreadcrumb({

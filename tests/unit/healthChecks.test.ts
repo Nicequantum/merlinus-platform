@@ -214,5 +214,7 @@ describe('enterprise health checks', () => {
     assert.ok(checks.includes('checkEncryption'));
     assert.ok(checks.includes('GROK_MODELS_URL'));
     assert.equal(checks.includes('chat/completions'), false);
+    assert.ok(checks.includes('checkAiJobsQueueHealth'));
+    assert.ok(checks.includes('errorRate24h') || checks.includes('oldestQueued'));
   });
 });

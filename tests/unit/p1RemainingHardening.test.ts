@@ -107,7 +107,9 @@ describe('P1-6 CSRF double-submit', () => {
 
 describe('P1-3 MFA UI + P1-1 video async', () => {
   it('ForcedMfaEnrollScreen exists and is wired', () => {
-    assert.match(readSrc('src/components/ForcedMfaEnrollScreen.tsx'), /mfa\/enroll/);
+    const enroll = readSrc('src/components/ForcedMfaEnrollScreen.tsx');
+    assert.match(enroll, /mfa\/(setup|enroll|verify)/);
+    assert.match(enroll, /ForcedMfaEnrollScreen/);
     assert.match(readSrc('src/components/BenzTechApp.tsx'), /ForcedMfaEnrollScreen/);
     assert.match(readSrc('src/components/apex/ApexPlatformApp.tsx'), /ForcedMfaEnrollScreen/);
     assert.match(readSrc('src/lib/complianceSession.ts'), /needsMfaEnrollment/);

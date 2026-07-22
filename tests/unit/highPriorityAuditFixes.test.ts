@@ -53,7 +53,11 @@ describe('High priority audit fixes (H1–H15)', () => {
   it('H6/H7: encryption loud decrypt and derived salt', () => {
     const encSrc = readSrc('src/lib/encryption.ts');
     assert.ok(encSrc.includes('encryption.decrypt_failed'));
-    assert.ok(encSrc.includes('getScryptSalt'));
+    assert.ok(
+      encSrc.includes('getScryptSalt') || encSrc.includes('scryptSaltForSecret'),
+      'H7 derived scrypt salt helper'
+    );
+    assert.ok(encSrc.includes('DATA_ENCRYPTION_KEY_PREVIOUS'));
     assert.ok(!encSrc.includes("return scryptSync(secret, 'benz-tech-pii-salt', 32)"));
   });
 

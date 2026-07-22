@@ -4,19 +4,21 @@ import {
   isMfaEnforcementEnabled,
   parseMfaRequiredRoles,
 } from '@/lib/mfa/policy';
+import { getMfaStatusForTechnician } from '@/lib/mfa/service';
 
 export const dynamic = 'force-dynamic';
 
-/** P1-3 — MFA status for the signed-in user (allowed while enrollment still required). */
+/** MFA status for the signed-in user (allowed while enrollment still required). */
 export async function GET(request: Request) {
   return withAuth(
     request,
     async (session) => {
+      const dbStatus = await getMfaStatusForTechnician(session.technicianId);
       const flags = buildMfaSessionFlags({
         role: session.role,
         isAdmin: session.isAdmin,
-        mfaEnabled: session.mfaEnabled,
-        mfaEnrolledAt: session.mfaEnrolled ? new Date() : null,
+        mfaEnabled: dbStatus.mfaEnabled,
+        mfaEnrolledAt: dbStatus.enrolledAt,
       });
       return {
         enforcementEnabled: isMfaEnforcementEnabled(),
@@ -24,7 +26,10 @@ export async function GET(request: Request) {
         mfaEnabled: flags.mfaEnabled,
         mfaEnrolled: flags.mfaEnrolled,
         mfaRequired: flags.mfaRequired,
+        enrolledAt: dbStatus.enrolledAt,
+        backupCodesRemaining: dbStatus.backupCodesRemaining,
         role: session.role,
+        accessTokenTtlSeconds: Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60,
       };
     },
     {

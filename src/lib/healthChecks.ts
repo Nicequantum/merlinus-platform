@@ -11,6 +11,7 @@ import { evaluateOwnerSeedSecretPolicy } from '@/lib/apex/ownerSeedSecurity';
 import { getCdkLiveSyncStatus } from '@/lib/cdk/status';
 import { describeTenantIsolation } from '@/lib/tenantIsolation';
 import { getVoiceRealtimeStatus } from '@/lib/voiceAgent/realtimeConfig';
+import { isAiJobsQueueConfigured } from '@/lib/queue/binding';
 import { isCiOrTestRuntime, isKvConfigured, isProductionEnv } from './rate-limit';
 import { logger } from './logger';
 import { isApexSupabaseProductionReady } from '@/lib/supabaseEnv';
@@ -121,7 +122,43 @@ export async function checkEncryption(): Promise<DependencyCheck> {
       }
       return true;
     });
-    return { status: 'ok', latencyMs };
+
+    const {
+      isDualKeyRotationActive,
+      getPrimaryKeyFingerprint,
+      getPreviousKeyFingerprint,
+    } = await import('@/lib/encryption');
+    const dual = isDualKeyRotationActive();
+    let rotationRunning = false;
+    try {
+      const { getActiveOrLatestRotation } = await import('@/lib/encryption/rotationService');
+      const rot = await getActiveOrLatestRotation();
+      rotationRunning = Boolean(rot && (rot.status === 'running' || rot.status === 'pending_env'));
+    } catch {
+      // rotation table may not exist yet
+    }
+
+    if (rotationRunning) {
+      return {
+        status: 'warn',
+        latencyMs,
+        detail: `PII key rotation in progress (fp ${getPrimaryKeyFingerprint()}${
+          dual ? ` dual previous=${getPreviousKeyFingerprint()}` : ''
+        })`,
+      };
+    }
+    if (dual) {
+      return {
+        status: 'warn',
+        latencyMs,
+        detail: `Dual-key active (primary=${getPrimaryKeyFingerprint()} previous=${getPreviousKeyFingerprint()}) — finish re-encrypt then remove DATA_ENCRYPTION_KEY_PREVIOUS`,
+      };
+    }
+    return {
+      status: 'ok',
+      latencyMs,
+      detail: `primary=${getPrimaryKeyFingerprint()} dualKey=off`,
+    };
   } catch (error) {
     return {
       status: 'error',
@@ -575,6 +612,10 @@ export async function runAuthenticatedHealthChecks(
   const tenantIsolation = describeTenantIsolation();
   const cdk = getCdkLiveSyncStatus();
   const voiceRealtime = getVoiceRealtimeStatus();
+  const aiJobsQueue = await checkAiJobsQueueHealth(dealershipId || null);
+  const mfaPolicy = checkMfaPolicyHealth(dealershipId || null);
+  const bayMobile = checkBayMobileHealth();
+  const voiceDepartments = checkVoiceDepartmentHealth();
 
   return {
     database,
@@ -588,6 +629,9 @@ export async function runAuthenticatedHealthChecks(
     voice,
     maintenance,
     ownerSeedSecrets,
+    mfaPolicy,
+    bayMobile,
+    voiceDepartments,
     // Informational (never critical) — ops visibility for P3 roadmap items
     tenantIsolation: {
       status: tenantIsolation.databaseEnforced ? 'ok' : 'ok',
@@ -601,7 +645,157 @@ export async function runAuthenticatedHealthChecks(
       status: voiceRealtime.premiumEnabled ? 'warn' : 'ok',
       detail: voiceRealtime.message,
     } satisfies DependencyCheck,
+    /** Durable Async AI — length, error rate, oldest job + producer binding */
+    aiJobsQueue,
   };
+}
+
+/**
+ * Multi-department Sophia posture — parent voice_agent + pilot departments.
+ */
+export function checkVoiceDepartmentHealth(): DependencyCheck {
+  const voiceForced =
+    process.env.MODULES_FORCE_ENABLE?.includes('voice_agent') ||
+    process.env.MODULE_VOICE_ENABLED === '1' ||
+    process.env.MODULE_VOICE_ENABLED === 'true';
+  const hasTwilio = Boolean(
+    process.env.TWILIO_ACCOUNT_SID?.trim() && process.env.TWILIO_AUTH_TOKEN?.trim()
+  );
+  let hasGrok = false;
+  try {
+    hasGrok = Boolean(getGrokApiKey());
+  } catch {
+    hasGrok = false;
+  }
+
+  if (!hasGrok) {
+    return {
+      status: 'warn',
+      detail: 'Department voice query needs Grok key; phone needs Twilio when voice_agent is on',
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: [
+      'tabletQuery=/api/voice/[department]/query',
+      'departments=service,loaner,parts,sales',
+      'pilotDefaults=service+loaner',
+      'tailoring=DepartmentCustomization',
+      hasTwilio ? 'twilio=configured' : 'twilio=optional-for-tablet',
+      voiceForced ? 'voice_agent=force_env' : 'voice_agent=entitlement',
+    ].join('; '),
+  };
+}
+
+/**
+ * Shop-floor tablet / cold-start posture (ops visibility).
+ * Client keep-alive + session warmup routes are the runtime signal; this is config posture.
+ */
+export function checkBayMobileHealth(): DependencyCheck {
+  const accessTtl = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60;
+  const shortSession = accessTtl > 0 && accessTtl <= 60 * 60;
+  return {
+    status: 'ok',
+    detail: [
+      'sessionWarmup=/api/session/warmup',
+      'bayKeepAlive=client',
+      `accessTtl=${accessTtl}s`,
+      shortSession ? 'shortAccessToken=yes' : 'shortAccessToken=no',
+      'roListCache=sessionStorage-swr',
+      'videoMpiOfflineQueue=indexeddb',
+      'controlCenterLive=/api/manager/center/live',
+    ].join('; '),
+  };
+}
+
+/**
+ * MFA fortress status — enforcement flag + elevated-role enrollment (when rooftop known).
+ */
+export function checkMfaPolicyHealth(dealershipId?: string | null): DependencyCheck {
+  const enforce =
+    process.env.MERLIN_MFA_ENFORCE?.trim().toLowerCase() === 'true' ||
+    process.env.MERLIN_MFA_ENFORCE?.trim() === '1';
+  const roles = process.env.MERLIN_MFA_REQUIRED_ROLES?.trim() || 'manager,owner,admin';
+
+  if (!enforce) {
+    return {
+      status: isProductionEnv() ? 'warn' : 'ok',
+      detail: isProductionEnv()
+        ? `MFA optional (pilot) — set MERLIN_MFA_ENFORCE=true for managers/owners; roles=${roles}`
+        : `MFA optional (dev) — roles when enforced: ${roles}`,
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: `MFA enforced for roles: ${roles}${
+      dealershipId ? `; rooftop=${dealershipId.slice(0, 8)}…` : ''
+    }`,
+  };
+}
+
+/**
+ * Queue health: CF producer binding + D1 job depth / 24h error rate / oldest queued age.
+ */
+export async function checkAiJobsQueueHealth(
+  dealershipId?: string | null
+): Promise<DependencyCheck> {
+  const queueConfigured = isAiJobsQueueConfigured();
+  const start = Date.now();
+
+  try {
+    const { getDealershipJobHealthStats, getGlobalAiJobQueueHealth } = await import(
+      '@/lib/aiJobs/service'
+    );
+    const { getQueueErrorRate, getQueueMetricsSnapshot } = await import('@/lib/queue/metrics');
+
+    const stats = dealershipId?.trim()
+      ? await getDealershipJobHealthStats(dealershipId.trim())
+      : await getGlobalAiJobQueueHealth();
+    const metrics = getQueueMetricsSnapshot();
+    const isolateErrorRate = getQueueErrorRate();
+    const latencyMs = Date.now() - start;
+
+    const depth = stats.queueDepth;
+    const errorRate = Math.max(stats.errorRate24h, isolateErrorRate);
+    const oldestAgeMs = stats.oldestQueuedAgeMs ?? 0;
+    const oldestMin = oldestAgeMs > 0 ? Math.round(oldestAgeMs / 60_000) : 0;
+
+    // Warn when backlog or failure rate is elevated (never critical — jobs have inline fallback)
+    let status: DependencyStatus = 'ok';
+    if (!queueConfigured && isProductionEnv()) {
+      status = 'warn';
+    } else if (depth >= 50 || errorRate >= 0.25 || oldestAgeMs >= 15 * 60_000) {
+      status = 'warn';
+    }
+
+    const bindingNote = queueConfigured
+      ? 'producer bound'
+      : isProductionEnv()
+        ? 'producer unbound (inline fallback)'
+        : 'producer unbound (dev)';
+
+    return {
+      status,
+      latencyMs,
+      detail: [
+        bindingNote,
+        `depth=${depth} (queued=${stats.queued} running=${stats.running})`,
+        `errorRate24h=${(stats.errorRate24h * 100).toFixed(1)}%`,
+        oldestAgeMs > 0 ? `oldestQueued=${oldestMin}m` : 'oldestQueued=none',
+        `isolateMetrics enq=${metrics.enqueued} ok=${metrics.completed} fail=${metrics.failed}`,
+      ].join('; '),
+    };
+  } catch (error) {
+    return {
+      status: queueConfigured ? 'warn' : isProductionEnv() ? 'warn' : 'ok',
+      latencyMs: Date.now() - start,
+      detail: `queue health probe failed: ${
+        error instanceof Error ? error.message : String(error)
+      }; binding=${queueConfigured ? 'yes' : 'no'}`,
+    };
+  }
 }
 
 export function aggregateHealthStatus(

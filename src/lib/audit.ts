@@ -23,6 +23,13 @@ export type AuditAction =
   | 'owner.dealership_exit'
   | 'owner.national_access'
   | 'auth.password_change'
+  | 'auth.mfa_enroll_start'
+  | 'auth.mfa_enroll_complete'
+  | 'auth.mfa_challenge'
+  | 'auth.mfa_success'
+  | 'auth.mfa_failure'
+  | 'auth.mfa_backup_used'
+  | 'auth.mfa_backup_regenerate'
   | 'auth.clerk_link'
   | 'consent.accept'
   | 'legalDisclaimer.accept'
@@ -69,7 +76,13 @@ export type AuditAction =
   /** Apex control-plane — new franchise/rooftop provision (metadata must be PII-free). */
   | 'dealer.provision'
   /** Manager toggled a product module for the active rooftop. */
-  | 'module.set';
+  | 'module.set'
+  /** Manager updated Sophia department personal tailoring. */
+  | 'voice.customization_update'
+  | 'encryption.rotation_begin'
+  | 'encryption.rotation_reencrypt_start'
+  | 'encryption.rotation_cancel'
+  | 'encryption.rotation_complete';
 
 /** Customer Pay — lightweight audit; no Merlin promptVersion. */
 export const CUSTOMER_PAY_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
@@ -95,6 +108,9 @@ export const CRITICAL_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
   'owner.dealership_exit',
   'owner.national_access',
   'auth.password_change',
+  'auth.mfa_enroll_complete',
+  'auth.mfa_success',
+  'auth.mfa_failure',
   'consent.accept',
   'legalDisclaimer.accept',
   /** Phase 6.x — fail-closed via writeAuditedAccess on sensitive paths. */

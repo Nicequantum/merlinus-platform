@@ -45,6 +45,7 @@ export const DIRECT_DEALERSHIP_MODELS = [
   'UsageLog',
   'AiJob',
   'PasswordRecoveryToken',
+  'DepartmentCustomization',
 ] as const;
 
 export type DirectDealershipModel = (typeof DIRECT_DEALERSHIP_MODELS)[number];
@@ -65,6 +66,9 @@ export const RELATION_SCOPED_MODELS = {
   VideoInspectionShare: 'videoInspection',
   VideoInspectionSmsLog: 'videoInspection',
   VoiceTranscriptSegment: 'call',
+  /** MFA secrets scoped via parent Technician.dealershipId */
+  UserMfa: 'technician',
+  DepartmentCustomizationVersion: 'customization',
 } as const;
 
 export type RelationScopedModel = keyof typeof RELATION_SCOPED_MODELS;
@@ -78,6 +82,8 @@ export type GlobalCatalogModel = (typeof GLOBAL_CATALOG_MODELS)[number];
  * Platform / hierarchy models intentionally outside rooftop tenant RLS.
  * These must not carry silent dealership-scoped PII without an explicit design.
  */
+// EncryptionRotation is platform-global (key is Worker-wide) — listed in PLATFORM_NON_TENANT_MODELS
+
 export const PLATFORM_NON_TENANT_MODELS = [
   'DealerGroup',
   'DealerGroupMembership',
@@ -86,6 +92,8 @@ export const PLATFORM_NON_TENANT_MODELS = [
   'DealerGroupModule',
   /** Auth refresh tokens — bound to technician id, not dealership column. */
   'SessionRefreshToken',
+  /** Platform-wide AES key rotation progress (not per-rooftop). */
+  'EncryptionRotation',
 ] as const;
 
 export type PlatformNonTenantModel = (typeof PLATFORM_NON_TENANT_MODELS)[number];

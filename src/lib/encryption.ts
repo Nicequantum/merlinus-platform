@@ -85,6 +85,45 @@ export function isDualKeyRotationActive(): boolean {
   return Boolean(getPreviousEncryptionSecret());
 }
 
+/** SHA-256 fingerprint of a secret (first 16 hex chars) — never returns key material. */
+export function fingerprintSecret(secret: string): string {
+  return createHash('sha256').update(secret, 'utf8').digest('hex').slice(0, 16);
+}
+
+export function getPrimaryKeyFingerprint(): string {
+  return fingerprintSecret(getDataEncryptionSecret());
+}
+
+export function getPreviousKeyFingerprint(): string | null {
+  const prev = getPreviousEncryptionSecret();
+  return prev ? fingerprintSecret(prev) : null;
+}
+
+/** Cryptographically strong 48-byte key as base64url (store as DATA_ENCRYPTION_KEY). */
+export function generateDataEncryptionKey(): string {
+  return randomBytes(48).toString('base64url');
+}
+
+export interface EncryptionKeyStatus {
+  primaryFingerprint: string;
+  previousFingerprint: string | null;
+  dualKeyActive: boolean;
+  /** Days previous key has been configured is unknown in-process; flag only. */
+  recommendCloseDualKey: boolean;
+  candidateDecryptKeys: number;
+}
+
+export function getEncryptionKeyStatus(): EncryptionKeyStatus {
+  const dualKeyActive = isDualKeyRotationActive();
+  return {
+    primaryFingerprint: getPrimaryKeyFingerprint(),
+    previousFingerprint: getPreviousKeyFingerprint(),
+    dualKeyActive,
+    recommendCloseDualKey: dualKeyActive,
+    candidateDecryptKeys: getDecryptKeyCandidates().length,
+  };
+}
+
 export function encryptPII(plaintext: string): string {
   if (!plaintext) return '';
   const key = getPrimaryKey();

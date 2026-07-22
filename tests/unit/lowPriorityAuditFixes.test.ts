@@ -10,12 +10,13 @@ function readSrc(relativePath: string): string {
 }
 
 describe('Low priority audit fixes (L1–L5)', () => {
-  it('L1: SSO/MFA documented as Phase 1 accepted risk with compensating controls', () => {
+  it('L1: MFA shipped + SSO roadmap documented with compensating controls', () => {
     const auth = readSrc('src/lib/auth.ts');
-    assert.ok(auth.includes('Phase 1 accepted risk'));
+    // MFA is implemented; SSO remains roadmap residual risk.
     assert.ok(auth.includes('bcrypt'));
     assert.ok(auth.includes('sessionVersion'));
-    assert.ok(auth.includes('Planned Phase 2'));
+    assert.ok(auth.includes('MERLIN_MFA_ENFORCE') && auth.includes('SSO'));
+    assert.ok(existsSync(resolve(root, 'src/app/api/auth/mfa/login-verify/route.ts')));
   });
 
   it('L2: public /api/status does not expose grokConfigured', () => {
@@ -33,17 +34,20 @@ describe('Low priority audit fixes (L1–L5)', () => {
     assert.ok(src.includes('searchROs'));
   });
 
-  it('L4: reencryption runbook documents legacy migration and key rotation steps', () => {
+  it('L4: dual-key rotation + reencryption runbook', () => {
     const runbook = readSrc('docs/Reencryption-Runbook.md');
     const encryption = readSrc('src/lib/encryption.ts');
     const reencrypt = readSrc('scripts/reencrypt-legacy-data.ts');
     assert.ok(runbook.includes('npm run db:reencrypt'));
     assert.ok(runbook.includes('Key rotation'));
     assert.ok(runbook.includes('DATA_ENCRYPTION_KEY'));
-    assert.ok(runbook.includes('SEARCH_HMAC_KEY'));
-    assert.ok(encryption.includes('Phase 1 accepted risk'));
-    assert.ok(encryption.includes('db:reencrypt'));
-    assert.ok(reencrypt.includes('Phase 1 accepted risk'));
+    assert.ok(runbook.includes('DATA_ENCRYPTION_KEY_PREVIOUS'));
+    assert.ok(encryption.includes('DATA_ENCRYPTION_KEY_PREVIOUS'));
+    assert.ok(encryption.includes('getDecryptKeyCandidates'));
+    assert.ok(encryption.includes('reencryptCiphertextWithCurrentKey'));
+    assert.ok(reencrypt.includes('Reencryption-Runbook'));
+    assert.ok(existsSync(resolve(root, 'src/lib/encryption/rotationService.ts')));
+    assert.ok(existsSync(resolve(root, 'src/app/api/manager/encryption/rotate/route.ts')));
     assert.ok(existsSync(resolve(root, 'scripts/reencrypt-legacy-data.ts')));
   });
 

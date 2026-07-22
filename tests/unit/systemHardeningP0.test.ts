@@ -95,7 +95,8 @@ describe('P1 system hardening — session / list / xentry / poll', () => {
   it('Merlinus login applies session body immediately', () => {
     const src = readSrc('src/components/BenzTechApp.tsx');
     assert.match(src, /loginWithCredentials/);
-    assert.match(src, /applySession\(fromLogin\)/);
+    // LoginResult may be union (success | mfa); apply session payload from success branch
+    assert.match(src, /applySession\(fromLogin(\.session)?\)/);
     assert.match(src, /holdAuthenticatedRef/);
   });
 

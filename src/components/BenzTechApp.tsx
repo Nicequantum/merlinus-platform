@@ -18,6 +18,7 @@ import {
   linkClerkAccountSession,
   loginWithCredentials,
   probeCurrentSession,
+  verifyMfaLogin,
 } from '@/lib/authClient';
 import { isClerkSignInAvailable, shouldUseClerkOnlyLogin } from '@/lib/authModeClient';
 import { clientLog } from '@/lib/clientLog';
@@ -158,9 +159,24 @@ export function BenzTechApp() {
     async (d7Number: string, password: string) => {
       // Apply login body immediately (Apex pattern) — do not depend on a racing /me cookie read.
       const fromLogin = await loginWithCredentials(d7Number, password);
-      applySession(fromLogin);
-      void refreshSession({ clearOnMissing: false });
+      if (fromLogin.status === 'success') {
+        applySession(fromLogin.session);
+        void refreshSession({ clearOnMissing: false });
+      }
       return fromLogin;
+    },
+    [applySession, refreshSession]
+  );
+
+  const completeMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      const result = await verifyMfaLogin(mfaToken, code);
+      if (result.status !== 'success') {
+        throw new Error('MFA verification incomplete');
+      }
+      applySession(result.session);
+      void refreshSession({ clearOnMissing: false });
+      return result.session;
     },
     [applySession, refreshSession]
   );
@@ -190,7 +206,7 @@ export function BenzTechApp() {
         />
       );
     }
-    return <LoginView onLogin={login} />;
+    return <LoginView onLogin={login} onMfaVerify={completeMfa} />;
   }
 
   if (needsPasswordChange(session)) {

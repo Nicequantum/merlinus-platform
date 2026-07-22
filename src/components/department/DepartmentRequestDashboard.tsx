@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { DepartmentInbox } from '@/components/department/DepartmentInbox';
 import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
+import { DepartmentVoicePanel } from '@/components/voice/DepartmentVoicePanel';
+import type { VoiceDepartmentId } from '@/lib/modules/catalog';
 import {
   DEPARTMENT_LABELS,
   DEPARTMENT_REQUEST_PRIORITIES,
@@ -516,16 +518,27 @@ export function DepartmentRequestDashboard({
           hint={`Enable “${INBOX_MODULE_HINT[department]}” to open this inbox.`}
         />
       ) : mode === 'list' ? (
-        <DepartmentInbox
-          department={department}
-          requests={requests}
-          loading={loading}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          onSelect={(id) => void openDetail(id)}
-          onCreate={openCreate}
-          emptyLabel={INBOX_EMPTY_COPY[department]}
-        />
+        <>
+          {(department === 'service' ||
+            department === 'parts' ||
+            department === 'sales') && (
+            <DepartmentVoicePanel
+              department={department as VoiceDepartmentId}
+              className="mb-4"
+              compact
+            />
+          )}
+          <DepartmentInbox
+            department={department}
+            requests={requests}
+            loading={loading}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            onSelect={(id) => void openDetail(id)}
+            onCreate={openCreate}
+            emptyLabel={INBOX_EMPTY_COPY[department]}
+          />
+        </>
       ) : mode === 'create' ? (
         <div>
           <button

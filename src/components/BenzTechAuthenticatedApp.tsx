@@ -114,6 +114,11 @@ const HubDashboard = dynamic(
   { loading: () => <LoadingScreen label="Loading calendar hub" /> }
 );
 
+const ManagerJobsMonitor = dynamic(
+  () => import('@/components/ManagerJobsMonitor').then((m) => m.ManagerJobsMonitor),
+  { loading: () => <LoadingScreen label="Loading AI job monitor" /> }
+);
+
 function runAction(label: string, action: () => void | Promise<void>): void {
   void Promise.resolve(action()).catch((error: unknown) => {
     clientLog.error('ui.action_failed', { label, error });
@@ -136,16 +141,33 @@ export function BenzTechAuthenticatedApp({
   const { t: tHome } = useTranslation('home');
   const ocr = useOcrProgress();
 
-  // P1-2: keep bay session isolate warm (session warmup + public status)
+  // Bay cold-start: aggressive warm + visibility resume + RO list prefetch
   useEffect(() => {
-    let stop = () => undefined;
+    let stopKeepAlive = () => undefined;
+    let stopVis = () => undefined;
     void import('@/lib/clientFetchRetry')
       .then(({ startBaySessionKeepAlive }) => {
-        stop = startBaySessionKeepAlive({ intervalMs: 90_000 });
+        stopKeepAlive = startBaySessionKeepAlive({
+          intervalMs: 75_000,
+          technicianId: session.technicianId,
+          dealershipId: session.dealershipId,
+          aggressive: true,
+        });
       })
       .catch(() => undefined);
-    return () => stop();
-  }, [session.technicianId]);
+    void import('@/lib/bayWarmup')
+      .then(({ startVisibilityBayWarmup }) => {
+        stopVis = startVisibilityBayWarmup({
+          technicianId: session.technicianId,
+          dealershipId: session.dealershipId,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      stopKeepAlive();
+      stopVis();
+    };
+  }, [session.technicianId, session.dealershipId]);
 
   const handleComplianceRequired = useCallback(() => {
     void onSessionRefresh();
@@ -573,6 +595,17 @@ export function BenzTechAuthenticatedApp({
         </ViewErrorBoundary>
       )}
 
+      {ro.view === 'jobs' && isManager && (
+        <ViewErrorBoundary viewName="the AI job monitor">
+          <ManagerJobsMonitor
+            session={uiSession}
+            onOpenSettings={goToSettings}
+            onLogout={onLogout}
+            onBack={() => ro.setView('home')}
+          />
+        </ViewErrorBoundary>
+      )}
+
       {ro.view === 'home' && isManager && (
         <ViewErrorBoundary viewName="the manager dashboard">
           <ManagerDashboard
@@ -589,6 +622,7 @@ export function BenzTechAuthenticatedApp({
             onOpenLoaner={() => ro.setView('loaner')}
             onOpenVoice={() => ro.setView('voice')}
             onOpenHub={() => ro.setView('hub')}
+            onOpenJobs={() => ro.setView('jobs')}
             onOpenSettings={goToSettings}
             onOpenAuditLogs={() => ro.setView('audit')}
             onOpenServiceAdvisors={() => ro.setView('advisors')}
@@ -643,6 +677,12 @@ export function BenzTechAuthenticatedApp({
           onOpenRO={ro.openRO}
           onDeleteRO={ro.deleteRO}
           onOpenSettings={goToSettings}
+          onRefreshList={ro.refreshList}
+          listLoading={ro.loading}
+          listValidating={ro.isValidating}
+          listFromCache={ro.fromCache}
+          listError={ro.listError}
+          onRetryList={ro.retryListLoad}
         />
       )}
 

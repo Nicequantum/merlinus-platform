@@ -185,22 +185,66 @@ Full operator runbook: [Apex-Dealer-Onboarding.md](./Apex-Dealer-Onboarding.md).
 
 ---
 
-## MFA / SSO — implementation guidance (Phase 6.5)
+## Encryption key rotation (AES-256-GCM dual-key)
 
-Compensating controls today (until MFA/SSO ship): create-only owner seed, no hard-coded secrets, session revocation, distributed rate limits (Apex fail-closed without KV), fail-closed audits, platform operator allowlist.
+| Item | Detail |
+|------|--------|
+| **Primary** | `DATA_ENCRYPTION_KEY` (min 32 chars) — all new encrypts |
+| **Previous** | `DATA_ENCRYPTION_KEY_PREVIOUS` — decrypt fallback during rotation |
+| **Decrypt order** | current key → previous key → legacy salt variants |
+| **Manager UI** | Settings → **Encryption key rotation** |
+| **API** | `GET/POST /api/manager/encryption/rotate` (`begin`, `start-reencrypt`, `cancel`) |
+| **Background** | `scheduleBackgroundWork` walk of PII tables via `reencryptCiphertextWithCurrentKey` |
+| **Progress** | D1 `EncryptionRotation` (percent, table cursor, updated/failed counts) |
+| **Health** | `encryption` service warns when dual-key active or rotation running |
+| **Cadence** | Recommend every **90 days** or after suspected key exposure |
 
-### MFA for platform operators (recommended first)
+### Ops procedure (zero-downtime)
 
-| Step | Guidance |
-|------|----------|
-| 1. Scope | `role=owner` accounts listed in `APEX_PLATFORM_OWNER_EMAILS` / `OWNER_SEED_EMAIL*` |
-| 2. Provider | Prefer **Clerk** MFA (TOTP + WebAuthn) when `AUTH_MODE=dual` or `clerk`, or IdP MFA enforced at Okta/Azure AD |
-| 3. Policy | Block national console and enter-dealership until MFA satisfied (session claim `mfa: true` or Clerk `factorVerificationAge`) |
-| 4. Recovery | Break-glass owners via hardware key + offline recovery codes stored in 1Password/Bitwarden enterprise vault |
-| 5. Audit | Log `auth.mfa_challenge` / `auth.mfa_success` (fail-closed when MFA gated routes) |
-| 6. Rollout | Stage: require MFA for new owners → production: enforce for all platform operators before multi-group GTM |
+1. Backup D1/database.  
+2. Manager **Begin rotation** → copy one-time `newKey`.  
+3. Secrets: `DATA_ENCRYPTION_KEY_PREVIOUS=<old>`, `DATA_ENCRYPTION_KEY=<newKey>` → deploy.  
+4. Manager **Start re-encryption** → watch progress to 100%.  
+5. Validate app (RO list, stories, search).  
+6. Delete `DATA_ENCRYPTION_KEY_PREVIOUS` → deploy.  
+7. Second reencrypt optional (`npm run db:reencrypt`) should show near-zero updates.
 
-**Code hooks (future PR):** extend `resolveAppSession` / Apex access JWT with MFA claim; gate `requireOwner` / `requireOwnerNational` when claim missing.
+Full checklist: [Reencryption-Runbook.md](./Reencryption-Runbook.md).
+
+---
+
+## MFA / SSO
+
+### MFA/SSO implementation guidance (Phase 6.5+)
+
+**Shipped:** Native TOTP MFA for elevated roles. **Roadmap:** enterprise SSO (SAML/OIDC via Clerk) and optional WebAuthn/passkeys after SSO baseline.
+
+| Control | Production posture |
+|---------|-------------------|
+| **Fail-closed MFA** | When `MERLIN_MFA_ENFORCE=true`, PII routes return 403 until enrollment; login requires second factor if enrolled |
+| **KV** | Apex production fails closed (503) without distributed KV rate limits |
+| **SSO broker** | Clerk Enterprise Connections preferred for dealer-group IdP cutover |
+
+### Native TOTP MFA (shipped)
+
+| Item | Detail |
+|------|--------|
+| **Library** | Pure RFC 6238 TOTP (`src/lib/mfa/totp.ts`) — Cloudflare Workers safe (no native addons). QR via `qrcode`. |
+| **Storage** | `UserMfa` table (secret + hashed backup codes, encrypted at rest) + denormalized `Technician.mfaEnabled` |
+| **Roles** | Default required when enforced: `manager`, `owner`, `admin` (`MERLIN_MFA_REQUIRED_ROLES`) |
+| **Pilot** | Password → if enrolled: `requiresMfa` + short-lived `mfaToken` → `POST /api/auth/mfa/login-verify` → session (or dealership select) |
+| **Enrollment** | `POST /api/auth/mfa/setup` + `POST /api/auth/mfa/verify` (issues backup codes; revokes sessions) |
+| **Recovery** | One-time backup codes; regenerate via `POST /api/auth/mfa/backup-codes` (manager/owner + current TOTP) |
+| **Enforcement** | `MERLIN_MFA_ENFORCE=true` → `mfaRequired` blocks PII routes until enrolled (`withAuth` + ForcedMfaEnrollScreen) |
+| **Bay techs** | MFA **not** required — keep login fast unless user opts in via Settings |
+| **Audit** | `auth.mfa_enroll_start`, `auth.mfa_enroll_complete`, `auth.mfa_challenge`, `auth.mfa_success`, `auth.mfa_failure`, `auth.mfa_backup_used` |
+| **Tokens** | Apex access default **15 min** (`ACCESS_TOKEN_TTL_SECONDS`); refresh rotation + `sessionVersion` kill-switch on password/MFA enable |
+
+**Zero-downtime rollout:** ship with enforce off → managers enroll in Settings → set `MERLIN_MFA_ENFORCE=true` in production.
+
+### SSO (SAML / OIDC) — remaining roadmap
+
+Compensating controls until SSO: create-only owner seed, no hard-coded secrets, session revocation, distributed rate limits, fail-closed audits, platform operator allowlist. **WebAuthn/passkeys** are a post-SSO option for phishing-resistant second factor; TOTP remains the production MFA path today.
 
 ### SSO (SAML / OIDC) for dealer groups
 

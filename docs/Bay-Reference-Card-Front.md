@@ -76,6 +76,7 @@
 ║  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  ║
 ║                                                                  ║
 ║  Chrome or Edge  ·  Allow mic on first use  ·  Wi‑Fi for AI     ║
+║  Pull down on RO list to refresh  ·  Story phases: Queued → AI  ║
 ║                                                                  ║
 ║                              ▼ FLIP FOR HELP ▼                   ║
 ║                                                                  ║

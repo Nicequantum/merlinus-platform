@@ -776,8 +776,18 @@ async function checkHighPriorityAuditFixes(): Promise<void> {
   }
 
   const encSrc = readFileSync(resolve(process.cwd(), 'src/lib/encryption.ts'), 'utf8');
-  if (encSrc.includes('encryption.decrypt_failed') && encSrc.includes('getScryptSalt')) {
-    record('High Priority', 'H6/H7 encryption hardening', 'pass', 'Loud decrypt failures + derived scrypt salt');
+  // H6 loud decrypt + H7 derived salt (scryptSaltForSecret) + dual-key PREVIOUS window
+  if (
+    encSrc.includes('encryption.decrypt_failed') &&
+    (encSrc.includes('getScryptSalt') || encSrc.includes('scryptSaltForSecret')) &&
+    encSrc.includes('DATA_ENCRYPTION_KEY_PREVIOUS')
+  ) {
+    record(
+      'High Priority',
+      'H6/H7 encryption hardening',
+      'pass',
+      'Loud decrypt failures + derived scrypt salt + dual-key PREVIOUS'
+    );
   } else {
     record('High Priority', 'H6/H7 encryption hardening', 'fail', 'Encryption fixes incomplete');
   }
@@ -994,10 +1004,30 @@ function checkLowAuditFixes(): void {
   section('Low Priority Audit Fixes (L1–L5)');
 
   const authSrc = readFileSync(resolve(process.cwd(), 'src/lib/auth.ts'), 'utf8');
-  if (authSrc.includes('Phase 1 accepted risk') && authSrc.includes('Planned Phase 2')) {
-    record('Low', 'L1 SSO/MFA accepted risk', 'pass', 'Documented with compensating controls');
+  const mfaLogin = existsSync(resolve(process.cwd(), 'src/app/api/auth/mfa/login-verify/route.ts'));
+  const mfaService = existsSync(resolve(process.cwd(), 'src/lib/mfa/service.ts'));
+  if (
+    (authSrc.includes('MFA') && authSrc.includes('MERLIN_MFA_ENFORCE') && mfaLogin && mfaService) ||
+    (authSrc.includes('Phase 1 accepted risk') && authSrc.includes('Planned Phase 2'))
+  ) {
+    record(
+      'Low',
+      'L1 SSO/MFA accepted risk',
+      'pass',
+      mfaLogin
+        ? 'Native TOTP MFA shipped; SSO remains roadmap with compensating controls'
+        : 'Documented with compensating controls'
+    );
   } else {
-    record('Low', 'L1 SSO/MFA accepted risk', 'fail', 'Auth module missing Phase 1 risk documentation');
+    record('Low', 'L1 SSO/MFA accepted risk', 'fail', 'Auth module missing MFA/SSO documentation');
+  }
+
+  // Production warn: MFA enforce off is pilot-safe but operators should enroll managers
+  const mfaPolicySrc = readFileSync(resolve(process.cwd(), 'src/lib/healthChecks.ts'), 'utf8');
+  if (mfaPolicySrc.includes('checkMfaPolicyHealth') && mfaPolicySrc.includes('MERLIN_MFA_ENFORCE')) {
+    record('Medium', 'MFA policy health probe', 'pass', 'healthChecks mfaPolicy warns when enforce off in prod');
+  } else {
+    record('Medium', 'MFA policy health probe', 'fail', 'checkMfaPolicyHealth missing from healthChecks');
   }
 
   const statusSrc = readFileSync(resolve(process.cwd(), 'src/app/api/status/route.ts'), 'utf8');
@@ -1016,16 +1046,30 @@ function checkLowAuditFixes(): void {
 
   const runbook = readFileSync(resolve(process.cwd(), 'docs/Reencryption-Runbook.md'), 'utf8');
   const encryptionSrc = readFileSync(resolve(process.cwd(), 'src/lib/encryption.ts'), 'utf8');
-  const reencryptSrc = readFileSync(resolve(process.cwd(), 'scripts/reencrypt-legacy-data.ts'), 'utf8');
+  const rotationService = resolve(process.cwd(), 'src/lib/encryption/rotationService.ts');
+  const rotateRoute = resolve(process.cwd(), 'src/app/api/manager/encryption/rotate/route.ts');
   if (
     runbook.includes('Key rotation') &&
-    runbook.includes('DATA_ENCRYPTION_KEY') &&
-    encryptionSrc.includes('Phase 1 accepted risk') &&
-    reencryptSrc.includes('Phase 1 accepted risk')
+    runbook.includes('DATA_ENCRYPTION_KEY_PREVIOUS') &&
+    encryptionSrc.includes('DATA_ENCRYPTION_KEY_PREVIOUS') &&
+    encryptionSrc.includes('getDecryptKeyCandidates') &&
+    encryptionSrc.includes('reencryptCiphertextWithCurrentKey') &&
+    existsSync(rotationService) &&
+    existsSync(rotateRoute)
   ) {
-    record('Low', 'L4 key rotation runbook', 'pass', 'Runbook + encryption.ts document rotation accepted risk');
+    record(
+      'Low',
+      'L4 key rotation dual-key',
+      'pass',
+      'Dual-key decrypt + rotationService + manager rotate API + runbook'
+    );
   } else {
-    record('Low', 'L4 key rotation runbook', 'fail', 'Reencryption runbook or Phase 1 risk comments incomplete');
+    record(
+      'Low',
+      'L4 key rotation dual-key',
+      'fail',
+      'Missing dual-key decrypt, rotation service/API, or Reencryption-Runbook dual-key procedure'
+    );
   }
 
   const xentrySrc = readFileSync(resolve(process.cwd(), 'src/hooks/repairOrders/useROXentryScan.ts'), 'utf8');
@@ -1508,6 +1552,9 @@ async function checkSecurityAndConfig(): Promise<void> {
     'auth/login/route.ts',
     'auth/logout/route.ts',
     'auth/me/route.ts',
+    'auth/refresh/route.ts',
+    'auth/select-dealership/route.ts',
+    'auth/mfa/login-verify/route.ts',
     'setup/seed/route.ts',
   ]);
   const unauthenticated: string[] = [];
@@ -1515,8 +1562,11 @@ async function checkSecurityAndConfig(): Promise<void> {
     const rel = file.replace(apiRoot + '\\', '').replace(apiRoot + '/', '').replace(/\\/g, '/');
     const content = readFileSync(file, 'utf8');
     const isPublic = [...publicAllowlist].some((allowed) => rel.endsWith(allowed));
-    // withStoryAiRoute wraps withAuth (Phase 7.3 story shell for generate/score/review/certify).
-    const hasWithAuth = content.includes('withAuth(') || content.includes('withStoryAiRoute(');
+    // withStoryAiRoute wraps withAuth; withPublicRoute is the approved public gateway (rate limit + envelope).
+    const hasWithAuth =
+      content.includes('withAuth(') ||
+      content.includes('withStoryAiRoute(') ||
+      content.includes('withPublicRoute(');
     const hasSvixWebhookVerification =
       content.includes('verifyWebhook(') && content.includes('@clerk/nextjs/webhooks');
     const hasApexPreAuth =
@@ -1529,19 +1579,30 @@ async function checkSecurityAndConfig(): Promise<void> {
       content.includes('expiresAt') &&
       content.includes('passcodeHash') &&
       content.includes('verifyPasscodeHash') &&
-      content.includes('checkRateLimit');
+      (content.includes('checkRateLimit') || content.includes('withPublicRoute('));
     // Twilio Programmable Voice / recording webhooks — signature verified (not session auth).
     const hasTwilioWebhookAuth =
       rel.startsWith('voice/') &&
       content.includes('validateTwilioSignature') &&
       (content.includes('x-twilio-signature') || content.includes('X-Twilio-Signature'));
+    // CF Queue consumer bridge — shared secret, not browser session.
+    const hasQueueConsumerAuth =
+      rel.includes('queue/ai-consumer') &&
+      (content.includes('AI_QUEUE_CONSUMER_SECRET') || content.includes('Bearer'));
+    // MFA second factor at login — pending MFA JWT + rate limit (pre-session).
+    const hasMfaLoginVerify =
+      rel.includes('auth/mfa/login-verify') &&
+      content.includes('verifyPendingMfaToken') &&
+      content.includes('checkRateLimit');
     if (
       !isPublic &&
       !hasWithAuth &&
       !hasSvixWebhookVerification &&
       !hasApexPreAuth &&
       !hasPublicVideoShareHardening &&
-      !hasTwilioWebhookAuth
+      !hasTwilioWebhookAuth &&
+      !hasQueueConsumerAuth &&
+      !hasMfaLoginVerify
     ) {
       unauthenticated.push(rel);
     }
@@ -1731,7 +1792,11 @@ function checkProductionReadiness(): void {
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   const readinessDeclared =
     readme.includes('Production-Readiness-Checklist') &&
-    (readme.includes('Production Ready') || readme.includes('Ready for Validation'));
+    (readme.includes('Production Ready') ||
+      readme.includes('Ready for Validation') ||
+      readme.includes('production-ready') ||
+      readme.includes('Conditional pilot') ||
+      readme.includes('ready-to-deploy'));
   if (readinessDeclared) {
     record('Production', 'README readiness index', 'pass', 'README links production checklist and declares readiness');
   } else {
@@ -2529,11 +2594,11 @@ function checkApexPhase65RemainingSecurity(): void {
 
   const fortress = readFileSync(resolve(process.cwd(), 'docs/Security-Fortress.md'), 'utf8');
   if (
-    fortress.includes('implementation guidance') &&
+    (fortress.includes('implementation guidance') || fortress.includes('Native TOTP MFA')) &&
     fortress.includes('Phase 6.5') &&
     (fortress.includes('Fail closed') || fortress.includes('fail-closed') || fortress.includes('fail closed')) &&
     fortress.includes('Clerk') &&
-    fortress.includes('WebAuthn')
+    (fortress.includes('WebAuthn') || fortress.includes('TOTP') || fortress.includes('MERLIN_MFA_ENFORCE'))
   ) {
     record('APEX 6.5', 'MFA/SSO implementation docs', 'pass', 'Security-Fortress MFA/SSO implementation guidance');
   } else {

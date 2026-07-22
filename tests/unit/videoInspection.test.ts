@@ -266,7 +266,8 @@ describe('must-do security hardening', () => {
       assert.match(src, /expiresAt/);
       assert.match(src, /passcodeHash/);
       assert.match(src, /verifyPasscodeHash/);
-      assert.match(src, /checkRateLimit/);
+      // Rate limit via withPublicRoute options or direct checkRateLimit
+      assert.ok(src.includes('withPublicRoute(') || src.includes('checkRateLimit'));
       assert.match(src, /revokedAt/);
     }
   });

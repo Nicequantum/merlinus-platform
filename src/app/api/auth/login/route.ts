@@ -17,9 +17,12 @@ import { applySessionCookieToResponse, createSessionToken, loginTechnician } fro
 import { applyCsrfCookieToResponse } from '@/lib/csrf';
 import { isLegacyAuthPathEnabled } from '@/lib/authMode';
 import { getDb } from '@/lib/db';
+import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { isApexPlatformMode } from '@/lib/platformMode';
 import { apiError, handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { createPendingMfaToken } from '@/lib/mfa/challenge';
+import { isMfaEnabledForTechnician } from '@/lib/mfa/service';
 import { checkRateLimit, getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { logApiWriteRequest } from '@/lib/requestLogging';
 import { AUTH_JSON_BODY_LIMIT_BYTES, loginRequestSchema, parseRequestBody } from '@/lib/validation';
@@ -51,6 +54,44 @@ export async function POST(request: Request) {
       const session = await loginTechnician(identifier, password);
       if (!session) {
         return apiError(LEGACY_LOGIN_FAILURE_MESSAGE, 401);
+      }
+
+      // Dual-path: password OK → MFA challenge when enrolled (elevated roles typically).
+      if (session.mfaEnabled || (await isMfaEnabledForTechnician(session.technicianId))) {
+        const mfaToken = await createPendingMfaToken({
+          technicianId: session.technicianId,
+          sessionVersion: session.sessionVersion,
+          credentialType: 'd7',
+        });
+        try {
+          await writeAuditedAccess({
+            action: 'auth.mfa_challenge',
+            dealershipId: session.dealershipId,
+            dealerId: auditDealerIdFromSession(session),
+            technicianId: session.technicianId,
+            entityType: 'technician',
+            entityId: session.technicianId,
+            ipAddress: getRequestIp(request),
+            metadata: { stage: 'login' },
+          });
+        } catch {
+          // best-effort
+        }
+        const response = NextResponse.json({
+          requiresMfa: true,
+          mfaToken,
+          technicianId: session.technicianId,
+          name: session.name,
+          message: 'Enter the code from your authenticator app to continue.',
+        });
+        logApiWriteRequest({
+          routeKey: 'auth.login',
+          method: request.method,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          technicianId: session.technicianId,
+        });
+        return response;
       }
 
       const token = await createSessionToken(session);
@@ -90,6 +131,50 @@ export async function POST(request: Request) {
         identifierKind: detectCredentialType(identifier),
       });
       return apiError(INVALID_CREDENTIALS_MESSAGE, 401);
+    }
+
+    if (loginResult.status === 'mfa_required') {
+      const mfaToken = await createPendingMfaToken({
+        technicianId: loginResult.technicianId,
+        sessionVersion: loginResult.sessionVersion,
+        credentialType: loginResult.credentialType,
+      });
+      try {
+        const homeDealershipId = await withRlsBypass(async () => {
+          const t = await getRlsDb().technician.findUnique({
+            where: { id: loginResult.technicianId },
+            select: { dealershipId: true },
+          });
+          return t?.dealershipId ?? '';
+        });
+        await writeAuditedAccess({
+          action: 'auth.mfa_challenge',
+          dealershipId: homeDealershipId,
+          technicianId: loginResult.technicianId,
+          entityType: 'technician',
+          entityId: loginResult.technicianId,
+          ipAddress: getRequestIp(request),
+          metadata: { stage: 'login', credentialType: loginResult.credentialType },
+        });
+      } catch {
+        // best-effort
+      }
+      const response = NextResponse.json({
+        requiresMfa: true,
+        mfaToken,
+        technicianId: loginResult.technicianId,
+        name: loginResult.name,
+        credentialType: loginResult.credentialType,
+        message: 'Enter the code from your authenticator app to continue.',
+      });
+      logApiWriteRequest({
+        routeKey: 'auth.login',
+        method: request.method,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        technicianId: loginResult.technicianId,
+      });
+      return response;
     }
 
     if (loginResult.status === 'select_dealership') {

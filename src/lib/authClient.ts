@@ -14,7 +14,9 @@ export {
   loginWithCredentials,
   logoutSession,
   probeCurrentSession,
+  verifyMfaLogin,
   type ClerkLinkStatus,
+  type MerlinLoginResult,
   type SessionProbeResult,
   type SessionProbeStatus,
 } from '@/lib/loginSession';

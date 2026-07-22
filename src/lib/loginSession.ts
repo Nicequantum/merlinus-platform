@@ -73,10 +73,14 @@ export async function fetchCurrentSession(options?: {
   return null;
 }
 
+export type MerlinLoginResult =
+  | { status: 'success'; session: TechnicianSession }
+  | { status: 'mfa_required'; mfaToken: string; technicianId: string; name?: string };
+
 export async function loginWithCredentials(
   d7Number: string,
   password: string
-): Promise<TechnicianSession> {
+): Promise<MerlinLoginResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
   try {
@@ -94,20 +98,42 @@ export async function loginWithCredentials(
     });
     const data = (await res.json().catch(() => ({}))) as {
       session?: TechnicianSession;
+      requiresMfa?: boolean;
+      mfaToken?: string;
+      technicianId?: string;
+      name?: string;
       error?: string;
       message?: string;
     };
     if (!res.ok) {
       throw new Error(data.error || data.message || 'Login failed');
     }
+    if (data.requiresMfa && data.mfaToken) {
+      return {
+        status: 'mfa_required',
+        mfaToken: data.mfaToken,
+        technicianId: data.technicianId || '',
+        name: data.name,
+      };
+    }
     if (!data.session) {
       throw new Error('Login succeeded but no session was returned');
     }
-    // P1-2: warm Worker isolate + D1 so first post-login click is not the cold path
-    void import('@/lib/clientFetchRetry')
-      .then(({ warmSessionIsolate }) => warmSessionIsolate())
-      .catch(() => undefined);
-    return data.session;
+    // Aggressive bay warm: session + status + today's RO list (technician path)
+    void import('@/lib/bayWarmup')
+      .then(({ runAggressiveBayWarmup }) =>
+        runAggressiveBayWarmup({
+          prefetchRoList: true,
+          technicianId: data.session!.technicianId,
+          dealershipId: data.session!.dealershipId,
+        })
+      )
+      .catch(() =>
+        import('@/lib/clientFetchRetry')
+          .then(({ warmSessionIsolate }) => warmSessionIsolate())
+          .catch(() => undefined)
+      );
+    return { status: 'success', session: data.session };
   } catch (error: unknown) {
     if (
       (error instanceof DOMException && error.name === 'AbortError') ||
@@ -119,6 +145,53 @@ export async function loginWithCredentials(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Complete MFA challenge after password stage. */
+export async function verifyMfaLogin(
+  mfaToken: string,
+  code: string
+): Promise<MerlinLoginResult> {
+  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+  const csrf = readCsrfTokenFromDocument();
+  const res = await fetch('/api/auth/mfa/login-verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+    },
+    credentials: 'include',
+    body: JSON.stringify({ mfaToken, code }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    session?: TechnicianSession;
+    requiresDealershipSelection?: boolean;
+    pendingToken?: string;
+    error?: string;
+    message?: string;
+  };
+  if (!res.ok) {
+    throw new Error(data.error || data.message || 'MFA verification failed');
+  }
+  if (data.requiresDealershipSelection && data.pendingToken) {
+    // Caller (Apex shell) handles dealership selection via pendingToken path —
+    // Merlinus single-rooftop should not hit this.
+    throw new Error('Dealership selection required after MFA — use Apex login');
+  }
+  if (!data.session) {
+    throw new Error('MFA verified but no session was returned');
+  }
+  void import('@/lib/bayWarmup')
+    .then(({ runAggressiveBayWarmup }) =>
+      runAggressiveBayWarmup({
+        prefetchRoList: true,
+        technicianId: data.session!.technicianId,
+        dealershipId: data.session!.dealershipId,
+      })
+    )
+    .catch(() => undefined);
+  return { status: 'success', session: data.session };
 }
 
 export async function logoutSession(): Promise<void> {

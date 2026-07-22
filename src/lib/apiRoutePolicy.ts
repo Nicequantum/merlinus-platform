@@ -28,6 +28,8 @@ export const APPROVED_API_ROUTE_WRAPPERS = [
 export const INTENTIONAL_BARE_API_ROUTES: Readonly<Record<string, string>> = {
   'src/app/api/auth/login/route.ts':
     'Public login — RATE_LIMITS.auth + credential verification',
+  'src/app/api/auth/mfa/login-verify/route.ts':
+    'MFA second factor at login — RATE_LIMITS.authMfaLogin + pending MFA JWT (pre-session)',
   'src/app/api/auth/logout/route.ts':
     'Session clear — rate limited; safe when unauthenticated',
   'src/app/api/auth/me/route.ts':
@@ -49,6 +51,8 @@ export const INTENTIONAL_BARE_API_ROUTES: Readonly<Record<string, string>> = {
   'src/app/api/webhooks/clerk/route.ts':
     'Clerk Svix webhook — verifyWebhook()',
   // P3-4 recovery uses withPublicRoute (approved wrapper) — not bare.
+  'src/app/api/queue/ai-consumer/route.ts':
+    'CF Queue consumer bridge — Bearer AI_QUEUE_CONSUMER_SECRET + rate limit; not browser session auth',
 };
 
 export function isIntentionalBareApiRoute(posixPath: string): boolean {

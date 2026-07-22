@@ -14,6 +14,7 @@ import { LegalDisclaimerModal } from '@/components/LegalDisclaimerModal';
 import {
   loginWithIdentifier,
   selectDealershipSession,
+  verifyMfaLoginWithIdentifier,
 } from '@/lib/apexLoginSession';
 import { clientLog } from '@/lib/clientLog';
 import {
@@ -167,6 +168,13 @@ export function ApexPlatformApp() {
   const login = useCallback(
     async (identifier: string, password: string): Promise<ApexLoginShellResult> => {
       const result = await loginWithIdentifier(identifier, password);
+      if (result.status === 'mfa_required') {
+        return {
+          status: 'mfa_required',
+          mfaToken: result.mfaToken,
+          name: result.name,
+        };
+      }
       if (result.status === 'select_dealership') {
         return {
           status: 'select_dealership',
@@ -179,6 +187,30 @@ export function ApexPlatformApp() {
       // Do not block on /api/auth/me (Clerk dual-mode + cookie races caused hang loops).
       applySession(result.session);
       // Soft revalidate only — must not clear the session we just applied.
+      void refreshSession({ clearOnMissing: false });
+      return { status: 'success' };
+    },
+    [applySession, refreshSession]
+  );
+
+  const completeMfa = useCallback(
+    async (mfaToken: string, code: string): Promise<ApexLoginShellResult> => {
+      const result = await verifyMfaLoginWithIdentifier(mfaToken, code);
+      if (result.status === 'select_dealership') {
+        return {
+          status: 'select_dealership',
+          pendingToken: result.pendingToken,
+          dealerships: result.dealerships,
+        };
+      }
+      if (result.status === 'mfa_required') {
+        return {
+          status: 'mfa_required',
+          mfaToken: result.mfaToken,
+          name: result.name,
+        };
+      }
+      applySession(result.session);
       void refreshSession({ clearOnMissing: false });
       return { status: 'success' };
     },
@@ -213,7 +245,13 @@ export function ApexPlatformApp() {
   }
 
   if (sessionPhase !== 'authenticated' || !session) {
-    return <ApexLoginShell onLogin={login} onSelectDealership={selectDealership} />;
+    return (
+      <ApexLoginShell
+        onLogin={login}
+        onMfaVerify={completeMfa}
+        onSelectDealership={selectDealership}
+      />
+    );
   }
 
   if (needsPasswordChange(session)) {

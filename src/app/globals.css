@@ -1228,6 +1228,48 @@
     min-width: 48px;
   }
 
+  /* Rugged bay tablets — larger hit areas for greasy gloves */
+  .touch-target-bay {
+    min-height: 52px;
+    min-width: 52px;
+  }
+
+  .benz-bay-shell {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  /* High-DPI / landscape bay layout — keep primary actions reachable */
+  @media (orientation: landscape) and (max-height: 560px) {
+    .benz-page-compact {
+      --bay-compact-scale: 0.96;
+    }
+    .merlin-brand-hero {
+      margin-bottom: 1rem !important;
+    }
+  }
+
+  @media (min-resolution: 2dppx) {
+    .benz-card {
+      -webkit-font-smoothing: antialiased;
+    }
+  }
+
+  /* Bay lighting: slightly softer contrast in pure dark to reduce glare */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bay-glare-soft: 0.92;
+    }
+  }
+
+  /* Reduced motion: disable pull/skeleton pulse excess */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse {
+      animation: none !important;
+    }
+  }
+
   .status-pill {
     font-size: 0.75rem;
     font-weight: 700;

@@ -85,8 +85,10 @@ describe('P1-3 MFA foundation', () => {
   });
 
   it('mfa routes and withAuth skipMfa exist', () => {
-    assert.match(readSrc('src/app/api/auth/mfa/enroll/route.ts'), /generateTotpSecret/);
-    assert.match(readSrc('src/app/api/auth/mfa/verify/route.ts'), /verifyTotpCode/);
+    assert.match(readSrc('src/app/api/auth/mfa/enroll/route.ts'), /beginMfaEnrollment/);
+    assert.match(readSrc('src/app/api/auth/mfa/setup/route.ts'), /beginMfaEnrollment/);
+    assert.match(readSrc('src/app/api/auth/mfa/verify/route.ts'), /confirmMfaEnrollment/);
+    assert.match(readSrc('src/app/api/auth/mfa/login-verify/route.ts'), /verifyMfaFactor/);
     assert.match(readSrc('src/lib/apiRoute.ts'), /skipMfa/);
     assert.match(readSrc('src/lib/apiRoute.ts'), /MFA_REQUIRED/);
   });

@@ -170,8 +170,54 @@ model Dealership {
   hubAuditEvents        HubAuditEvent[]
   aiJobs                AiJob[]
   passwordRecoveryTokens PasswordRecoveryToken[]
+  departmentCustomizations DepartmentCustomization[]
 
   @@index([dealerId])
+}
+
+/**
+ * Per-dealership Sophia department "Personal Tailoring".
+ * Injected into tablet + phone department prompts (sanitized, versioned).
+ */
+model DepartmentCustomization {
+  id                   String   @id @default(cuid())
+  dealershipId         String
+  dealership           Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  /** service | parts | sales | loaner | receptionist */
+  department           String
+  /** Free-form manager instructions (variables: {dealershipName}, {managerName}) */
+  customInstructions   String   @default("")
+  greeting             String   @default("")
+  disclaimers          String   @default("")
+  toneGuidelines       String   @default("")
+  version              Int      @default(1)
+  updatedByTechnicianId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  versions             DepartmentCustomizationVersion[]
+
+  @@unique([dealershipId, department])
+  @@index([dealershipId, department])
+  @@map("DepartmentCustomization")
+}
+
+/** Immutable version history for department tailoring (audit / reset). */
+model DepartmentCustomizationVersion {
+  id                   String   @id @default(cuid())
+  customizationId      String
+  customization        DepartmentCustomization @relation(fields: [customizationId], references: [id], onDelete: Cascade)
+  version              Int
+  customInstructions   String   @default("")
+  greeting             String   @default("")
+  disclaimers          String   @default("")
+  toneGuidelines       String   @default("")
+  changedByTechnicianId String?
+  changeNote           String   @default("")
+  createdAt            DateTime @default(now())
+
+  @@unique([customizationId, version])
+  @@index([customizationId, createdAt(sort: Desc)])
+  @@map("DepartmentCustomizationVersion")
 }
 
 // ─── PRODUCT MODULE ENTITLEMENTS (PR-M0) ─────────────────────────────────────
@@ -182,6 +228,11 @@ enum ModuleId {
   video_mpi
   maintenance
   voice_agent
+  /** Department specialists under voice_agent (require parent voice_agent + domain module) */
+  voice_agent_service
+  voice_agent_parts
+  voice_agent_sales
+  voice_agent_loaner
   /** Unified Calendar & Conversation Hub (appointments + call intelligence) */
   calendar_hub
   loaner
@@ -248,12 +299,14 @@ model Technician {
   mustChangePassword Boolean   @default(false) @map("must_change_password")
   passwordChangedAt  DateTime? @map("password_changed_at")
   /**
-   * P1-3 MFA foundation — TOTP enrollment for manager/owner when MERLIN_MFA_ENFORCE=true.
-   * Secret is AES-encrypted at rest (never returned to clients after enroll).
+   * MFA denormalized flags (source of truth for secret/backup codes: UserMfa).
+   * MERLIN_MFA_ENFORCE=true requires enrollment for manager/owner/admin.
    */
   mfaEnabled         Boolean   @default(false) @map("mfa_enabled")
   mfaSecretEncrypted String?   @map("mfa_secret_encrypted")
   mfaEnrolledAt      DateTime? @map("mfa_enrolled_at")
+  /** Encrypted JSON array of bcrypt-hashed one-time backup codes (legacy mirror of UserMfa). */
+  mfaBackupCodesEncrypted String? @map("mfa_backup_codes_encrypted")
   /** Phase 4 Clerk — linked Clerk user id; null for legacy D7-only accounts. */
   clerkUserId    String?       @unique @map("clerk_user_id")
   /** Phase 4 — identity provider: legacy (JWT) or clerk. */
@@ -301,6 +354,7 @@ model Technician {
   maintenanceTicketsAssigned MaintenanceTicket[] @relation("MaintenanceTicketAssignedTo")
   maintenanceTicketEvents    MaintenanceTicketEvent[]
   loanerAssignmentsCreated   LoanerAssignment[] @relation("LoanerAssignmentCreatedBy")
+  userMfa                    UserMfa?
 
   @@index([dealerId])
   @@index([dealershipId])
@@ -310,6 +364,27 @@ model Technician {
   @@index([apexUsername])
   /** Phase 7.3 — active staff lists / owner summary staff depth */
   @@index([dealershipId, isActive, deletedAt])
+}
+
+/**
+ * MFA fortress — TOTP secret + backup codes for elevated roles.
+ * Technician.mfaEnabled / mfaEnrolledAt remain denormalized for session payloads.
+ */
+model UserMfa {
+  id                   String     @id @default(cuid())
+  technicianId         String     @unique
+  technician           Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  /** AES-GCM encrypted base32 TOTP secret */
+  secretEncrypted      String
+  enabled              Boolean    @default(false)
+  /** AES-GCM encrypted JSON array of bcrypt hashes of one-time backup codes */
+  backupCodesEncrypted String?
+  enrolledAt           DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([enabled])
+  @@map("UserMfa")
 }
 
 /**
@@ -1322,6 +1397,36 @@ model AiJob {
   @@index([dealershipId, technicianId, createdAt(sort: Desc)])
   @@index([dealershipId, status, createdAt])
   @@index([entityType, entityId])
+}
+
+/**
+ * Platform encryption key rotation progress (global — one active rotation).
+ * PII re-encrypt walk uses current DATA_ENCRYPTION_KEY after dual-key deploy.
+ */
+model EncryptionRotation {
+  id                      String    @id @default(cuid())
+  /** pending_env | running | completed | cancelled | failed */
+  status                  String    @default("pending_env")
+  primaryFingerprint      String    @default("")
+  previousFingerprint     String    @default("")
+  /** New key fingerprint once operator activates dual-key env */
+  targetFingerprint       String    @default("")
+  totalRecords            Int       @default(0)
+  processedRecords        Int       @default(0)
+  updatedRecords          Int       @default(0)
+  failedRecords           Int       @default(0)
+  currentTable            String    @default("")
+  cursorId                String    @default("")
+  cancelRequested         Boolean   @default(false)
+  errorMessage            String?
+  startedByTechnicianId   String?
+  startedAt               DateTime  @default(now())
+  finishedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("EncryptionRotation")
 }
 
 /**

@@ -159,7 +159,9 @@ export type AppView =
   | 'maintenance'
   | 'loaner'
   | 'voice'
-  | 'hub';
+  | 'hub'
+  /** Manager durable AI job monitor */
+  | 'jobs';
 
 export type MaintenanceSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type MaintenanceTicketStatus =
@@ -677,6 +679,7 @@ export const WARRANTY_STORY_DMS_GUIDANCE_CHARS = 2500;
 export const WARRANTY_STORY_MAX_CHARS = 100_000;
 export const WARRANTY_STORY_WARN_CHARS = 100_000;
 
+/** Keep in lockstep with `AuditAction` in `src/lib/audit.ts` (filter dropdown + H7 gate). */
 export const AUDIT_ACTIONS = [
   'auth.login',
   'auth.logout',
@@ -686,6 +689,13 @@ export const AUDIT_ACTIONS = [
   'owner.dealership_exit',
   'owner.national_access',
   'auth.password_change',
+  'auth.mfa_enroll_start',
+  'auth.mfa_enroll_complete',
+  'auth.mfa_challenge',
+  'auth.mfa_success',
+  'auth.mfa_failure',
+  'auth.mfa_backup_used',
+  'auth.mfa_backup_regenerate',
   'auth.clerk_link',
   'consent.accept',
   'legalDisclaimer.accept',
@@ -731,4 +741,9 @@ export const AUDIT_ACTIONS = [
   'customerPayStory.pdf_export',
   'dealer.provision',
   'module.set',
+  'voice.customization_update',
+  'encryption.rotation_begin',
+  'encryption.rotation_reencrypt_start',
+  'encryption.rotation_cancel',
+  'encryption.rotation_complete',
 ] as const;

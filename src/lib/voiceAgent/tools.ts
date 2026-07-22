@@ -130,7 +130,8 @@ export const VOICE_TOOL_DEFINITIONS = [
     type: 'function' as const,
     function: {
       name: 'create_sales_request',
-      description: 'Create a Sales department request for staff follow-up.',
+      description:
+        'Create a Sales department request for quotes, vehicle interest, trade-in, or showroom appointment follow-up. Never invent stock or prices.',
       parameters: {
         type: 'object',
         properties: {
@@ -138,9 +139,56 @@ export const VOICE_TOOL_DEFINITIONS = [
           summary: { type: 'string' },
           customerName: { type: 'string' },
           customerPhone: { type: 'string' },
+          customerEmail: { type: 'string' },
           vehicleLabel: { type: 'string' },
+          interestType: {
+            type: 'string',
+            description: 'new | cpo | used | trade_in | other',
+          },
+          preferredContact: {
+            type: 'string',
+            description: 'phone | text | email',
+          },
+          preferredVisitWindow: {
+            type: 'string',
+            description: 'Customer preferred appointment window (plain language)',
+          },
         },
         required: ['subject'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'lookup_parts_guidance',
+      description:
+        'Return non-inventory parts guidance (what staff will verify). Never invent stock, price, or ETA. Use before creating a parts request when the customer is unsure of the part.',
+      parameters: {
+        type: 'object',
+        properties: {
+          partDescription: { type: 'string' },
+          partNumber: { type: 'string' },
+          vehicleLabel: { type: 'string' },
+          vin: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'note_sales_interest',
+      description:
+        'Capture sales interest slots without creating a ticket yet (model, budget notes, timeline). Follow with create_sales_request when ready for staff.',
+      parameters: {
+        type: 'object',
+        properties: {
+          interestType: { type: 'string' },
+          vehicleLabel: { type: 'string' },
+          timeline: { type: 'string' },
+          notes: { type: 'string' },
+        },
       },
     },
   },
@@ -526,10 +574,73 @@ export async function executeVoiceTool(
     return createDepartmentTicket(ctx, state, 'parts', args);
   }
   if (name === 'create_sales_request') {
+    // Enrich summary with sales-specific slots for staff inbox
+    const interest = str('interestType');
+    const visit = str('preferredVisitWindow');
+    const contact = str('preferredContact');
+    const email = str('customerEmail');
+    if (email) state.slots.customerEmail = email;
+    const extra = [
+      interest ? `Interest: ${interest}` : '',
+      visit ? `Visit window: ${visit}` : '',
+      contact ? `Prefer contact: ${contact}` : '',
+    ]
+      .filter(Boolean)
+      .join('. ');
+    if (extra) {
+      const prev = typeof args.summary === 'string' ? args.summary : state.slots.summary || '';
+      args.summary = [prev, extra].filter(Boolean).join(' — ').slice(0, 500);
+    }
     return createDepartmentTicket(ctx, state, 'sales', args);
   }
   if (name === 'create_service_request') {
     return createDepartmentTicket(ctx, state, 'service', args);
+  }
+
+  if (name === 'lookup_parts_guidance') {
+    const partDescription = str('partDescription') || state.slots.summary || 'the requested part';
+    const partNumber = str('partNumber');
+    const vehicleLabel = str('vehicleLabel') || state.slots.vehicleLabel || 'the vehicle';
+    const vin = (str('vin') || state.slots.vin || '').toUpperCase();
+    if (partNumber) state.slots.summary = `Part # ${partNumber}: ${partDescription}`.slice(0, 200);
+    if (vehicleLabel) state.slots.vehicleLabel = vehicleLabel;
+    if (vin) state.slots.vin = vin;
+    return finish({
+      ok: true,
+      message:
+        'Parts staff will verify fitment, stock, and pricing. No live inventory is available on this channel.',
+      data: {
+        guidance:
+          `We will confirm compatibility for ${partDescription}${
+            partNumber ? ` (${partNumber})` : ''
+          } on ${vehicleLabel}${vin ? ` (VIN on file)` : ''}. A parts advisor will quote availability and order status — I cannot invent stock levels, ETA, or price.`,
+        nextStep: 'create_parts_request',
+      },
+    });
+  }
+
+  if (name === 'note_sales_interest') {
+    const interestType = str('interestType');
+    const vehicleLabel = str('vehicleLabel');
+    const timeline = str('timeline');
+    const notes = str('notes');
+    if (vehicleLabel) state.slots.vehicleLabel = vehicleLabel;
+    if (interestType || timeline || notes) {
+      state.slots.summary = [interestType, vehicleLabel, timeline, notes]
+        .filter(Boolean)
+        .join(' · ')
+        .slice(0, 400);
+    }
+    return finish({
+      ok: true,
+      message: 'Sales interest noted in session slots',
+      data: {
+        interestType: interestType || null,
+        vehicleLabel: vehicleLabel || null,
+        timeline: timeline || null,
+        reminder: 'create_sales_request when ready for staff follow-up',
+      },
+    });
   }
 
   if (name === 'list_available_loaners') {

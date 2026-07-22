@@ -44,6 +44,15 @@ export type UnifiedLoginResult =
       credentialType: Exclude<CredentialType, 'invalid'>;
       dealerships: LoginDealershipOption[];
     }
+  | {
+      /** Password OK; MFA enabled — client must complete /api/auth/mfa/login-verify */
+      status: 'mfa_required';
+      technicianId: string;
+      sessionVersion: number;
+      credentialType: Exclude<CredentialType, 'invalid'>;
+      /** Optional display name for MFA challenge UI */
+      name: string;
+    }
   | { status: 'invalid' };
 
 const technicianInclude = { dealership: true } as const;
@@ -107,8 +116,14 @@ function toTechnicianForSession(
     legalDisclaimerVersion: tech.legalDisclaimerVersion,
     mustChangePassword: tech.mustChangePassword,
     preferredLanguage: tech.preferredLanguage,
+    mfaEnabled: tech.mfaEnabled,
+    mfaEnrolledAt: tech.mfaEnrolledAt,
     dealership: { name: dealership.name, dealerId: dealership.dealerId },
   };
+}
+
+function techHasMfaEnabled(tech: TechnicianWithDealership): boolean {
+  return Boolean(tech.mfaEnabled && tech.mfaEnrolledAt);
 }
 
 export function mapMembershipsToLoginDealerships(
@@ -177,6 +192,17 @@ export async function resolveUnifiedLogin(
   const passwordValid = await verifyPassword(password, tech.passwordHash);
   if (!passwordValid) return { status: 'invalid' };
 
+  // Elevated MFA: password OK but TOTP/backup still required before session cookies.
+  if (techHasMfaEnabled(tech)) {
+    return {
+      status: 'mfa_required',
+      technicianId: tech.id,
+      sessionVersion: tech.sessionVersion,
+      credentialType,
+      name: tech.name,
+    };
+  }
+
   if (tech.role === 'owner') {
     // Owners: email (platform) or apex username (group). Home = group or platform national.
     if (credentialType !== 'email' && credentialType !== 'username') return { status: 'invalid' };
@@ -223,5 +249,68 @@ export async function resolveUnifiedLogin(
     credentialType,
     dealerships: await listLoginDealershipOptions(tech.id),
   };
+  });
+}
+
+/**
+ * Complete login after MFA challenge — same branching as password path without password check.
+ */
+export async function resolveLoginAfterMfa(
+  technicianId: string,
+  credentialType: Exclude<CredentialType, 'invalid'> = 'd7'
+): Promise<UnifiedLoginResult> {
+  return withRlsBypass(async () => {
+    const tech = await getRlsDb().technician.findUnique({
+      where: { id: technicianId },
+      include: technicianInclude,
+    });
+    // Identity already proven by password + MFA; only require active account.
+    if (!tech || !isTechnicianAccountActive(tech)) return { status: 'invalid' };
+    if (tech.role === 'service_advisor' && !tech.serviceAdvisorId) return { status: 'invalid' };
+
+    if (tech.role === 'owner') {
+      const ownerSession = await buildOwnerHomeSession(tech.id);
+      if (!ownerSession) return { status: 'invalid' };
+      return {
+        status: 'success',
+        credentialType,
+        session: {
+          ...ownerSession,
+          isOwner: true,
+          activeDealershipId: undefined,
+        },
+      };
+    }
+
+    const memberships = await listActiveDealershipMemberships(tech.id);
+    if (memberships.length === 0) return { status: 'invalid' };
+
+    if (memberships.length === 1) {
+      const membership = memberships[0];
+      const base = buildSessionPayloadFromTechnician(
+        toTechnicianForSession(tech, {
+          id: membership.dealership.id,
+          name: membership.dealership.name,
+          dealerId: membership.dealership.dealerId,
+        })
+      );
+      return {
+        status: 'success',
+        credentialType,
+        session: {
+          ...base,
+          scopeMode: 'dealership',
+          activeDealershipId: membership.dealership.id,
+        },
+      };
+    }
+
+    return {
+      status: 'select_dealership',
+      technicianId: tech.id,
+      sessionVersion: tech.sessionVersion,
+      credentialType,
+      dealerships: await listLoginDealershipOptions(tech.id),
+    };
   });
 }

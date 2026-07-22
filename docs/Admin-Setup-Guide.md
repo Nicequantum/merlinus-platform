@@ -28,6 +28,39 @@ This guide walks through setup from empty environment to production-ready rollou
 
 Production health treats lingering owner seed **passwords** as a **critical** failure (`ownerSeedSecrets`). CI runs `npm run check:seed-secrets`.
 
+### MFA (managers & owners)
+
+| Env | Purpose | Default |
+|-----|---------|---------|
+| `MERLIN_MFA_ENFORCE` | When `true`/`1`, elevated roles must enroll TOTP before PII routes | off (pilot) |
+| `MERLIN_MFA_REQUIRED_ROLES` | Comma list: `manager,owner,admin` | those three |
+| `ACCESS_TOKEN_TTL_SECONDS` | Apex access cookie TTL | `900` (15 min) |
+| `MFA_CHALLENGE_TTL_SECONDS` | Password→MFA pending token TTL | `300` (5 min) |
+
+**Rollout**
+
+1. Apply D1 migration `20250721180000_user_mfa_totp` (UserMfa + backup code columns).
+2. Managers open **Settings → Multi-factor authentication**, scan QR, save backup codes.
+3. After pilot: set Worker secret `MERLIN_MFA_ENFORCE=true`.
+4. Health matrix shows `mfaPolicy` (warn in production when enforce is off).
+5. `/manager/jobs` surfaces MFA status for operators.
+
+Bay technicians keep password-only login unless they opt into MFA.
+
+### Manager Control Center
+
+| URL | Purpose |
+|-----|---------|
+| `/manager/center` | **Default ops landing** — Overview KPIs, AI Jobs, Voice tailoring, Modules, Health |
+| `/manager/jobs` | Standalone AI job monitor (retry/cancel) |
+| `GET /api/manager/center/summary` | Aggregate snapshot (manager/owner only, dealership-scoped) |
+
+**Tabs:** Overview · AI Jobs · Voice · Modules · Health. Module toggles write `DealershipModule` with audit. Maintenance mode remains **env-only** (`MERLIN_MAINTENANCE_MODE`).
+
+**Live SSE:** `GET /api/manager/center/live` (manager/owner, cookie session). Events: `job:updated`, `health:changed`, `voice:activity`, `modules:changed`, heartbeats every 30s. Max **12** concurrent streams per rooftop (close extra tabs if limited). Tab hidden → connection paused (battery). If SSE fails, UI falls back to soft polling (~45s) and shows **Polling**.
+
+From the classic Manager Dashboard, use **Open Control Center**.
+
 ---
 
 ## 1. Prerequisites
@@ -290,26 +323,27 @@ Set as `ENCRYPTION_KEY` in Vercel. Merlin uses **AES-256-GCM** for customer name
 
 ### Critical warning — key rotation
 
-**Changing `ENCRYPTION_KEY` without re-encrypting existing data makes stored repair orders unreadable.**
+**Changing `DATA_ENCRYPTION_KEY` without a dual-key window (or re-encrypt) makes stored repair orders unreadable.**
 
-There is no “flip a switch” rotation. Treat key changes as a **planned maintenance event**.
+Rotation is a **planned ops event**, but Merlin supports **zero-downtime dual-key** decrypt during the re-encrypt pass.
 
-### Encryption key rotation procedure
+### Encryption key rotation procedure (dual-key)
 
 | Step | Action | Owner |
 |------|--------|-------|
-| 1 | Schedule maintenance window (off-peak, no active warranty submissions) | Service Manager |
-| 2 | Enable `MERLIN_MAINTENANCE_MODE=true` | IT |
-| 3 | Full database backup (snapshot + verify restore) | IT |
-| 4 | Document current `ENCRYPTION_KEY` in secure vault (password manager / HSM) | IT |
-| 5 | Generate new key: `openssl rand -hex 32` | IT |
-| 6 | Run controlled re-encryption migration with **both** old and new keys available | IT + platform maintainer |
-| 7 | Update `ENCRYPTION_KEY` in Vercel to the new value | IT |
-| 8 | Redeploy; run `npm run validate:pre-rollout` with `MERLIN_BASE_URL` | IT |
-| 9 | Spot-check 3 historical ROs — VIN, notes, and stories decrypt correctly | Service Manager |
-| 10 | Disable maintenance mode | IT |
+| 1 | Full database backup (snapshot + verify restore) | IT |
+| 2 | Settings → Security → **Encryption key rotation** → **Begin rotation** — copy one-time new key | Service Manager + IT |
+| 3 | Set secrets: `DATA_ENCRYPTION_KEY_PREVIOUS=<old>`, `DATA_ENCRYPTION_KEY=<new>` | IT |
+| 4 | Deploy/restart Worker so dual-key is live | IT |
+| 5 | **Start re-encryption** in UI (or `npm run db:reencrypt` with dual-key env) | IT |
+| 6 | Watch progress to 100%; health may warn while dual-key is active | IT |
+| 7 | Spot-check historical ROs — VIN, notes, stories decrypt correctly | Service Manager |
+| 8 | Remove `DATA_ENCRYPTION_KEY_PREVIOUS`; redeploy | IT |
+| 9 | Run `npm run validate:pre-rollout` | IT |
 
-> **Note:** `npm run db:reencrypt` migrates **legacy plaintext** to encrypted format. It does **not** rotate an existing encryption key. Coordinate with your Merlin platform contact before rotating a live production key.
+Recommend rotation every **90 days** or after suspected key exposure. Full runbook: [Reencryption-Runbook.md](./Reencryption-Runbook.md).
+
+> **Note:** `npm run db:reencrypt` also migrates **legacy plaintext** to encrypted format. Prefer the in-app rotation panel for AES key rollover.
 
 ### Fresh deployment (no production data yet)
 

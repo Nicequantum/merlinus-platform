@@ -8,7 +8,13 @@ export const AI_JOB_KINDS = [
 
 export type AiJobKind = (typeof AI_JOB_KINDS)[number];
 
-export const AI_JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
+export const AI_JOB_STATUSES = [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const;
 export type AiJobStatus = (typeof AI_JOB_STATUSES)[number];
 
 export interface AiJobPublicView {
@@ -24,4 +30,7 @@ export interface AiJobPublicView {
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;
+  /** Luxury bay phase derived from status + progress */
+  phase?: string;
+  technicianId?: string;
 }

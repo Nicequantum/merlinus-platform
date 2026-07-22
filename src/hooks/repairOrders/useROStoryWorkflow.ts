@@ -203,11 +203,96 @@ export function useROStoryWorkflow(
         deps.invalidateReviewRequests();
         deps.invalidateScoreRequests();
         // Send client-side notes + story so regenerate never races a lagging PUT.
-        const { warrantyStory, cdkSanitized } = await api.generateStory(latestRO.id, lineId, {
+        // Prefer durable async (CF Queue); poll until complete when jobId returned.
+        const genResult = await api.generateStory(latestRO.id, lineId, {
           technicianNotes: targetLine.technicianNotes,
           warrantyStory: targetLine.warrantyStory,
+          async: true,
         });
         if (seq !== refs.generateStorySeqRef.current) return;
+
+        let warrantyStory = '';
+        let cdkSanitized = false;
+
+        if (genResult && typeof genResult === 'object' && 'async' in genResult && genResult.async === true) {
+          // Optimistic bay feedback — SSE (or poll fallback) drives phase labels.
+          // Immediate "Queued" feels instant even before the first SSE tick.
+          const toastId = `story-job-${genResult.jobId}`;
+          let optimisticProgress = 4;
+          toast.message('Queued', {
+            id: toastId,
+            description: 'Story queued for the AI bay… · 4%',
+          });
+          // Smooth optimistic creep while waiting for first server phase (slow Wi‑Fi).
+          const creep =
+            typeof window !== 'undefined'
+              ? window.setInterval(() => {
+                  optimisticProgress = Math.min(18, optimisticProgress + 1);
+                  toast.message('Queued', {
+                    id: toastId,
+                    description: `Waiting for AI bay… · ${optimisticProgress}%`,
+                  });
+                }, 900)
+              : 0;
+          const { pollAiJobUntilDone, phaseLabel, technicianFriendlyJobError } = await import(
+            '@/lib/aiJobClient'
+          );
+          let lastToastPhase = '';
+          let sawServerPhase = false;
+          const done = await pollAiJobUntilDone(genResult.jobId, {
+            timeoutMs: 130_000,
+            preferSse: true,
+            onPhase: (phase, progress, label) => {
+              if (!sawServerPhase) {
+                sawServerPhase = true;
+                if (creep) window.clearInterval(creep);
+              }
+              if (phase === lastToastPhase && phase !== 'ai_thinking') return;
+              lastToastPhase = phase;
+              if (phase === 'complete' || phase === 'failed' || phase === 'cancelled') return;
+              const phaseTitle =
+                phase === 'queued'
+                  ? 'Queued'
+                  : phase === 'processing'
+                    ? 'Processing'
+                    : phase === 'ai_thinking'
+                      ? 'AI Thinking'
+                      : phaseLabel(phase);
+              // Never show progress going backwards vs optimistic creep
+              const displayProgress = Math.max(progress, optimisticProgress);
+              toast.message(phaseTitle, {
+                id: toastId,
+                description: `${label || phaseLabel(phase)}${
+                  displayProgress > 0 ? ` · ${displayProgress}%` : ''
+                }`,
+              });
+            },
+          });
+          if (creep) window.clearInterval(creep);
+          if (seq !== refs.generateStorySeqRef.current) return;
+          if (done.phase === 'failed' || done.phase === 'cancelled') {
+            throw new Error(
+              technicianFriendlyJobError(done.errorMessage) || storyT('generateFailed')
+            );
+          }
+          const result = done.result as {
+            warrantyStory?: string;
+            cdkSanitized?: boolean;
+          } | null;
+          warrantyStory = result?.warrantyStory?.trim() || '';
+          cdkSanitized = Boolean(result?.cdkSanitized);
+          if (!warrantyStory) {
+            throw new Error(storyT('generateFailed') || 'Story job completed without text');
+          }
+          toast.dismiss(toastId);
+        } else {
+          const sync = genResult as {
+            warrantyStory: string;
+            cdkSanitized?: boolean;
+          };
+          warrantyStory = sync.warrantyStory;
+          cdkSanitized = Boolean(sync.cdkSanitized);
+        }
 
         setters.setLastGeneratedStoryByLine((prev) => ({ ...prev, [lineId]: warrantyStory }));
         if (cdkSanitized) {
@@ -241,7 +326,28 @@ export function useROStoryWorkflow(
       } catch (error: unknown) {
         if (seq === refs.generateStorySeqRef.current) {
           clientLog.error('story.generate_failed', error);
-          toast.error(getStoryWorkflowErrorMessage(error, storyT('generateFailed')));
+          const { technicianFriendlyJobError } = await import('@/lib/aiJobClient');
+          const raw = getStoryWorkflowErrorMessage(error, storyT('generateFailed'));
+          const friendly =
+            raw === OFFLINE_ERROR ? raw : technicianFriendlyJobError(raw);
+          toast.error(friendly, {
+            duration: 14_000,
+            action: {
+              label: 'Retry',
+              onClick: () => {
+                void generateStory(lineId);
+              },
+            },
+            cancel: {
+              label: 'Contact Manager',
+              onClick: () => {
+                toast.message(
+                  'Ask your service manager to open Manager Dashboard → AI Jobs for retry or cancel.',
+                  { duration: 10_000 }
+                );
+              },
+            },
+          });
         }
       } finally {
         if (seq === refs.generateStorySeqRef.current && refs.storyGenerationInFlightRef.current) {

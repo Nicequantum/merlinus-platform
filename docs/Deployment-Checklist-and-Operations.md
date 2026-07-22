@@ -187,6 +187,7 @@ curl -s https://your-dealership-url/api/status | jq '.version, .buildCommit, .ma
 - [ ] `NEXT_PUBLIC_SENTRY_DSN` configured
 - [ ] Database migrations applied (`npm run db:migrate:deploy`)
 - [ ] Legacy data re-encrypted (`npm run db:reencrypt`) if upgrading
+- [ ] Encryption rotation migration applied (`EncryptionRotation` table) if deploying dual-key UI
 
 ### Security & compliance
 
@@ -195,6 +196,8 @@ curl -s https://your-dealership-url/api/status | jq '.version, .buildCommit, .ma
 - [ ] xAI Data Processing Agreement executed
 - [ ] CSP/security headers verified (no console CSP violations on login + line view)
 - [ ] Microphone permission tested on shop-floor tablet (Chrome/Edge)
+- [ ] Know dual-key rotation runbook ([Reencryption-Runbook.md](./Reencryption-Runbook.md)); recommend key rotation every **90 days**
+- [ ] `DATA_ENCRYPTION_KEY_PREVIOUS` **not** set in steady state (only during active rotation)
 
 ### Operational readiness
 

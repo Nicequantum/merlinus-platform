@@ -15,15 +15,18 @@ import { logger } from './logger';
  * H-1 — Enterprise identity
  *
  * Merlin uses D7 number + password (or Apex email/username) authentication.
- * P1-3: optional TOTP MFA when MERLIN_MFA_ENFORCE=true (manager/owner/admin).
- * SSO (SAML/OIDC) remains roadmap.
+ * MFA: TOTP + backup codes for elevated roles (manager/owner/admin).
+ *   - Optional pilot: MERLIN_MFA_ENFORCE off (default) — enroll anytime in Settings
+ *   - Enforced: MERLIN_MFA_ENFORCE=true blocks PII until enrolled; login requires TOTP
+ *   - Bay technicians stay password-only unless they opt into MFA
+ * SSO (SAML/OIDC) is roadmap (Clerk dual-mode available); TOTP MFA is shipped for manager/owner.
  *
  * Compensating controls:
- * - bcrypt password hashing (cost 12), sessionVersion revocation, 8-hour httpOnly cookies
+ * - bcrypt password hashing (cost 12), sessionVersion revocation, short-lived Apex access tokens
  * - Manager-provisioned accounts and password reset via Settings
- * - Rate-limited login endpoint
+ * - Rate-limited login + MFA endpoints; audit for mfa_challenge / mfa_success / mfa_failure
  *
- * See also: src/lib/encryption.ts (L4 key rotation) and docs/Reencryption-Runbook.md.
+ * See also: src/lib/mfa/*, src/lib/encryption.ts (dual-key rotation), docs/Security-Fortress.md.
  */
 
 export const SESSION_COOKIE = 'benz_tech_session';

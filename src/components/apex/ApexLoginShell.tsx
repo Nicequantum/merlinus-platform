@@ -8,10 +8,15 @@ import { toast } from 'sonner';
 
 export type ApexLoginShellResult =
   | { status: 'success' }
-  | { status: 'select_dealership'; pendingToken: string; dealerships: ApexLoginDealershipOption[] };
+  | { status: 'select_dealership'; pendingToken: string; dealerships: ApexLoginDealershipOption[] }
+  | { status: 'mfa_required'; mfaToken: string; name?: string };
 
 interface ApexLoginShellProps {
   onLogin: (identifier: string, password: string) => Promise<ApexLoginShellResult>;
+  onMfaVerify: (
+    mfaToken: string,
+    code: string
+  ) => Promise<ApexLoginShellResult>;
   onSelectDealership: (
     pendingToken: string,
     dealershipId: string,
@@ -19,21 +24,35 @@ interface ApexLoginShellProps {
   ) => Promise<void>;
 }
 
-type LoginStep = 'credentials' | 'dealership';
+type LoginStep = 'credentials' | 'mfa' | 'dealership';
 
-export function ApexLoginShell({ onLogin, onSelectDealership }: ApexLoginShellProps) {
+export function ApexLoginShell({
+  onLogin,
+  onMfaVerify,
+  onSelectDealership,
+}: ApexLoginShellProps) {
   const [step, setStep] = useState<LoginStep>('credentials');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [dealerships, setDealerships] = useState<ApexLoginDealershipOption[]>([]);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaName, setMfaName] = useState<string | undefined>();
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const result = await onLogin(identifier.trim(), password);
+      if (result.status === 'mfa_required') {
+        setMfaToken(result.mfaToken);
+        setMfaName(result.name);
+        setStep('mfa');
+        toast.message('Authenticator code required');
+        return;
+      }
       if (result.status === 'select_dealership') {
         setPendingToken(result.pendingToken);
         setDealerships(result.dealerships);
@@ -43,6 +62,32 @@ export function ApexLoginShell({ onLogin, onSelectDealership }: ApexLoginShellPr
       toast.success('Signed in');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaToken) return;
+    setLoading(true);
+    try {
+      const result = await onMfaVerify(mfaToken, mfaCode.trim());
+      if (result.status === 'select_dealership') {
+        setPendingToken(result.pendingToken);
+        setDealerships(result.dealerships);
+        setStep('dealership');
+        setMfaToken(null);
+        setMfaCode('');
+        return;
+      }
+      if (result.status === 'mfa_required') {
+        toast.error('MFA challenge still open — try again');
+        return;
+      }
+      toast.success('Signed in');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Invalid authentication code');
     } finally {
       setLoading(false);
     }
@@ -69,7 +114,23 @@ export function ApexLoginShell({ onLogin, onSelectDealership }: ApexLoginShellPr
     setPendingToken(null);
     setDealerships([]);
     setPassword('');
+    setMfaToken(null);
+    setMfaCode('');
   };
+
+  const title =
+    step === 'credentials'
+      ? 'Sign in to Apex'
+      : step === 'mfa'
+        ? 'Multi-factor authentication'
+        : 'Select rooftop';
+
+  const lead =
+    step === 'credentials'
+      ? 'Owners use email. Technicians use D7 number or Apex username.'
+      : step === 'mfa'
+        ? 'Managers and owners with MFA enabled must confirm with an authenticator code.'
+        : 'Choose the dealership workspace for this session.';
 
   return (
     <div className="apex-login-shell" data-platform="apex">
@@ -114,19 +175,13 @@ export function ApexLoginShell({ onLogin, onSelectDealership }: ApexLoginShellPr
         <div className="apex-login-panel">
           <div className="apex-login-panel-header">
             <p className="apex-login-kicker">Secure access</p>
-            <h1 className="apex-login-title">
-              {step === 'credentials' ? 'Sign in to Apex' : 'Select rooftop'}
-            </h1>
-            <p className="apex-login-lead">
-              {step === 'credentials'
-                ? 'Owners use email. Technicians use D7 number or Apex username.'
-                : 'Choose the dealership workspace for this session.'}
-            </p>
+            <h1 className="apex-login-title">{title}</h1>
+            <p className="apex-login-lead">{lead}</p>
           </div>
 
           {step === 'credentials' ? (
             <form
-              onSubmit={handleCredentialsSubmit}
+              onSubmit={(e) => void handleCredentialsSubmit(e)}
               className="apex-login-form apex-card apex-card-accent"
             >
               <div className="apex-field">
@@ -168,6 +223,43 @@ export function ApexLoginShell({ onLogin, onSelectDealership }: ApexLoginShellPr
               </div>
               <button type="submit" disabled={loading} className="apex-btn-primary w-full touch-target">
                 {loading ? 'Authenticating…' : 'Sign in'}
+              </button>
+            </form>
+          ) : step === 'mfa' ? (
+            <form
+              onSubmit={(e) => void handleMfaSubmit(e)}
+              className="apex-login-form apex-card apex-card-accent"
+            >
+              <div className="apex-field">
+                <label className="apex-label" htmlFor="apex-mfa-code">
+                  Authenticator or backup code
+                </label>
+                <input
+                  id="apex-mfa-code"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.toUpperCase().slice(0, 20))}
+                  placeholder="123456 or XXXX-XXXX"
+                  required
+                  autoFocus
+                  className="apex-input"
+                />
+                <p className="apex-hint">
+                  {mfaName ? `${mfaName}: ` : ''}
+                  Open your authenticator app for a 6-digit code, or use a one-time backup code.
+                </p>
+              </div>
+              <button type="submit" disabled={loading} className="apex-btn-primary w-full touch-target">
+                {loading ? 'Verifying…' : 'Verify and continue'}
+              </button>
+              <button
+                type="button"
+                className="text-sm text-benz-secondary underline w-full mt-3 touch-target"
+                onClick={resetToCredentials}
+              >
+                Back to sign in
               </button>
             </form>
           ) : (

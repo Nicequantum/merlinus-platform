@@ -20,6 +20,8 @@ import {
   Briefcase,
   Headset,
   CalendarDays,
+  Cpu,
+  LayoutDashboard,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -55,6 +57,8 @@ interface ManagerDashboardProps {
   onOpenLoaner?: () => void;
   onOpenVoice?: () => void;
   onOpenHub?: () => void;
+  /** Durable Async AI job monitor (SSE + queue). */
+  onOpenJobs?: () => void;
   pendingROImages: PendingImage[];
   onScanRO: () => void;
   onAddFromGallery: () => void;
@@ -119,6 +123,7 @@ export function ManagerDashboard({
   onOpenLoaner,
   onOpenVoice,
   onOpenHub,
+  onOpenJobs,
   pendingROImages,
   onScanRO,
   onAddFromGallery,
@@ -233,6 +238,15 @@ export function ManagerDashboard({
         <p className="benz-dashboard-eyebrow">Manager Dashboard</p>
         <DealershipBranding size="md" displayName={session.dealershipName} />
         <p className="text-xs text-benz-secondary mt-3 text-center">Signed in as {session.name}</p>
+        <div className="mt-4 flex justify-center">
+          <Link
+            href="/manager/center"
+            className="primary-btn h-11 px-5 text-xs font-semibold inline-flex items-center gap-2 touch-target-bay"
+          >
+            <LayoutDashboard size={16} />
+            Open Control Center
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -359,6 +373,28 @@ export function ManagerDashboard({
                     <CalendarDays size={14} /> Calendar hub
                   </button>
                 ) : null}
+                <Link
+                  href="/manager/center"
+                  className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                >
+                  <LayoutDashboard size={14} /> Control Center
+                </Link>
+                {onOpenJobs ? (
+                  <button
+                    type="button"
+                    onClick={onOpenJobs}
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Cpu size={14} /> AI Jobs
+                  </button>
+                ) : (
+                  <Link
+                    href="/manager/jobs"
+                    className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Cpu size={14} /> AI Jobs
+                  </Link>
+                )}
                 <button
                   onClick={onOpenServiceAdvisors}
                   className="secondary-btn w-full h-11 text-xs font-semibold flex items-center justify-center gap-2"

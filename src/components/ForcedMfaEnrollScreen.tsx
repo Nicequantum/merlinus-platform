@@ -14,8 +14,8 @@ interface ForcedMfaEnrollScreenProps {
 }
 
 /**
- * P1-3 — Manager/owner MFA enrollment when MERLIN_MFA_ENFORCE requires it.
- * Uses /api/auth/mfa/enroll + verify (TOTP).
+ * Manager/owner MFA enrollment when MERLIN_MFA_ENFORCE requires it.
+ * Uses /api/auth/mfa/setup + verify (TOTP) with QR + backup codes.
  */
 export function ForcedMfaEnrollScreen({
   userName,
@@ -26,9 +26,11 @@ export function ForcedMfaEnrollScreen({
   const formId = useId();
   const [secret, setSecret] = useState<string | null>(null);
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
 
   async function apiPost(path: string, body: unknown) {
     const csrf = readCsrfTokenFromDocument();
@@ -46,7 +48,9 @@ export function ForcedMfaEnrollScreen({
       error?: string;
       secret?: string;
       otpauthUrl?: string;
+      qrCodeDataUrl?: string | null;
       message?: string;
+      backupCodes?: string[];
     };
     if (!res.ok) {
       throw new Error(data.error || data.message || `Request failed (${res.status})`);
@@ -57,9 +61,10 @@ export function ForcedMfaEnrollScreen({
   const startEnroll = async () => {
     setEnrolling(true);
     try {
-      const data = await apiPost('/api/auth/mfa/enroll', {});
+      const data = await apiPost('/api/auth/mfa/setup', {});
       setSecret(data.secret || null);
       setOtpauthUrl(data.otpauthUrl || null);
+      setQrCodeDataUrl(data.qrCodeDataUrl || null);
       toast.success('Authenticator secret ready — scan and enter a code');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start MFA enrollment');
@@ -76,9 +81,14 @@ export function ForcedMfaEnrollScreen({
     }
     setLoading(true);
     try {
-      await apiPost('/api/auth/mfa/verify', { code: code.trim() });
-      toast.success('Multi-factor authentication is active');
-      await onCompleted();
+      const data = await apiPost('/api/auth/mfa/verify', { code: code.trim() });
+      if (data.backupCodes?.length) {
+        setBackupCodes(data.backupCodes);
+        toast.success('MFA active — save your backup codes, then continue');
+      } else {
+        toast.success('Multi-factor authentication is active');
+        await onCompleted();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Invalid code');
     } finally {
@@ -111,7 +121,27 @@ export function ForcedMfaEnrollScreen({
             </div>
           </div>
 
-          {!secret ? (
+          {backupCodes ? (
+            <div className="space-y-3">
+              <p className="text-sm text-benz-secondary leading-relaxed">
+                Save these one-time backup codes offline. You will need them if you lose your phone.
+              </p>
+              <ul className="grid grid-cols-2 gap-1.5 font-mono text-xs">
+                {backupCodes.map((c) => (
+                  <li key={c} className="bg-black/5 rounded px-2 py-1.5 text-center">
+                    {c}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="primary-btn w-full touch-target"
+                onClick={() => void onCompleted()}
+              >
+                I saved my codes — continue
+              </button>
+            </div>
+          ) : !secret ? (
             <button
               type="button"
               className="primary-btn w-full touch-target"
@@ -122,16 +152,28 @@ export function ForcedMfaEnrollScreen({
             </button>
           ) : (
             <form id={formId} onSubmit={(e) => void verify(e)} className="space-y-4">
+              {qrCodeDataUrl ? (
+                <div className="flex flex-col items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrCodeDataUrl}
+                    alt="Scan with authenticator app"
+                    className="rounded-lg border border-benz-border bg-white p-2 w-[200px] h-[200px]"
+                  />
+                </div>
+              ) : null}
+              {otpauthUrl ? (
+                <a
+                  href={otpauthUrl}
+                  className="secondary-btn w-full h-10 text-xs font-semibold flex items-center justify-center"
+                >
+                  Open in authenticator (mobile)
+                </a>
+              ) : null}
               <div className="text-xs text-benz-muted break-all font-mono bg-black/5 p-3 rounded-lg">
                 <div className="font-semibold text-benz-secondary mb-1">Secret (manual entry)</div>
                 {secret}
               </div>
-              {otpauthUrl ? (
-                <p className="text-xs text-benz-muted break-all">
-                  otpauth URI (for advanced scanners):{' '}
-                  <span className="font-mono">{otpauthUrl}</span>
-                </p>
-              ) : null}
               <div>
                 <label className="benz-label" htmlFor={`${formId}-code`}>
                   6-digit code

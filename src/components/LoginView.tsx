@@ -6,17 +6,23 @@ import { useTranslation } from 'react-i18next';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { DealershipBranding } from '@/components/DealershipBranding';
 import { isClerkSignInAvailable } from '@/lib/authModeClient';
+import type { MerlinLoginResult } from '@/lib/loginSession';
+import type { TechnicianSession } from '@/types';
 import { toast } from 'sonner';
 
 interface LoginViewProps {
-  onLogin: (d7Number: string, password: string) => Promise<unknown>;
+  /** Password stage — may return mfa_required without a session. */
+  onLogin: (d7Number: string, password: string) => Promise<MerlinLoginResult>;
+  /** MFA stage after password (TOTP or backup code). */
+  onMfaVerify: (mfaToken: string, code: string) => Promise<TechnicianSession>;
 }
 
 /**
  * Self-service recovery UI is always shown; the API returns 403 when
  * MERLIN_PASSWORD_RECOVERY_ENABLED is off (P3-4).
+ * MFA: password → optional TOTP/backup challenge for enrolled elevated accounts.
  */
-export function LoginView({ onLogin }: LoginViewProps) {
+export function LoginView({ onLogin, onMfaVerify }: LoginViewProps) {
   const { t } = useTranslation('auth');
   const [d7Number, setD7Number] = useState('');
   const [password, setPassword] = useState('');
@@ -27,16 +33,41 @@ export function LoginView({ onLogin }: LoginViewProps) {
   const [newPassword, setNewPassword] = useState('');
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'confirm'>('request');
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaName, setMfaName] = useState<string | undefined>();
   const showClerkOption = isClerkSignInAvailable();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onLogin(d7Number.trim().toUpperCase(), password);
+      const result = await onLogin(d7Number.trim().toUpperCase(), password);
+      if (result.status === 'mfa_required') {
+        setMfaToken(result.mfaToken);
+        setMfaName(result.name);
+        toast.message('Authenticator code required');
+        return;
+      }
       toast.success(t('signedIn'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('loginFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaToken) return;
+    setLoading(true);
+    try {
+      await onMfaVerify(mfaToken, mfaCode.trim());
+      toast.success(t('signedIn'));
+      setMfaToken(null);
+      setMfaCode('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Invalid authentication code');
     } finally {
       setLoading(false);
     }
@@ -62,7 +93,10 @@ export function LoginView({ onLogin }: LoginViewProps) {
       if (!res.ok) {
         throw new Error(data.error || data.message || 'Recovery is not available');
       }
-      toast.message(data.message || 'If your account matches, continue with the token from your manager or email.');
+      toast.message(
+        data.message ||
+          'If your account matches, continue with the token from your manager or email.'
+      );
       if (data.recoveryToken) {
         setRecoveryToken(data.recoveryToken);
         setRecoveryStep('confirm');
@@ -118,8 +152,54 @@ export function LoginView({ onLogin }: LoginViewProps) {
           <DealershipBranding size="lg" />
         </div>
 
-        {!showRecovery ? (
-          <form onSubmit={handleSubmit} className="login-form benz-card-elevated benz-card-elevated-accent">
+        {mfaToken ? (
+          <form
+            onSubmit={(e) => void handleMfaSubmit(e)}
+            className="login-form benz-card-elevated benz-card-elevated-accent"
+          >
+            <h2 className="text-lg font-semibold tracking-tight mb-1">Authenticator code</h2>
+            <p className="text-sm text-benz-secondary mb-4 leading-relaxed">
+              {mfaName ? `${mfaName}, enter` : 'Enter'} the 6-digit code from your app, or a backup
+              code.
+            </p>
+            <div className="login-field">
+              <label className="benz-label">Code</label>
+              <input
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.toUpperCase().slice(0, 20))}
+                placeholder="123456 or XXXX-XXXX"
+                required
+                className="benz-input benz-input-mono"
+                autoFocus
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="primary-btn login-submit-btn w-full touch-target"
+            >
+              {loading ? 'Verifying…' : 'Verify and sign in'}
+            </button>
+            <button
+              type="button"
+              className="text-sm text-benz-secondary underline w-full mt-3 touch-target"
+              onClick={() => {
+                setMfaToken(null);
+                setMfaCode('');
+                setPassword('');
+              }}
+            >
+              Back to sign in
+            </button>
+          </form>
+        ) : !showRecovery ? (
+          <form
+            onSubmit={(e) => void handleSubmit(e)}
+            className="login-form benz-card-elevated benz-card-elevated-accent"
+          >
             <div className="login-field">
               <label className="benz-label">{t('d7Label')}</label>
               <input
@@ -145,7 +225,11 @@ export function LoginView({ onLogin }: LoginViewProps) {
                 className="benz-input"
               />
             </div>
-            <button type="submit" disabled={loading} className="primary-btn login-submit-btn w-full touch-target">
+            <button
+              type="submit"
+              disabled={loading}
+              className="primary-btn login-submit-btn w-full touch-target"
+            >
               {loading ? t('signingIn') : t('signIn')}
             </button>
 
@@ -172,8 +256,8 @@ export function LoginView({ onLogin }: LoginViewProps) {
           <div className="login-form benz-card-elevated benz-card-elevated-accent space-y-4 p-6">
             <h2 className="text-lg font-semibold">Reset password</h2>
             <p className="text-sm text-benz-secondary">
-              Enter your D7 and work email. If recovery is enabled for this dealership, you can set a new
-              password with a one-time token.
+              Enter your D7 and work email. If recovery is enabled for this dealership, you can set a
+              new password with a one-time token.
             </p>
             {recoveryStep === 'request' ? (
               <form onSubmit={(e) => void requestRecovery(e)} className="space-y-3">
@@ -205,7 +289,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
                 <div className="login-field">
                   <label className="benz-label">Recovery token</label>
                   <input
-                    className="benz-input benz-input-mono"
+                    className="benz-input font-mono text-sm"
                     value={recoveryToken}
                     onChange={(e) => setRecoveryToken(e.target.value)}
                     required
@@ -223,13 +307,13 @@ export function LoginView({ onLogin }: LoginViewProps) {
                   />
                 </div>
                 <button type="submit" className="primary-btn w-full" disabled={recoveryLoading}>
-                  {recoveryLoading ? 'Updating…' : 'Set new password'}
+                  {recoveryLoading ? 'Saving…' : 'Set new password'}
                 </button>
               </form>
             )}
             <button
               type="button"
-              className="text-sm underline w-full"
+              className="text-sm text-benz-secondary underline w-full"
               onClick={() => {
                 setShowRecovery(false);
                 setRecoveryStep('request');
@@ -239,8 +323,6 @@ export function LoginView({ onLogin }: LoginViewProps) {
             </button>
           </div>
         )}
-
-        <p className="login-footer">Authorized dealership personnel only.</p>
       </div>
     </div>
   );

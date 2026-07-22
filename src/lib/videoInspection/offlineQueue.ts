@@ -146,3 +146,50 @@ export async function countPendingUploads(): Promise<number> {
     db.close();
   }
 }
+
+/**
+ * Flush pending Video MPI uploads when the tablet comes back online.
+ * Caller provides the upload function (keeps this module free of API imports).
+ */
+export async function flushPendingUploadsWhenOnline(
+  uploadOne: (item: PendingVideoUpload) => Promise<void>,
+  options?: { maxItems?: number }
+): Promise<{ flushed: number; failed: number }> {
+  const maxItems = options?.maxItems ?? 5;
+  let flushed = 0;
+  let failed = 0;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { flushed: 0, failed: 0 };
+  }
+  const pending = await listPendingUploads();
+  for (const item of pending.slice(0, maxItems)) {
+    try {
+      await uploadOne(item);
+      await removePendingUpload(item.id);
+      flushed += 1;
+    } catch (error) {
+      failed += 1;
+      await updatePendingUpload(item.id, {
+        attempts: item.attempts + 1,
+        lastError: error instanceof Error ? error.message.slice(0, 200) : 'upload failed',
+      });
+    }
+  }
+  return { flushed, failed };
+}
+
+/** Register online listener to auto-flush; returns unsubscribe. */
+export function startVideoOfflineFlushListener(
+  uploadOne: (item: PendingVideoUpload) => Promise<void>
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const onOnline = () => {
+    void flushPendingUploadsWhenOnline(uploadOne).catch(() => undefined);
+  };
+  window.addEventListener('online', onOnline);
+  // Also try once on start if already online
+  if (navigator.onLine) {
+    void flushPendingUploadsWhenOnline(uploadOne).catch(() => undefined);
+  }
+  return () => window.removeEventListener('online', onOnline);
+}

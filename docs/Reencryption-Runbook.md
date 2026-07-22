@@ -61,16 +61,30 @@ Rotating `DATA_ENCRYPTION_KEY` uses an **online dual-key window** so the app can
 
 Decrypt order: current key → previous key → legacy scrypt salt variants.
 
-### Procedure
+### Procedure (Manager Control / in-app preferred)
 
-1. **Maintenance window** — set `MERLIN_MAINTENANCE_MODE=true` so technicians cannot trigger heavy writes.
-2. **Backup** — full database snapshot before any key change.
-3. **Plaintext sweep** — `npm run db:reencrypt` with the **current** keys (expect `updated: 0` on second run).
-4. **Activate dual-key**  
-   - Set `DATA_ENCRYPTION_KEY_PREVIOUS` = old key  
-   - Set `DATA_ENCRYPTION_KEY` = new key  
+1. **Backup** — full database snapshot before any key change.
+2. **Optional maintenance** — `MERLIN_MAINTENANCE_MODE=true` for large fleets (not strictly required for dual-key online window).
+3. **Begin rotation (UI)** — Settings → Encryption key rotation → **Begin rotation**  
+   - Copy the one-time **newKey** (not stored in D1).  
+   - Fingerprints shown for primary/previous (never the raw key).
+4. **Activate dual-key secrets**  
+   - `DATA_ENCRYPTION_KEY_PREVIOUS` = **old** key  
+   - `DATA_ENCRYPTION_KEY` = **newKey**  
    - Deploy Worker secrets and restart.
-5. **Re-encrypt under dual-key** — run `npm run db:reencrypt` (and any custom table walk using `reencryptCiphertextWithCurrentKey`) so rows are rewritten with the new primary key. When `SEARCH_HMAC_KEY` also changes, regenerate `roNumberSearchTokens` for every repair order.
-6. **Verify** — `npm run validate:pre-rollout`, spot-check RO detail + list search, confirm no `piiDecryptWarnings`.
-7. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy.
-8. **Clear maintenance** — unset `MERLIN_MAINTENANCE_MODE` only after validation passes.
+5. **Start re-encryption (UI)** — **Start re-encryption** runs a background table walk (`EncryptionRotation` progress %).  
+   - CLI alternative: `npm run db:reencrypt` with dual-key env still set.
+6. **Verify** — `npm run validate:pre-rollout`, spot-check RO detail + list search, health `encryption` status.
+7. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
+8. **Clear maintenance** if used. Recommend rotation every **90 days**.
+
+### API skeleton
+
+| Method | Body | Purpose |
+|--------|------|---------|
+| `GET /api/manager/encryption/rotate` | — | Fingerprints + rotation progress |
+| `POST` | `{ "action": "begin" }` | Generate new key (one-time response) |
+| `POST` | `{ "action": "start-reencrypt" }` | Background re-encrypt under dual-key |
+| `POST` | `{ "action": "cancel" }` | Cancel pending/running rotation |
+
+Manager/owner only · dealership context · audited (`encryption.rotation_*`).

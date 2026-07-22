@@ -20,6 +20,10 @@ import { persistRepairLineStoryInTransaction } from '@/lib/storyAiPersist';
 import { recordFirstStoryGeneratedUsage } from '@/lib/storyUsageBilling';
 import { withStoryAiRoute } from '@/lib/storyAiRoute';
 import { logger } from '@/lib/logger';
+import {
+  enqueueStoryGenerationJob,
+  isAiJobsQueueConfigured,
+} from '@/lib/queue/aiJobs';
 
 // M4/M5 — customer-pay guard enforced in withStoryAiRoute (isCustomerPayRepairLine).
 void isCustomerPayRepairLine;
@@ -27,6 +31,11 @@ void isCustomerPayRepairLine;
 /** Must match STORY_GENERATE_ROUTE_MAX_DURATION_S in @/lib/timeouts */
 export const maxDuration = 90;
 
+/**
+ * Prefer durable async (CF Queue) when AI_JOBS_QUEUE is bound.
+ * Dev without queue: sync path (or async+inline when body.async=true).
+ * Force sync: body.sync=true or AI_STORY_FORCE_SYNC=1
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string; lineId: string }> }
@@ -48,10 +57,14 @@ export async function POST(
       // Client may send latest notes + story so regenerate never races a lagging PUT.
       let clientNotes: string | undefined;
       let clientStory: string | undefined;
+      let forceSync = process.env.AI_STORY_FORCE_SYNC === '1' || process.env.AI_STORY_FORCE_SYNC === 'true';
+      let wantAsync = false;
       try {
         const body = (await req.json().catch(() => null)) as {
           technicianNotes?: unknown;
           warrantyStory?: unknown;
+          async?: unknown;
+          sync?: unknown;
         } | null;
         if (typeof body?.technicianNotes === 'string' && body.technicianNotes.trim()) {
           clientNotes = body.technicianNotes;
@@ -59,8 +72,40 @@ export async function POST(
         if (typeof body?.warrantyStory === 'string' && body.warrantyStory.trim()) {
           clientStory = body.warrantyStory;
         }
+        if (body?.sync === true || body?.sync === '1') forceSync = true;
+        if (body?.async === true || body?.async === '1') wantAsync = true;
       } catch {
         // empty body is fine
+      }
+
+      const queueReady = isAiJobsQueueConfigured();
+      // Production with queue → async by default; dev without queue → sync unless async requested
+      const useDurableAsync =
+        !forceSync && (queueReady || wantAsync || process.env.NODE_ENV === 'production');
+
+      if (useDurableAsync) {
+        const enqueued = await enqueueStoryGenerationJob({
+          dealershipId: session.dealershipId,
+          userId: session.technicianId,
+          roId: id,
+          lineId,
+          technicianNotes: clientNotes,
+          warrantyStory: clientStory,
+          preferredLanguage: session.preferredLanguage ?? 'en',
+          allowInlineFallback: !queueReady || wantAsync,
+        });
+        return {
+          async: true as const,
+          jobId: enqueued.jobId,
+          status: enqueued.status,
+          transport: enqueued.transport,
+          phase: 'queued' as const,
+          pollUrl: `/api/queue/job-status/${enqueued.jobId}`,
+          message:
+            enqueued.transport === 'queue'
+              ? 'Story generation queued. Poll pollUrl until phase is complete.'
+              : 'Story generation started (inline worker). Poll pollUrl until phase is complete.',
+        };
       }
 
       const lineForGen = {

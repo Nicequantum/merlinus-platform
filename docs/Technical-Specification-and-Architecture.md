@@ -193,3 +193,37 @@ All AI routes enforce per-IP rate limits (20/min), daily usage caps (50 AI calls
 | [Deployment Checklist & Operations](./Deployment-Checklist-and-Operations.md) | Environment variables and go-live procedures |
 | [Grok Subprocessor & Data Governance](./GROK-SUBPROCESSOR.md) | xAI data flow for OEM legal review |
 | [Admin Setup Guide](./Admin-Setup-Guide.md) | Step-by-step IT provisioning |
+---
+
+## Durable Async AI (Cloudflare Queues)
+
+Long-running Grok work (story generation, vision, MPI reports) is decoupled from the HTTP request path when the `AI_JOBS_QUEUE` producer binding is available.
+
+| Component | Location |
+|-----------|----------|
+| Producer binding | `wrangler.toml` ? `AI_JOBS_QUEUE` ? queue `merlinus-ai-jobs` |
+| Enqueue API | `src/lib/queue/aiJobs.ts` (`enqueueStoryGenerationJob`, etc.) |
+| Message schema | `src/lib/queue/types.ts` (Zod) |
+| Handlers | `src/lib/queue/handlers/*` |
+| HTTP consumer | `POST /api/queue/ai-consumer` (Bearer `AI_QUEUE_CONSUMER_SECRET`) |
+| Job status poll | `GET /api/queue/job-status/[jobId]` (and `/api/ai-jobs/[id]`) |
+| Companion consumer Worker | `workers/ai-jobs-consumer` (CF Queue ? HTTP bridge) |
+| D1 status rows | `AiJob` model (queued / running / succeeded / failed) |
+
+### Flow (story.generate)
+
+1. Client `POST /api/repair-orders/:id/lines/:lineId/generate-story` with `async: true` (default client path).
+2. API creates `AiJob`, enqueues message on `AI_JOBS_QUEUE` (or inline `waitUntil` fallback in dev).
+3. Returns `{ jobId, pollUrl, phase: "queued" }` immediately.
+4. Consumer processes message ? Grok ? persist story + audit ? mark job succeeded.
+5. Client polls until `phase: complete` and applies `result.warrantyStory`.
+
+### Retries
+
+- CF Queue consumer: `max_retries = 3` + dead-letter queue `merlinus-ai-jobs-dlq`.
+- Permanent failures: D1 job `failed` + audit metadata `deadLetter: true` + Sentry.
+- Client shows toast with **Retry** on failure.
+
+### Local / no queue
+
+If `AI_JOBS_QUEUE` is unbound, story generation uses the **sync** path unless `async: true` is forced (then inline background processing). Set `AI_STORY_FORCE_SYNC=1` to always use the legacy synchronous route handler body.

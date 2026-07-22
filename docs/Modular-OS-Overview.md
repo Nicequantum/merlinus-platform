@@ -30,7 +30,11 @@ Merlinus has grown from a warranty narrative platform into a **modular dealershi
 | `parts` | Parts Department | M2 | Parts inbox on DepartmentRequest; part lines/lookups; parts staff home; manager tile |
 | `maintenance` | Maintenance Management | M3 | Cross-dept facility/shop tickets; kanban; photos; maintenance role |
 | `loaner` | Loaner Car Management | M4 | Fleet vehicles, status, assignments/returns, loaner desk role |
-| `voice_agent` | AI Voice Agent | M5a / M5b | Twilio webhooks, receptionist + specialist agents (parts/sales/service/loaner), transcripts, containment metrics, voice ops dashboard |
+| `voice_agent` | AI Voice Agent (Sophia) | M5a / M5b | Twilio phone AI + tablet department query; receptionist + specialists; transcripts; containment metrics |
+| `voice_agent_service` | Sophia · Service | Dept | Service-desk tablet + phone specialist (appointments, warranty follow-up). Requires `voice_agent` + `service`. **Pilot default on** |
+| `voice_agent_loaner` | Sophia · Loaner | Dept | Loaner fleet assistant (availability, reservation). Requires `voice_agent` + `loaner`. **Pilot default on** |
+| `voice_agent_parts` | Sophia · Parts | Dept | Parts counter assistant. Requires `voice_agent` + `parts` |
+| `voice_agent_sales` | Sophia · Sales | Dept | Sales assistant. Requires `voice_agent` + `sales` |
 | `sales` | Sales Department | M8 | Sales inbox (shared DepartmentRequest shell); sales role home; manager tile; voice-created leads |
 | `service` | Service Department | M8 | Service inbox (shared shell); service role home; manager tile; voice follow-ups |
 | `cdk_sync` | CDK Global Sync | M7 **deferred** | Catalog placeholder only—live API client not implemented; **clipboard CDK paste for RO context remains available** without this module |
@@ -164,7 +168,29 @@ Twilio DID  →  /api/voice/inbound|gather|…  (signature verified)
 | Symptom | First action |
 |---------|----------------|
 | “Module is disabled” | Manager → Modules → Turn on |
-| Voice creates no ticket | Check voice_agent + department module; Twilio signature/token; logs |
+| Voice creates no ticket | Check voice_agent + department module SKU; Twilio signature/token; logs |
+| Tablet Ask Sophia missing | Enable voice_agent_* SKU for that dept + domain module; Grok key required |
+
+### Tablet department query (SSE)
+
+| Item | Detail |
+|------|--------|
+| Route | `POST /api/voice/{service\|parts\|sales\|loaner}/query` |
+| Stream | `Accept: text/event-stream` (status / intent / tool / delta / result / tailoring) |
+| UI | `DepartmentVoicePanel` on Service, Parts, Sales inboxes + Loaner fleet |
+| Memory | Multi-turn conversation id + handoffBrief for cross-department handoff |
+| Tools | Parts: `lookup_parts_guidance`, `create_parts_request` · Sales: `note_sales_interest`, `create_sales_request` · Loaner: list/reserve · Service: follow-up tickets |
+
+### Personal Tailoring (per dealership)
+
+| Item | Detail |
+|------|--------|
+| Model | `DepartmentCustomization` + `DepartmentCustomizationVersion` |
+| Manager UI | Settings → **AI Voice · Department Tailoring** |
+| API | `GET/PUT /api/voice/customizations`, `POST …/[department]` reset/restore |
+| Injection | Manager text prepended to department system prompt (variables: `{dealershipName}`, `{managerName}`, `{brand}`) |
+| Preview | Test draft without save via `previewTailoring` on query |
+| Audit | `voice.customization_update` (lengths only, not free text) |
 | Photos/video fail | Blob token / network; re-upload |
 | Story AI fails | Grok key / daily limit / Wi‑Fi — core story still available for typing |
 | Login / rate limit issues | IT checks KV in production |

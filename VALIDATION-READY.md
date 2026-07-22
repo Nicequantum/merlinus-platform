@@ -37,7 +37,7 @@ All six config failures resolve once Vercel/staging environment variables are se
 - Technician docs updated for current UI: **Generate MI 4.3**, **Diagnostic Evidence**, **Audit Story**, certification flow
 - 7 SVG wireframe screenshots in `docs/images/` (replace with dealership captures before print)
 - Pre-rollout validation separates **code** vs **config/env** failures in summary
-- Phase 1 accepted risks documented in code (SSO/MFA, key rotation)
+- Residual roadmap: SSO (SAML/OIDC); MFA + dual-key encryption rotation shipped
 - README Vercel KV setup section
 - Full audit hardening cycle (C1–C7, H1–H15, M1–M30, L1–L5) verified
 
@@ -45,12 +45,12 @@ See [CHANGELOG.md](./CHANGELOG.md) for full release notes.
 
 ---
 
-## Phase 1 accepted risks (documented — do not block pilot)
+## Residual roadmap (does not block pilot)
 
 | Risk | Location | Mitigation |
 |------|----------|------------|
-| **SSO / MFA not implemented** | `src/lib/auth.ts` | D7+password, bcrypt, session revocation, rate-limited login |
-| **Manual key rotation only** | `src/lib/encryption.ts`, `scripts/reencrypt-legacy-data.ts` | Maintenance-window `npm run db:reencrypt`; see `docs/Reencryption-Runbook.md` |
+| **SSO (SAML/OIDC) not shipped** | Clerk dual-mode + roadmap in Security-Fortress | Native TOTP MFA, bcrypt, session revocation, rate-limited login |
+| **Encryption key ops discipline** | dual-key + Manager rotation UI | `DATA_ENCRYPTION_KEY_PREVIOUS` only during rotation; see `docs/Reencryption-Runbook.md` |
 
 ---
 

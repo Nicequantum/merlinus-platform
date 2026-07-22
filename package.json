@@ -1,7 +1,7 @@
 {
   "name": "merlinus",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.1.0",
   "scripts": {
     "dev": "next dev",
     "dev:apex": "node scripts/dev-apex.mjs",
@@ -67,6 +67,7 @@
     "lucide-react": "^0.468.0",
     "next": "^15.3.3",
     "pdfjs-dist": "^4.10.38",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.10",
@@ -84,6 +85,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.29",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "autoprefixer": "^10.4.21",

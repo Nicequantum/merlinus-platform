@@ -2,6 +2,25 @@
 
 All notable changes to Merlinus are documented here.
 
+## [4.1.0] — 2026-07-21
+
+### Enterprise Fortress + Luxury Experience
+
+Production release on top of Modular OS 4.0: P0 hardening, durable Async AI, MFA fortress, bay tablet polish, multi-department Sophia + Personal Tailoring, Manager Control Center, zero-downtime encryption key rotation, and full validation sweep.
+
+| Area | Summary |
+|------|---------|
+| **Encryption rotation** | Dual-key `DATA_ENCRYPTION_KEY` + `DATA_ENCRYPTION_KEY_PREVIOUS`; Manager Settings UI; `EncryptionRotation` progress; background re-encrypt; health dual-key warn; [Reencryption-Runbook](docs/Reencryption-Runbook.md) |
+| **MFA fortress** | Native TOTP + backup codes; login second factor; forced enroll when `MERLIN_MFA_ENFORCE`; Settings + health policy |
+| **Async AI + SSE** | Durable AiJob + CF Queue / consumer bridge; job SSE events; Manager Job Monitor; bay progress UX |
+| **Voice multi-dept** | Sophia Service / Loaner / Parts / Sales + Personal Tailoring customizations |
+| **Manager Control Center** | `/manager/center` Overview / Jobs / Voice / Modules / Health + live SSE |
+| **Bay tablet** | Cold-start warmup, SWR RO list, pull-to-refresh, offline queues |
+| **Gates** | API default-deny (MFA login-verify bare allowlist); RLS registry complete; pre-rollout dual-key L4; `ready-to-deploy` code gate green |
+| **Docs** | [Production-Readiness-Checklist](docs/Production-Readiness-Checklist.md) SSoT; Security-Fortress MFA/rotation; Deployment + Admin runbooks |
+
+**Ops (not code):** set production secrets (KV, object storage, Grok); remove seed passwords from Worker; enroll managers then `MERLIN_MFA_ENFORCE=true`; apply D1 migrations; leave `DATA_ENCRYPTION_KEY_PREVIOUS` unset except during rotation. Recommend key rotation every **90 days**.
+
 ## [4.0.0] — 2026-07-17
 
 ### Modular Dealership OS — feature-complete (CDK live sync deferred)

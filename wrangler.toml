@@ -66,3 +66,18 @@ bucket_name = "apex"
 [[kv_namespaces]]
 binding = "KV_STORE"
 id = "95aae52266f74a31bf715071664b24b9"
+
+# ---------------------------------------------------------------------------
+# Durable Async AI — Cloudflare Queues (P1-1 durable path)
+# Producer: OpenNext Worker sends jobs via env.AI_JOBS_QUEUE
+# Consumer: workers/ai-jobs-consumer (or HTTP bridge → /api/queue/ai-consumer)
+# Create queues once:
+#   npx wrangler queues create merlinus-ai-jobs
+#   npx wrangler queues create merlinus-ai-jobs-dlq
+# ---------------------------------------------------------------------------
+[[queues.producers]]
+binding = "AI_JOBS_QUEUE"
+queue = "merlinus-ai-jobs"
+
+# Consumer is a companion Worker (workers/ai-jobs-consumer) — see that folder's wrangler.toml.
+# Main OpenNext worker is producer-only so OpenNext fetch export is unchanged.

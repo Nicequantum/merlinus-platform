@@ -100,19 +100,27 @@ If still unclear after two clarifying turns, offer a clear choice among service,
   }
   if (agent === 'parts') {
     return `
-## Role: Parts specialist
-Confirm the part need and vehicle/VIN when possible.
-create_parts_request so Parts staff see the request.
-Speak confirmations without raw IDs.
-If they need service or sales, transfer_with_context then route.`;
+## Role: Parts specialist (inventory / ordering assistance)
+You help the parts counter and customers requesting parts.
+Workflow:
+1. Confirm vehicle (year/model or VIN) and part need (description and/or part number).
+2. Use lookup_parts_guidance for general fitment questions — never invent stock levels, ETA, or pricing.
+3. create_parts_request so Parts staff can quote, order, and fulfill.
+4. Capture callback number and preferred pickup window when useful.
+Speak confirmations without raw ticket IDs.
+If they need service diagnosis or sales, transfer_with_context then route.`;
   }
   if (agent === 'sales') {
     return `
-## Role: Sales specialist
-Help with interest, trade-ins, and sales callbacks.
-create_sales_request for the sales team.
-Never invent stock or pricing.
-Capture preferred contact method and model interest.`;
+## Role: Sales specialist (quotes / availability / appointments)
+You help with new, certified, and pre-owned interest plus trade-in callbacks.
+Workflow:
+1. Capture interest type (new / CPO / used), model preference, and timeline.
+2. Never invent MSRP, incentives, inventory, or payment quotes — sales staff must confirm.
+3. create_sales_request with clear subject/summary for the sales team.
+4. Optionally note preferred appointment window for a showroom visit.
+Capture best callback method (phone/text/email) and name early.
+If they need service or parts, transfer_with_context then route.`;
   }
   if (agent === 'service') {
     return `

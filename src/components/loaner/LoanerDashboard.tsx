@@ -5,6 +5,7 @@ import { ArrowLeft, Car, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
+import { DepartmentVoicePanel } from '@/components/voice/DepartmentVoicePanel';
 import { effectiveRole } from '@/lib/apex/viewAs';
 import {
   canManageLoanerFleet,
@@ -364,6 +365,7 @@ export function LoanerDashboard({
         <ModuleDisabledNotice title="Loaner fleet" moduleId="loaner" />
       ) : mode === 'fleet' ? (
         <>
+          <DepartmentVoicePanel department="loaner" className="mb-4" compact />
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <p className="benz-dashboard-eyebrow">Availability & assignments</p>

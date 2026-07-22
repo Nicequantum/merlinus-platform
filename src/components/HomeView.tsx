@@ -1,11 +1,13 @@
 'use client';
 
-import { Settings, Video, Wrench } from 'lucide-react';
+import { Settings, Video, Wrench, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { DealershipBranding } from '@/components/DealershipBranding';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { RepairOrderHomeLists } from '@/components/RepairOrderHomeLists';
 import { ScanROSection } from '@/components/ScanROSection';
+import { RoListSkeleton } from '@/components/RoListSkeleton';
 import type { PendingImage, RepairOrderSummary } from '../types';
 
 interface HomeViewProps {
@@ -41,6 +43,13 @@ interface HomeViewProps {
   onOpenSettings: () => void;
   onOpenVideoInspection?: () => void;
   onOpenMaintenance?: () => void;
+  /** Pull-to-refresh / retry list */
+  onRefreshList?: () => void | Promise<void>;
+  listLoading?: boolean;
+  listValidating?: boolean;
+  listFromCache?: boolean;
+  listError?: string | null;
+  onRetryList?: () => void;
 }
 
 export function HomeView({
@@ -75,18 +84,24 @@ export function HomeView({
   onOpenSettings,
   onOpenVideoInspection,
   onOpenMaintenance,
+  onRefreshList,
+  listLoading,
+  listValidating,
+  listFromCache,
+  listError,
+  onRetryList,
 }: HomeViewProps) {
   const { t } = useTranslation('home');
   const { t: tVideo } = useTranslation('video');
 
   return (
-    <div className="relative min-h-dvh benz-page-compact">
+    <div className="relative min-h-dvh benz-page-compact benz-bay-shell">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
         {onOpenMaintenance ? (
           <button
             type="button"
             onClick={onOpenMaintenance}
-            className="benz-icon-btn touch-target"
+            className="benz-icon-btn touch-target touch-target-bay"
             aria-label={t('maintenance')}
             title={t('maintenance')}
           >
@@ -97,7 +112,7 @@ export function HomeView({
           <button
             type="button"
             onClick={onOpenVideoInspection}
-            className="benz-icon-btn touch-target"
+            className="benz-icon-btn touch-target touch-target-bay"
             aria-label={tVideo('navLabel')}
             title={tVideo('navLabel')}
           >
@@ -163,30 +178,65 @@ export function HomeView({
 
         <div className="mb-4">
           <input
-            type="text"
+            type="search"
+            enterKeyHint="search"
             placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="benz-search"
+            className="benz-search touch-target-bay"
+            aria-label={t('searchPlaceholder')}
           />
         </div>
 
-        <RepairOrderHomeLists
-          searchTerm={searchTerm}
-          searchLoading={searchLoading}
-          searchResults={searchROs}
-          todayROs={todayROs}
-          previousROs={previousROs}
-          previousExpanded={previousExpanded}
-          onTogglePrevious={onTogglePrevious}
-          previousLoading={previousLoading}
-          previousLoadingMore={previousLoadingMore}
-          previousHasMore={previousHasMore}
-          onLoadMorePrevious={onLoadMorePrevious}
-          openingROId={openingROId}
-          onOpenRO={onOpenRO}
-          onDeleteRO={onDeleteRO}
-        />
+        {listError && todayROs.length === 0 && !listLoading ? (
+          <div className="benz-card p-4 mb-4 text-center space-y-2">
+            <p className="text-sm text-benz-secondary">{listError}</p>
+            {onRetryList ? (
+              <button
+                type="button"
+                className="primary-btn h-11 px-5 touch-target-bay text-sm font-semibold"
+                onClick={onRetryList}
+              >
+                Retry
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {listFromCache && listValidating ? (
+          <div className="flex items-center justify-center gap-2 text-[11px] text-benz-muted mb-2" aria-live="polite">
+            <Loader2 size={12} className="animate-spin" aria-hidden />
+            Updating list…
+          </div>
+        ) : null}
+
+        <PullToRefresh
+          onRefresh={async () => {
+            if (onRefreshList) await onRefreshList();
+          }}
+          disabled={Boolean(searchTerm.trim()) || listLoading}
+        >
+          {listLoading && todayROs.length === 0 ? (
+            <RoListSkeleton rows={4} />
+          ) : (
+            <RepairOrderHomeLists
+              searchTerm={searchTerm}
+              searchLoading={searchLoading}
+              searchResults={searchROs}
+              todayROs={todayROs}
+              previousROs={previousROs}
+              previousExpanded={previousExpanded}
+              onTogglePrevious={onTogglePrevious}
+              previousLoading={previousLoading}
+              previousLoadingMore={previousLoadingMore}
+              previousHasMore={previousHasMore}
+              onLoadMorePrevious={onLoadMorePrevious}
+              openingROId={openingROId}
+              onOpenRO={onOpenRO}
+              onDeleteRO={onDeleteRO}
+            />
+          )}
+        </PullToRefresh>
       </div>
     </div>
   );

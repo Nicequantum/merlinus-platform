@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/api';
 import { networkRetryDelayMs, NETWORK_RETRY_MAX_ATTEMPTS, sleep } from '@/lib/networkErrors';
+import { readRoListCache, writeRoListCache } from '@/lib/roListCache';
 import type { RepairOrderSummary, TechnicianSession } from '@/types';
 import {
   filterTodayRepairOrders,
@@ -37,6 +38,8 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [listRetrying, setListRetrying] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
   const [todayStartIso, setTodayStartIso] = useState<string | null>(null);
   const [previousROs, setPreviousROs] = useState<RepairOrderSummary[]>([]);
   const [previousExpanded, setPreviousExpanded] = useState(false);
@@ -53,6 +56,8 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
       setListError(null);
       setLoading(false);
       setListRetrying(false);
+      setIsValidating(false);
+      setFromCache(false);
       previousLoadedRef.current = false;
       setPreviousExpanded(false);
       return;
@@ -70,6 +75,7 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
         setListError(null);
         setLoading(false);
         setListRetrying(false);
+        setIsValidating(false);
         previousLoadedRef.current = false;
         setPreviousExpanded(false);
         return;
@@ -77,6 +83,7 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
     }
 
     setListError(null);
+    setIsValidating(true);
     let lastError: unknown;
     // Extra application-level retries on top of api.ts network retries — covers
     // cold-start 500s that surface as ApiError after transport succeeded.
@@ -90,6 +97,13 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
         setPreviousHasMore(false);
         previousLoadedRef.current = false;
         setPreviousExpanded(false);
+        setFromCache(false);
+        writeRoListCache({
+          technicianId: session.technicianId,
+          dealershipId: session.dealershipId,
+          repairOrders,
+          todayStart: todayStart ?? null,
+        });
         lastError = null;
         break;
       } catch (error) {
@@ -123,11 +137,20 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
       }
     }
     if (lastError) {
-      setListError('Could not load repair orders. Check your connection and try again.');
+      // Keep cached rows visible; only hard-error when the list is empty.
+      setAllROs((current) => {
+        if (current.length === 0) {
+          setListError('Could not load repair orders. Check your connection and try again.');
+        } else {
+          setListError(null);
+        }
+        return current;
+      });
       // Do not rethrow — effect-driven loads must not produce unhandled rejections.
     }
     setLoading(false);
     setListRetrying(false);
+    setIsValidating(false);
   }, [onComplianceRequiredRef, session]);
 
   const loadPreviousPage = useCallback(
@@ -196,10 +219,21 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
       setListError(null);
       setAllROs([]);
       setPreviousROs([]);
+      setFromCache(false);
       return;
     }
 
-    setLoading(true);
+    // Stale-while-revalidate: paint cache instantly, revalidate in background.
+    const cached = readRoListCache(session.technicianId, session.dealershipId);
+    if (cached && cached.payload.repairOrders.length > 0) {
+      setAllROs(cached.payload.repairOrders);
+      if (cached.payload.todayStart) setTodayStartIso(cached.payload.todayStart);
+      setFromCache(true);
+      setLoading(false);
+      setListError(null);
+    } else {
+      setLoading(true);
+    }
     void refreshList();
   }, [session, refreshList]);
 
@@ -214,6 +248,10 @@ export function useROList(session: TechnicianSession | null, options: UseROListO
     loading,
     listError,
     listRetrying,
+    /** True while network revalidate is in flight (may already show cached rows). */
+    isValidating,
+    /** Rows currently shown came from session cache (still revalidating). */
+    fromCache,
     retryListLoad,
     refreshList,
     todayStartIso,

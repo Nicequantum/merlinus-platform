@@ -45,7 +45,18 @@
 ║  Copy for CDK       Paste into DMS (after certification)         ║
 ║  Export PDF         Branded PDF for records                      ║
 ║                                                                  ║
+║  Generate phases: Queued → Processing → AI Thinking → Complete   ║
+║  Slow Wi‑Fi? Keep the line open — progress updates live.         ║
+║                                                                  ║
 ║  Merlin never invents tests — document what you actually did.    ║
+║                                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  TABLET / WIFI                                                   ║
+║  ─────────────                                                   ║
+║  List empty?  Pull down to refresh or tap Retry                  ║
+║  After sleep: wait 2s then open RO (session re-warms)            ║
+║  Video MPI offline: reconnect Wi‑Fi — uploads resume               ║
 ║                                                                  ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║

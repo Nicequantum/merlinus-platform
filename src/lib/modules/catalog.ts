@@ -13,6 +13,10 @@ export const PRODUCT_MODULE_IDS: readonly ProductModuleId[] = [
   'video_mpi',
   'maintenance',
   'voice_agent',
+  'voice_agent_service',
+  'voice_agent_parts',
+  'voice_agent_sales',
+  'voice_agent_loaner',
   'calendar_hub',
   'loaner',
   'parts',
@@ -20,6 +24,41 @@ export const PRODUCT_MODULE_IDS: readonly ProductModuleId[] = [
   'service',
   'cdk_sync',
 ] as const;
+
+/** Department voice SKUs (parent: voice_agent). Pilot defaults: service + loaner. */
+export const VOICE_DEPARTMENT_MODULE_IDS = [
+  'voice_agent_service',
+  'voice_agent_parts',
+  'voice_agent_sales',
+  'voice_agent_loaner',
+] as const;
+
+export type VoiceDepartmentModuleId = (typeof VOICE_DEPARTMENT_MODULE_IDS)[number];
+
+export type VoiceDepartmentId = 'service' | 'parts' | 'sales' | 'loaner';
+
+export const VOICE_DEPARTMENT_TO_MODULE: Record<VoiceDepartmentId, VoiceDepartmentModuleId> = {
+  service: 'voice_agent_service',
+  parts: 'voice_agent_parts',
+  sales: 'voice_agent_sales',
+  loaner: 'voice_agent_loaner',
+};
+
+export const VOICE_DEPARTMENT_DOMAIN_MODULE: Record<VoiceDepartmentId, ProductModuleId> = {
+  service: 'service',
+  parts: 'parts',
+  sales: 'sales',
+  loaner: 'loaner',
+};
+
+export function voiceDepartmentFromModuleId(
+  moduleId: string
+): VoiceDepartmentId | null {
+  for (const [dept, mid] of Object.entries(VOICE_DEPARTMENT_TO_MODULE)) {
+    if (mid === moduleId) return dept as VoiceDepartmentId;
+  }
+  return null;
+}
 
 export interface ModuleCatalogEntry {
   id: ProductModuleId;
@@ -43,7 +82,31 @@ export const MODULE_CATALOG: readonly ModuleCatalogEntry[] = [
     id: 'voice_agent',
     name: 'AI Voice Agents (Sophia + specialists)',
     description:
-      'Inbound phone AI (Sophia receptionist and department specialists). Requires Twilio DID configuration.',
+      'Inbound phone AI (Sophia receptionist) plus department specialists. Enable per-department SKUs below. Requires Twilio DID for phone; tablet query works with Grok only.',
+  },
+  {
+    id: 'voice_agent_service',
+    name: 'Sophia · Service',
+    description:
+      'Service-desk voice assistant: appointments, warranty follow-up, MPI/RO guidance, scheduling handoff. Requires Service module.',
+  },
+  {
+    id: 'voice_agent_parts',
+    name: 'Sophia · Parts',
+    description:
+      'Parts counter voice assistant: lookup, ordering assistance, compatibility notes. Requires Parts module.',
+  },
+  {
+    id: 'voice_agent_sales',
+    name: 'Sophia · Sales',
+    description:
+      'Sales voice assistant: quotes, vehicle interest, appointments. Requires Sales module.',
+  },
+  {
+    id: 'voice_agent_loaner',
+    name: 'Sophia · Loaner',
+    description:
+      'Loaner fleet voice assistant: availability, reservations, check-in/out, returns. Requires Loaner module.',
   },
   {
     id: 'calendar_hub',
@@ -111,6 +174,10 @@ export const DEMO_SEED_MODULE_IDS: readonly ProductModuleId[] = [
   'video_mpi',
   'maintenance',
   'voice_agent',
+  'voice_agent_service',
+  'voice_agent_loaner',
+  'voice_agent_parts',
+  'voice_agent_sales',
   'calendar_hub',
   'loaner',
   'parts',

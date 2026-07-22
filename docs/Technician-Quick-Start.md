@@ -20,6 +20,20 @@ Merlin helps you turn repair notes into professional **MI 4.3–ready** warranty
 2. Sign in with your D7 number and password.
 3. From the **repair order list**, open an RO and tap the **repair line** you are working on.
 
+**Tablet tips (cold start / Wi‑Fi)**
+
+- After sign-in, Merlin **warms the bay session** in the background so the first RO open is fast.
+- **Pull down** on the RO list to refresh (or tap Retry if the list fails to load).
+- If the list appears instantly then says “Updating…”, that is normal — cached rows paint first, then revalidate.
+- If Wi‑Fi drops mid-story, wait for the signal bars and tap **Generate** again (Retry). Video MPI uploads queue offline and flush when you reconnect.
+
+**Sophia (Service, Loaner, Parts & Sales desks)**
+
+- On **Service**, **Parts**, **Sales**, and **Loaner** screens, tap **Ask Sophia** for hands-free help.
+- Use the **mic** or type — Sophia can create staff follow-ups, check loaner availability, and capture parts/sales interest (staff still quotes stock and price).
+- Managers personalize Sophia under **Settings → AI Voice · Department Tailoring**.
+- Phone AI (Twilio) is separate: enable **AI Voice Agents** + department SKUs under Modules.
+
 ![Login and repair order list](./images/technician-login-ro-list.svg)
 
 ---

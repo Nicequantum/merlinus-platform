@@ -59,13 +59,32 @@ export default function AdminUsagePage() {
     return (
       <LoginView
         onLogin={async (d7Number, password) => {
-          const { session: loggedIn } = await api.login(d7Number, password);
-          if (!loggedIn.isAdmin) {
+          const data = await api.login(d7Number, password);
+          if (data.requiresMfa && data.mfaToken) {
+            return {
+              status: 'mfa_required' as const,
+              mfaToken: data.mfaToken,
+              technicianId: data.technicianId || '',
+              name: data.name,
+            };
+          }
+          if (!data.session) throw new ApiError('Login failed', 401);
+          if (!data.session.isAdmin) {
             router.replace('/');
             throw new ApiError('Admin access required.', 403);
           }
-          setSession(loggedIn);
-          return loggedIn;
+          setSession(data.session);
+          return { status: 'success' as const, session: data.session };
+        }}
+        onMfaVerify={async (mfaToken, code) => {
+          const data = await api.verifyMfaLogin(mfaToken, code);
+          if (!data.session) throw new ApiError('MFA verification failed', 401);
+          if (!data.session.isAdmin) {
+            router.replace('/');
+            throw new ApiError('Admin access required.', 403);
+          }
+          setSession(data.session);
+          return data.session;
         }}
       />
     );

@@ -1,6 +1,6 @@
 # Merlinus
 
-> **v4.0.0 — Modular Dealership OS (feature-complete).**  
+> **v4.1.0 — Modular Dealership OS + production control plane (MFA, dual-key rotation, Async AI, Control Center).**  
 > Start here: **[docs/Modular-OS-Overview.md](./docs/Modular-OS-Overview.md)** — executive summary, shipped modules, architecture, manager go-live steps, and pilot test scenarios.  
 > Core warranty RO story is always on; Video MPI, Maintenance, Parts/Sales/Service inboxes, Loaner, and AI Voice are rooftop-entitled modules. Live CDK API sync (PR-M7) is deferred.
 
@@ -8,12 +8,12 @@
 
 ![Pilot readiness](https://img.shields.io/badge/Pilot_readiness-Conditional_multi--store-0A2540?style=for-the-badge&logo=shield&logoColor=white)
 ![Stack](https://img.shields.io/badge/Cloudflare_Workers%20%2B%20D1%20%2B%20R2-00ADEF?style=for-the-badge)
-![Version](https://img.shields.io/badge/v4.0.0-1a1a2e?style=for-the-badge)
+![Version](https://img.shields.io/badge/v4.1.0-1a1a2e?style=for-the-badge)
 
 Warranty narrative system for fixed ops: bay evidence → OEM-aligned stories, audit trail, and optional modular products (Video MPI, departments, loaner, AI voice, calendar hub).
 
-**Readiness:** Conditional pilot / multi-dealership rollout after secrets, health, and module gates.  
-**Start:** **[docs/Rollout-Runbook.md](./docs/Rollout-Runbook.md)** · sign-off **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
+**Readiness:** **Ready for Validation** / Conditional pilot — multi-dealership rollout after secrets, health, and module gates. Production gate: `npm run ready-to-deploy` (exit 0) + **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)** sign-off.  
+**Start:** **[docs/Rollout-Runbook.md](./docs/Rollout-Runbook.md)** · ops single source of truth **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
 
 ---
 

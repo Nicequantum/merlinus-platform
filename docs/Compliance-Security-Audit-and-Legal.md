@@ -89,12 +89,12 @@ Legacy plaintext rows migrate via `npm run db:reencrypt` and `npm run db:migrate
 | **Compliance gating** | Privacy consent and legal disclaimer required before AI routes |
 | **Manager-only endpoints** | Security status, usage dashboard, audit log export |
 
-### Phase 1 accepted risks (documented)
+### Residual risks (documented)
 
 | Risk | Compensating controls |
 |------|----------------------|
-| **SSO / MFA not implemented** | D7+password, bcrypt cost 12, session revocation, login rate limits |
-| **Manual encryption key rotation** | Maintenance-window `npm run db:reencrypt`; documented in [Reencryption Runbook](./Reencryption-Runbook.md) |
+| **SSO (SAML/OIDC) roadmap** | Native TOTP MFA for manager/owner; D7+password, bcrypt, session revocation, login rate limits |
+| **Encryption key rotation ops** | Dual-key `DATA_ENCRYPTION_KEY` + `DATA_ENCRYPTION_KEY_PREVIOUS`; Manager UI + background re-encrypt; [Reencryption Runbook](./Reencryption-Runbook.md) |
 
 ---
 
