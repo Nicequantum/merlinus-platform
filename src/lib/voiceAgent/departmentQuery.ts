@@ -496,7 +496,7 @@ export async function runDepartmentQueryOnce(
 }> {
   let speech = '';
   let conversationId = input.conversationId || '';
-  let activeAgent = input.department;
+  let activeAgent: string = input.department;
   let slots: Record<string, unknown> = {};
   let escalate: boolean | undefined;
   for await (const ev of runDepartmentQuery(input)) {
@@ -504,7 +504,7 @@ export async function runDepartmentQueryOnce(
     if (ev.type === 'result') {
       speech = ev.speech;
       conversationId = ev.conversationId;
-      activeAgent = ev.activeAgent;
+      activeAgent = String(ev.activeAgent);
       slots = ev.slots;
       escalate = ev.escalate;
     }

@@ -10,7 +10,9 @@ export async function handleHubSummarizeJob(
   msg: AiQueueMessage
 ): Promise<Record<string, unknown>> {
   const callId =
-    (typeof msg.payload.callId === 'string' && msg.payload.callId) || msg.entityId || '';
+    (typeof msg.payload.callId === 'string' && msg.payload.callId) ||
+    (typeof msg.payload.entityId === 'string' && msg.payload.entityId) ||
+    '';
   if (!callId) {
     throw new Error('hub.summarize requires payload.callId');
   }

@@ -24,7 +24,7 @@ import type {
   UsageAnalytics,
 } from '@/types';
 import { parseApiErrorResponse, readJsonBodySafe } from '@/lib/apiResponseParse';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,

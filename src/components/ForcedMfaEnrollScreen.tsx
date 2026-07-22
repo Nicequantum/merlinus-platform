@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
 import { isApexPlatformMode } from '@/lib/platformMode';
 
 interface ForcedMfaEnrollScreenProps {

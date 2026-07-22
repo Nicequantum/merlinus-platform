@@ -100,13 +100,13 @@ export function classifyVoiceIntent(input: {
     }
   }
 
-  if (department !== 'reception' && department !== 'unknown' && !enabled.has(department)) {
+  if (department !== 'reception' && !enabled.has(department as VoiceDepartmentId)) {
     return {
       department: 'reception',
       agentId: 'receptionist',
       confidence: 0.5,
       escalate: false,
-      labels: ['department_disabled', department],
+      labels: ['department_disabled', String(department)],
     };
   }
 

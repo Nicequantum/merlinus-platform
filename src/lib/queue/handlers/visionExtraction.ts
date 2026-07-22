@@ -22,9 +22,16 @@ export async function handleVisionExtractionJob(
   await markAiJobProgress(msg.jobId, 25);
 
   // Dynamic import keeps cold path light when only story jobs run
-  const { extractStructuredROFromImages } = await import('@/lib/scanPipeline').catch(() => ({
-    extractStructuredROFromImages: null as null,
-  }));
+  type ExtractFn = (args: unknown) => Promise<unknown>;
+  let extractStructuredROFromImages: ExtractFn | null = null;
+  try {
+    const mod = (await import('@/lib/scanPipeline')) as {
+      extractStructuredROFromImages?: ExtractFn;
+    };
+    extractStructuredROFromImages = mod.extractStructuredROFromImages ?? null;
+  } catch {
+    extractStructuredROFromImages = null;
+  }
 
   // Fallback: diagnostic extract module path
   if (!extractStructuredROFromImages) {

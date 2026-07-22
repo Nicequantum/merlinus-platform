@@ -11,6 +11,10 @@ import {
   validateCsrfRequest,
 } from '@/lib/csrf';
 import {
+  CSRF_COOKIE as CSRF_COOKIE_CLIENT,
+  CSRF_HEADER as CSRF_HEADER_CLIENT,
+} from '@/lib/csrfClient';
+import {
   decryptPII,
   encryptPII,
   getDecryptKeyCandidates,
@@ -56,6 +60,8 @@ describe('P1-6 CSRF double-submit', () => {
   it('exports cookie/header names and generates tokens', () => {
     assert.equal(CSRF_COOKIE, 'merlin_csrf');
     assert.equal(CSRF_HEADER, 'x-merlin-csrf');
+    assert.equal(CSRF_COOKIE_CLIENT, CSRF_COOKIE);
+    assert.equal(CSRF_HEADER_CLIENT, CSRF_HEADER);
     const a = generateCsrfToken();
     const b = generateCsrfToken();
     assert.notEqual(a, b);
@@ -99,8 +105,8 @@ describe('P1-6 CSRF double-submit', () => {
 
   it('withAuth and clients wire CSRF', () => {
     assert.match(readSrc('src/lib/apiRoute.ts'), /validateCsrfRequest/);
-    assert.match(readSrc('src/lib/api.ts'), /CSRF_HEADER/);
-    assert.match(readSrc('src/lib/clientFetchRetry.ts'), /CSRF_HEADER/);
+    assert.match(readSrc('src/lib/api.ts'), /csrfClient/);
+    assert.match(readSrc('src/lib/clientFetchRetry.ts'), /csrfClient/);
     assert.match(readSrc('src/app/api/auth/login/route.ts'), /applyCsrfCookieToResponse/);
   });
 });

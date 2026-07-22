@@ -84,7 +84,7 @@ export async function loginWithCredentials(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
   try {
-    const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+    const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
     const csrf = readCsrfTokenFromDocument();
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -152,7 +152,7 @@ export async function verifyMfaLogin(
   mfaToken: string,
   code: string
 ): Promise<MerlinLoginResult> {
-  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
   const csrf = readCsrfTokenFromDocument();
   const res = await fetch('/api/auth/mfa/login-verify', {
     method: 'POST',

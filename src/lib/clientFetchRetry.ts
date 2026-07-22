@@ -9,7 +9,7 @@
  * - 500 on POST when `retryPostServerError: true` (enter/exit dealership, etc.)
  */
 import { readJsonBodySafe } from '@/lib/apiResponseParse';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,

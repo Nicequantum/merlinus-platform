@@ -16,7 +16,7 @@ export async function handleMpiReportJob(
 ): Promise<Record<string, unknown>> {
   const inspectionId =
     (typeof msg.payload.inspectionId === 'string' && msg.payload.inspectionId) ||
-    msg.entityId ||
+    (typeof msg.payload.entityId === 'string' && msg.payload.entityId) ||
     '';
   if (!inspectionId) {
     throw new Error('mpi.report requires payload.inspectionId');

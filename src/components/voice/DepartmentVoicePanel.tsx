@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Mic, MicOff, Send, Sparkles, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrf';
+import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
 import type { VoiceDepartmentId } from '@/lib/modules/catalog';
 
 export type DepartmentVoicePhase =
@@ -49,7 +49,7 @@ export function DepartmentVoicePanel({
   const [statusLine, setStatusLine] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -192,12 +192,41 @@ export function DepartmentVoicePanel({
   };
 
   const toggleListen = () => {
-    const SR =
+    // Web Speech API is Chromium-only; cast through unknown for TS DOM lib variance.
+    const w =
       typeof window !== 'undefined'
-        ? window.SpeechRecognition ||
-          (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition })
-            .webkitSpeechRecognition
+        ? (window as unknown as {
+            SpeechRecognition?: new () => {
+              lang: string;
+              interimResults: boolean;
+              continuous: boolean;
+              onstart: (() => void) | null;
+              onend: (() => void) | null;
+              onerror: (() => void) | null;
+              onresult: ((ev: {
+                resultIndex: number;
+                results: ArrayLike<{ isFinal?: boolean; 0?: { transcript?: string } }>;
+              }) => void) | null;
+              start: () => void;
+              stop: () => void;
+            };
+            webkitSpeechRecognition?: new () => {
+              lang: string;
+              interimResults: boolean;
+              continuous: boolean;
+              onstart: (() => void) | null;
+              onend: (() => void) | null;
+              onerror: (() => void) | null;
+              onresult: ((ev: {
+                resultIndex: number;
+                results: ArrayLike<{ isFinal?: boolean; 0?: { transcript?: string } }>;
+              }) => void) | null;
+              start: () => void;
+              stop: () => void;
+            };
+          })
         : undefined;
+    const SR = w?.SpeechRecognition || w?.webkitSpeechRecognition;
     if (!SR) {
       toast.message('Voice dictation needs Chrome or Edge on this tablet');
       return;
@@ -229,7 +258,7 @@ export function DepartmentVoicePanel({
         setStatusLine('');
       }
     };
-    rec.onresult = (ev: SpeechRecognitionEvent) => {
+    rec.onresult = (ev) => {
       let finalText = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i];

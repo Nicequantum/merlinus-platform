@@ -154,7 +154,7 @@ async function runVideoReportGeneration(
       reportSource,
       grokError: grokError?.slice(0, 200),
     },
-    ipAddress,
+    ipAddress: ipAddress ?? undefined,
   });
 
   return {

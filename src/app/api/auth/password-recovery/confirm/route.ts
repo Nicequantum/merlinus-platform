@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       });
 
       if ('error' in result) {
-        return apiError(result.error, 400);
+        return apiError(result.error || 'Password recovery failed', 400);
       }
 
       await revokeAllSessionsForTechnician(result.technicianId);

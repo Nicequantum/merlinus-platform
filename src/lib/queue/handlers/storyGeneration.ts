@@ -211,7 +211,7 @@ export async function handleStoryGenerationJob(
               }),
               asyncJobId: msg.jobId,
             },
-            ipAddress: null,
+            ipAddress: undefined,
           },
           {
             where: lineWhere,

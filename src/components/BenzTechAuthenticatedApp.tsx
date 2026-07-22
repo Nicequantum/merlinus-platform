@@ -143,8 +143,8 @@ export function BenzTechAuthenticatedApp({
 
   // Bay cold-start: aggressive warm + visibility resume + RO list prefetch
   useEffect(() => {
-    let stopKeepAlive = () => undefined;
-    let stopVis = () => undefined;
+    let stopKeepAlive: () => void = () => {};
+    let stopVis: () => void = () => {};
     void import('@/lib/clientFetchRetry')
       .then(({ startBaySessionKeepAlive }) => {
         stopKeepAlive = startBaySessionKeepAlive({

@@ -111,7 +111,7 @@ export async function verifyMfaLoginWithIdentifier(
   mfaToken: string,
   code: string
 ): Promise<ApexLoginResult> {
-  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrf');
+  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
   const csrf = readCsrfTokenFromDocument();
   const res = await fetch('/api/auth/mfa/login-verify', {
     method: 'POST',

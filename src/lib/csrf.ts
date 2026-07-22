@@ -6,18 +6,39 @@
  *  2. Browser JS reads the cookie and sends header `X-Merlin-CSRF` on POST/PUT/PATCH/DELETE.
  *  3. withAuth / withPublicRoute reject mismatches in production (and when MERLIN_CSRF_ENFORCE=true).
  *
+ * Client code must import from `@/lib/csrfClient` (not this module) to avoid server-only graphs.
+ *
  * Compensates for SameSite=Lax alone not meeting ASVS L2 ideal for state-changing APIs.
  * Signature-validated public webhooks use skipCsrf / bare routes (not this path).
  */
+import 'server-only';
+
 import { randomBytes, timingSafeEqual } from 'crypto';
 import type { NextResponse } from 'next/server';
-import { isCiOrTestRuntime, isProductionEnv } from '@/lib/rate-limit';
+import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/csrfClient';
 
-export const CSRF_COOKIE = 'merlin_csrf';
-export const CSRF_HEADER = 'x-merlin-csrf';
+export { CSRF_COOKIE, CSRF_HEADER };
 
 export const CSRF_ERROR =
   'Security check failed (CSRF). Refresh the page and try again.';
+
+function isCiOrTestRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === 'test' ||
+    process.env.VITEST === 'true' ||
+    process.env.CI === 'true' ||
+    process.env.MERLIN_TEST_RUNTIME === '1'
+  );
+}
+
+function isProductionEnv(): boolean {
+  return (
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.MERLIN_PRODUCTION === '1' ||
+    process.env.MERLIN_PRODUCTION === 'true'
+  );
+}
 
 export function generateCsrfToken(): string {
   return randomBytes(32).toString('base64url');
@@ -117,20 +138,4 @@ export function applyCsrfCookieToResponse(
 ): string {
   response.cookies.set(CSRF_COOKIE, token, csrfCookieOptions());
   return token;
-}
-
-/**
- * Client helper — read CSRF token from document.cookie (browser only).
- */
-export function readCsrfTokenFromDocument(): string | undefined {
-  if (typeof document === 'undefined') return undefined;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`)
-  );
-  if (!match?.[1]) return undefined;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
-  }
 }
