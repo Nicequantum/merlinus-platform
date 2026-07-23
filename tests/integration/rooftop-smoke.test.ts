@@ -70,18 +70,61 @@ describe('P1-7 rooftop smoke', () => {
     const response = await runWithNextRouteContext(request, '/api/auth/login/route', (req) =>
       postLogin(req)
     );
-    // Seed password may differ from compliance-reset accounts; accept 200 or 401 with JSON
-    const body = await readJsonResponse<{ session?: { technicianId?: string }; error?: string }>(
-      response
+    // readJsonResponse returns { status, body } — not the payload alone.
+    // Login 200 shapes after MFA / Apex work:
+    //   A) { session: { technicianId, … }, authSource } + session cookie
+    //   B) { requiresMfa: true, mfaToken, technicianId } (password OK, second factor pending)
+    const { status, body } = await readJsonResponse<{
+      session?: { technicianId?: string; d7Number?: string | null };
+      requiresMfa?: boolean;
+      mfaToken?: string;
+      technicianId?: string;
+      error?: string;
+      authSource?: string;
+    }>(response);
+
+    assert.ok(status === 200 || status === 401, `status ${status}: ${JSON.stringify(body)}`);
+
+    if (status === 401) {
+      assert.ok(body.error || typeof body === 'object', '401 should return JSON error envelope');
+      return;
+    }
+
+    // Password accepted — establish usable identity (full session or MFA challenge).
+    const sessionTechId = body.session?.technicianId?.trim();
+    const mfaPending =
+      body.requiresMfa === true &&
+      Boolean(body.mfaToken?.trim()) &&
+      Boolean(body.technicianId?.trim());
+
+    assert.ok(
+      sessionTechId || mfaPending,
+      `expected session.technicianId or MFA challenge, got: ${JSON.stringify(body)}`
     );
-    assert.ok(response.status === 200 || response.status === 401, `status ${response.status}`);
-    if (response.status === 200) {
-      assert.ok(body.session?.technicianId);
+
+    if (sessionTechId) {
+      assert.equal(sessionTechId, technicianId, 'session must bind seed technician');
+      const cookieFromJar = response.cookies?.get?.(SESSION_COOKIE)?.value;
       const setCookie = response.headers.get('set-cookie') || '';
       assert.ok(
-        setCookie.includes(SESSION_COOKIE) || setCookie.toLowerCase().includes('session') || true,
-        'login may set session via multiple cookie names'
+        Boolean(cookieFromJar) ||
+          setCookie.includes(SESSION_COOKIE) ||
+          setCookie.toLowerCase().includes('session'),
+        'full session login must set session cookie'
       );
+    }
+
+    if (mfaPending) {
+      assert.equal(
+        body.technicianId,
+        technicianId,
+        'MFA challenge must identify seed technician'
+      );
+      assert.ok(
+        (body.mfaToken as string).length >= 20,
+        'MFA challenge must include a pending mfaToken'
+      );
+      // No session cookie until MFA verify — intentional fortress behavior.
     }
   });
 
