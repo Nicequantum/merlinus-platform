@@ -813,11 +813,12 @@ export function evaluateAiJobsQueueHealth(input: AiJobsQueueHealthEvalInput): {
 } {
   const T = AI_QUEUE_HEALTH_THRESHOLDS;
   const reasons: string[] = [];
-  let status: DependencyStatus = 'ok';
-
+  // Numeric severity so TS control-flow does not pin status to the initial 'ok' literal
+  // (mutations via a nested escalate() were not visible to the checker).
+  let severity = 0; // 0=ok, 1=warn, 2=error
   const escalate = (next: DependencyStatus) => {
-    if (next === 'error') status = 'error';
-    else if (next === 'warn' && status === 'ok') status = 'warn';
+    if (next === 'error') severity = 2;
+    else if (next === 'warn' && severity < 1) severity = 1;
   };
 
   if (input.probeFailed) {
@@ -865,6 +866,9 @@ export function evaluateAiJobsQueueHealth(input: AiJobsQueueHealthEvalInput): {
     escalate('warn');
     reasons.push(`oldest_queued_stale`);
   }
+
+  const status: DependencyStatus =
+    severity >= 2 ? 'error' : severity >= 1 ? 'warn' : 'ok';
 
   const oldestMin =
     input.oldestAgeMs > 0 ? Math.round(input.oldestAgeMs / 60_000) : 0;

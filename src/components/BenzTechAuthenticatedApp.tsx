@@ -33,7 +33,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { localeToSpeechLang } from '@/lib/i18n/locales';
 import { setAppLanguage } from '@/i18n/config';
-import type { TechnicianSession } from '@/types';
+import type { AppView, TechnicianSession } from '@/types';
 
 const ManagerDashboard = dynamic(
   () => import('@/components/ManagerDashboard').then((m) => m.ManagerDashboard),
@@ -181,13 +181,14 @@ export function BenzTechAuthenticatedApp({
     getActivePipeline: ocr.getActivePipeline,
     onComplianceRequired: handleComplianceRequired,
   });
+  const setView = ro.setView;
   const [videoInspectionRoId, setVideoInspectionRoId] = useState<string | null>(null);
   const openVideoInspection = useCallback(
     (repairOrderId?: string | null) => {
       setVideoInspectionRoId(repairOrderId?.trim() || null);
-      ro.setView('videoInspection');
+      setView('videoInspection');
     },
-    [ro.setView]
+    [setView]
   );
 
   // National Owner View As: branch UI on lens; identity stays role=owner.
@@ -265,6 +266,45 @@ export function BenzTechAuthenticatedApp({
     roleForUi,
   ]);
 
+  // Hooks must run before any early return (Rules of Hooks — build fails otherwise).
+  const goToSettings = useCallback(() => {
+    setView('settings');
+  }, [setView]);
+
+  const shellNavigate = useCallback(
+    (dest: string) => {
+      if (dest === 'home') {
+        setView('home');
+        return;
+      }
+      if (dest === 'settings') {
+        goToSettings();
+        return;
+      }
+      if (dest === 'center') {
+        window.location.assign('/manager/center');
+        return;
+      }
+      if (dest === 'jobs') {
+        window.location.assign('/manager/jobs');
+        return;
+      }
+      if (
+        dest === 'videoInspection' ||
+        dest === 'parts' ||
+        dest === 'sales' ||
+        dest === 'service' ||
+        dest === 'loaner' ||
+        dest === 'maintenance' ||
+        dest === 'voice' ||
+        dest === 'hub'
+      ) {
+        setView(dest as AppView);
+      }
+    },
+    [goToSettings, setView]
+  );
+
   if (
     !isServiceAdvisor &&
     !isManager &&
@@ -294,8 +334,6 @@ export function BenzTechAuthenticatedApp({
       />
     );
   }
-
-  const goToSettings = () => ro.setView('settings');
 
   // PR-M2/M8 — Department inbox staff shells (Parts / Sales / Service; no RO story pipeline)
   if (isDepartmentStaff) {
@@ -486,40 +524,6 @@ export function BenzTechAuthenticatedApp({
 
   const wideLayout = ro.view === 'home' && isManager;
   const companionMode = isDesktop;
-
-  const shellNavigate = useCallback(
-    (dest: string) => {
-      if (dest === 'home') {
-        ro.setView('home');
-        return;
-      }
-      if (dest === 'settings') {
-        goToSettings();
-        return;
-      }
-      if (dest === 'center') {
-        window.location.assign('/manager/center');
-        return;
-      }
-      if (dest === 'jobs') {
-        window.location.assign('/manager/jobs');
-        return;
-      }
-      if (
-        dest === 'videoInspection' ||
-        dest === 'parts' ||
-        dest === 'sales' ||
-        dest === 'service' ||
-        dest === 'loaner' ||
-        dest === 'maintenance' ||
-        dest === 'voice' ||
-        dest === 'hub'
-      ) {
-        ro.setView(dest as typeof ro.view);
-      }
-    },
-    [goToSettings, ro]
-  );
 
   return (
     <VoiceInputProvider speechLanguage={speechLanguage}>

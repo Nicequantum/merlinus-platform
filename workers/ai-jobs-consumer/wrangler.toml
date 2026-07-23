@@ -19,6 +19,6 @@ max_batch_timeout = 15
 max_retries = 3
 dead_letter_queue = "merlinus-ai-jobs-dlq"
 
-[vars]
-# Override in dashboard for production
-APP_BASE_URL = "http://127.0.0.1:3000"
+# APP_BASE_URL must be a Worker **secret** (not [vars]) so production is not overwritten by local defaults:
+#   echo https://your-host | npx wrangler secret put APP_BASE_URL -c workers/ai-jobs-consumer/wrangler.toml
+# Local dev can still set APP_BASE_URL in the environment or .dev.vars.
