@@ -45,6 +45,11 @@ export async function GET(request: Request) {
 
       const modules = await resolveModuleHealthSummary(dealershipId);
       const config = getRuntimeConfig(PROMPT_VERSION);
+      const aiJobs = checks.aiJobsQueue;
+      const aiOps =
+        typeof aiJobs?.detail === 'string' && aiJobs.detail.includes('| ops: ')
+          ? aiJobs.detail.split('| ops: ').slice(1).join('| ops: ').trim()
+          : undefined;
       const payload = {
         status,
         version: config.appVersion,
@@ -55,6 +60,12 @@ export async function GET(request: Request) {
         modules,
         modulesEnabled: modules.filter((m) => m.enabled).map((m) => m.moduleId),
         services: buildHealthServicesPayload(checks),
+        /** P0-4 — first-class AI queue signal (status also in services.aiJobsQueue) */
+        aiJobsQueue: {
+          status: aiJobs?.status ?? 'ok',
+          latencyMs: aiJobs?.latencyMs,
+          operatorGuidance: aiOps,
+        },
       };
 
       const statusCode = resolveAuthenticatedHealthHttpStatus(checks);

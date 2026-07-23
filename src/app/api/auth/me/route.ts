@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveAppSessionContext } from '@/lib/authBridge';
+import { applyCsrfCookieFromRequest } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { handleRouteError } from '@/lib/errors';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
@@ -14,7 +15,10 @@ export async function GET(request: Request) {
     await getDb();
     const { session, jwtPayload, source } = await resolveAppSessionContext(request);
     if (!session) {
-      return NextResponse.json({ session: null, authSource: null }, { status: 401 });
+      const unauth = NextResponse.json({ session: null, authSource: null }, { status: 401 });
+      // Seed CSRF cookie even when unauthenticated so login POST can double-submit.
+      applyCsrfCookieFromRequest(request, unauth);
+      return unauth;
     }
 
     return jsonWithSessionCookie(

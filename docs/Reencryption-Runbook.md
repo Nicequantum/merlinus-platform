@@ -1,6 +1,8 @@
-# Merlin Re-encryption Runbook
+# Merlinus Re-encryption Runbook
 
-**M30:** Post-deploy workflow for migrating legacy plaintext database fields to AES-256-GCM encryption.
+**Version:** 4.1.0 · **Updated:** 2026-07-22  
+
+**M30 / L4 / P0-1:** Post-deploy workflow for legacy plaintext migration and **dual-key AES-256-GCM rotation** with **full column inventory** (including MFA secrets).
 
 ## When to run
 
@@ -75,9 +77,12 @@ Decrypt order: current key → previous key → legacy scrypt salt variants.
    - Verifies fingerprint vs rotation target and live primary under dual-key.  
    - Optionally auto-starts re-encryption.
 6. **Re-encryption progress** — same page progress bar (`EncryptionRotation`).  
-   - Manual **Start re-encryption** if auto-start was off. CLI: `npm run db:reencrypt`.
-7. **Verify** — spot-check RO detail + list search, health `encryption` status.
-8. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
+   - Walks **all** AES `*Encrypted` columns including **UserMfa** + **Technician MFA mirrors** (`REENCRYPT_TABLE_PLAN` / `reencryptPlan.ts`).  
+   - Manual **Start re-encryption** if auto-start was off. CLI: `npm run db:reencrypt` (legacy plaintext path; prefer in-app for dual-key).
+7. **Verify** — spot-check RO detail + list search; **MFA login** still works; health `encryption` has no “MFA ciphertext still on previous key”; UI MFA probe clean.
+8. **Close dual-key** — only after step 7: delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
+
+**Zero-downtime:** Keep PREVIOUS set until reencrypt completes. Decrypt uses dual-key candidates throughout; encrypt always uses the new primary.
 9. **Clear maintenance** if used. Recommend rotation every **90 days**.
 
 ### API skeleton

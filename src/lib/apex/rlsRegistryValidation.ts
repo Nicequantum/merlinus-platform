@@ -29,10 +29,18 @@ export interface RlsRegistryValidationIssue {
     | 'global_not_direct'
     | 'overlap_direct_relation'
     | 'platform_has_dealership'
-    | 'unclassified_model';
+    | 'unclassified_model'
+    | 'tenant_field_unregistered'
+    | 'relation_parent_invalid';
   model: string;
   message: string;
 }
+
+/** Scalar field names that imply rooftop tenancy and require registry classification. */
+export const TENANT_SCALAR_FIELDS = [
+  'dealershipId',
+  'activeDealershipId',
+] as const;
 
 export interface RlsRegistryValidationResult {
   ok: boolean;
@@ -72,7 +80,7 @@ export function parsePrismaModelsFromSchema(schemaSource: string): ParsedPrismaM
     const fieldName = fieldMatch[1]!;
     // Skip enum-like or relation-only noise already covered
     current.fields.push(fieldName);
-    if (fieldName === 'dealershipId') {
+    if (fieldName === 'dealershipId' || fieldName === 'activeDealershipId') {
       current.hasDealershipId = true;
     }
   }
@@ -208,12 +216,20 @@ export function validateRlsRegistryAgainstSchema(
     });
   }
 
-  // Child models without dealershipId that are not platform must be relation-scoped
-  for (const name of withoutDealership) {
-    if (platform.has(name)) continue;
-    if (relation.has(name)) continue;
-    if (direct.has(name)) continue;
-    // unclassified already covers
+  // Hard fail: any tenant scalar on an unregistered model (P0-3 mitigation)
+  for (const model of models) {
+    const tenantFields = model.fields.filter((f) =>
+      (TENANT_SCALAR_FIELDS as readonly string[]).includes(f)
+    );
+    if (tenantFields.length === 0) continue;
+    if (direct.has(model.name) || relation.has(model.name)) continue;
+    issues.push({
+      code: 'tenant_field_unregistered',
+      model: model.name,
+      message:
+        `Schema model "${model.name}" has tenant field(s) [${tenantFields.join(', ')}] ` +
+        'but is not in DIRECT_DEALERSHIP_MODELS (or is mis-registered). Register before merge.',
+    });
   }
 
   // Relation parent field should exist as a field name on the model (best-effort)
@@ -226,6 +242,27 @@ export function validateRlsRegistryAgainstSchema(
         model: modelName,
         message: `RELATION parent field "${parentField}" not found on model "${modelName}" in schema`,
       });
+      continue;
+    }
+    // Parent relation should resolve to a DIRECT or PLATFORM model name (PascalCase of field is weak;
+    // require parent field type model exists as registered DIRECT if it has dealershipId).
+    // Best-effort: if a schema model exists with that exact name (capitalized field), check registry.
+    const parentModelGuess =
+      parentField.charAt(0).toUpperCase() + parentField.slice(1);
+    if (schemaNames.has(parentModelGuess)) {
+      if (
+        !direct.has(parentModelGuess) &&
+        !relation.has(parentModelGuess) &&
+        !platform.has(parentModelGuess)
+      ) {
+        issues.push({
+          code: 'relation_parent_invalid',
+          model: modelName,
+          message:
+            `RELATION parent "${parentField}" → model "${parentModelGuess}" is not registered ` +
+            '(DIRECT / RELATION / PLATFORM). Register parent first.',
+        });
+      }
     }
   }
 

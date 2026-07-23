@@ -57,6 +57,14 @@ model DealerGroup {
     const result = validateRlsRegistryAgainstSchema(schema);
     assert.equal(result.ok, false);
     assert.ok(result.issues.some((i) => i.code === 'missing_direct' && i.model === 'EvilTenant'));
+    // P0-3: tenant field also yields tenant_field_unregistered when not DIRECT
+    assert.ok(
+      result.issues.some(
+        (i) =>
+          (i.code === 'missing_direct' || i.code === 'tenant_field_unregistered') &&
+          i.model === 'EvilTenant'
+      )
+    );
   });
 
   it('detects unclassified child model without dealershipId', () => {

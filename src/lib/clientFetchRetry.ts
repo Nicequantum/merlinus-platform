@@ -9,7 +9,7 @@
  * - 500 on POST when `retryPostServerError: true` (enter/exit dealership, etc.)
  */
 import { readJsonBodySafe } from '@/lib/apiResponseParse';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
+import { applyCsrfHeaderToHeaders } from '@/lib/csrfClient';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,
@@ -76,11 +76,8 @@ export async function fetchWithClientRetry(
       timeoutMs && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     try {
-      const csrf = readCsrfTokenFromDocument();
       const headers = new Headers(init.headers || undefined);
-      if (csrf && !headers.has(CSRF_HEADER)) {
-        headers.set(CSRF_HEADER, csrf);
-      }
+      applyCsrfHeaderToHeaders(headers);
       const res = await fetch(path, {
         ...init,
         headers,

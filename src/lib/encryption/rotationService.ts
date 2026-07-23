@@ -15,8 +15,20 @@ import {
   getPreviousKeyFingerprint,
   reencryptCiphertextWithCurrentKey,
 } from '@/lib/encryption';
+import {
+  REENCRYPT_TABLE_PLAN,
+  getReencryptCoverageSummary,
+  MFA_REENCRYPT_TABLES,
+} from '@/lib/encryption/reencryptPlan';
 import { logger } from '@/lib/logger';
 import { scheduleBackgroundWork } from '@/lib/aiJobs/schedule';
+
+export type { ReencryptTablePlanEntry } from '@/lib/encryption/reencryptPlan';
+export {
+  REENCRYPT_TABLE_PLAN,
+  getReencryptCoverageSummary,
+  MFA_REENCRYPT_TABLES,
+} from '@/lib/encryption/reencryptPlan';
 
 export type RotationStatus =
   | 'pending_env'
@@ -45,50 +57,6 @@ export interface EncryptionRotationDto {
   dualKeyActive: boolean;
   liveKeyStatus: ReturnType<typeof getEncryptionKeyStatus>;
 }
-
-/** Tables/columns walked during re-encrypt (PII ciphertext fields). */
-export const REENCRYPT_TABLE_PLAN: Array<{
-  table: string;
-  idField: string;
-  columns: string[];
-}> = [
-  {
-    table: 'repairOrder',
-    idField: 'id',
-    columns: [
-      'vinEncrypted',
-      'customerNameEncrypted',
-      'complaintsEncrypted',
-      'xentryOcrTextsEncrypted',
-      'serviceAdvisorNameEncrypted',
-      'roNumberEncrypted',
-    ],
-  },
-  {
-    table: 'repairLine',
-    idField: 'id',
-    columns: [
-      'descriptionEncrypted',
-      'customerConcernEncrypted',
-      'technicianNotesEncrypted',
-      'xentryOcrTextsEncrypted',
-      'extractedDataEncrypted',
-      'warrantyStoryEncrypted',
-      'storyQualityAuditEncrypted',
-      'storyCertifiedByNameEncrypted',
-    ],
-  },
-  {
-    table: 'serviceAdvisor',
-    idField: 'id',
-    columns: ['displayNameEncrypted'],
-  },
-  {
-    table: 'aiJob',
-    idField: 'id',
-    columns: ['resultEncrypted'],
-  },
-];
 
 const BATCH_SIZE = Math.max(10, Number(process.env.REENCRYPT_BATCH_SIZE ?? 40));
 
@@ -151,6 +119,8 @@ export async function getRotationStatusBundle(): Promise<{
   rotation: EncryptionRotationDto | null;
   canStartReencrypt: boolean;
   instructions: string[];
+  coverage: ReturnType<typeof getReencryptCoverageSummary>;
+  mfaStaleProbe: Awaited<ReturnType<typeof probeStaleMfaCiphertext>> | null;
 }> {
   const keys = getEncryptionKeyStatus();
   const rotation = await getActiveOrLatestRotation();
@@ -162,16 +132,101 @@ export async function getRotationStatusBundle(): Promise<{
       rotation.status === 'failed' ||
       rotation.status === 'completed');
 
+  const coverage = getReencryptCoverageSummary();
+
+  let mfaStaleProbe: Awaited<ReturnType<typeof probeStaleMfaCiphertext>> | null = null;
+  // Probe when dual-key is open or after a completed job (before PREVIOUS is removed).
+  if (keys.dualKeyActive || rotation?.status === 'completed' || rotation?.status === 'running') {
+    try {
+      mfaStaleProbe = await probeStaleMfaCiphertext(30);
+    } catch {
+      mfaStaleProbe = null;
+    }
+  }
+
   const instructions = [
     '1. Backup the database before any key change.',
     '2. Generate a new key on this page (shown once — copy to your secret store).',
     '3. Deploy Worker secrets: DATA_ENCRYPTION_KEY_PREVIOUS=<old>, DATA_ENCRYPTION_KEY=<new>.',
     '4. Paste the new key into “Enter newly rotated key” and Submit New Key to verify dual-key is live.',
-    '5. Start re-encryption (or it starts automatically after a successful submit).',
-    '6. When 100% complete, remove DATA_ENCRYPTION_KEY_PREVIOUS and redeploy.',
+    '5. Start re-encryption (walks ALL AES columns including MFA secrets — zero-downtime dual-key).',
+    '6. Confirm coverage includes MFA (UserMfa + Technician mirrors) and health shows no stale MFA ciphertext.',
+    '7. When 100% complete and MFA probe is clean, remove DATA_ENCRYPTION_KEY_PREVIOUS and redeploy.',
   ];
 
-  return { keys, rotation, canStartReencrypt, instructions };
+  return { keys, rotation, canStartReencrypt, instructions, coverage, mfaStaleProbe };
+}
+
+/**
+ * Sample MFA ciphertext for rows still decryptable only via PREVIOUS key.
+ * Safe: never returns secrets; counts only. Zero-downtime dual-key model preserved.
+ */
+export async function probeStaleMfaCiphertext(sampleLimit = 25): Promise<{
+  sampled: number;
+  stillOnPreviousKey: number;
+  decryptFailed: number;
+  tablesChecked: string[];
+}> {
+  const { requiresPreviousKeyToDecrypt } = await import('@/lib/encryption');
+  return withRlsBypass(async () => {
+    const db = getRlsDb();
+    let sampled = 0;
+    let stillOnPreviousKey = 0;
+    let decryptFailed = 0;
+    const tablesChecked: string[] = [];
+
+    try {
+      const rows = await db.userMfa.findMany({
+        take: sampleLimit,
+        orderBy: { id: 'asc' },
+        select: { secretEncrypted: true, backupCodesEncrypted: true },
+      });
+      tablesChecked.push('userMfa');
+      for (const row of rows) {
+        for (const val of [row.secretEncrypted, row.backupCodesEncrypted]) {
+          if (typeof val !== 'string' || !val.trim()) continue;
+          sampled += 1;
+          try {
+            if (requiresPreviousKeyToDecrypt(val)) stillOnPreviousKey += 1;
+          } catch {
+            decryptFailed += 1;
+          }
+        }
+      }
+    } catch {
+      // table may not exist in older envs
+    }
+
+    try {
+      const rows = await db.technician.findMany({
+        take: sampleLimit,
+        orderBy: { id: 'asc' },
+        where: {
+          OR: [
+            { mfaSecretEncrypted: { not: null } },
+            { mfaBackupCodesEncrypted: { not: null } },
+          ],
+        },
+        select: { mfaSecretEncrypted: true, mfaBackupCodesEncrypted: true },
+      });
+      tablesChecked.push('technician');
+      for (const row of rows) {
+        for (const val of [row.mfaSecretEncrypted, row.mfaBackupCodesEncrypted]) {
+          if (typeof val !== 'string' || !val.trim()) continue;
+          sampled += 1;
+          try {
+            if (requiresPreviousKeyToDecrypt(val)) stillOnPreviousKey += 1;
+          } catch {
+            decryptFailed += 1;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return { sampled, stillOnPreviousKey, decryptFailed, tablesChecked };
+  });
 }
 
 /**
@@ -490,27 +545,20 @@ export async function cancelEncryptionRotation(input: {
 
 async function estimateTotalRecords(): Promise<number> {
   return withRlsBypass(async () => {
-    const db = getRlsDb();
+    const db = getRlsDb() as unknown as Record<
+      string,
+      { count?: (args?: unknown) => Promise<number> }
+    >;
     let total = 0;
-    try {
-      total += await db.repairOrder.count();
-    } catch {
-      /* column may miss */
-    }
-    try {
-      total += await db.repairLine.count();
-    } catch {
-      /* */
-    }
-    try {
-      total += await db.serviceAdvisor.count();
-    } catch {
-      /* */
-    }
-    try {
-      total += await db.aiJob.count();
-    } catch {
-      /* */
+    for (const plan of REENCRYPT_TABLE_PLAN) {
+      try {
+        const model = db[plan.table];
+        if (model?.count) {
+          total += await model.count();
+        }
+      } catch {
+        /* model may be absent in partial migrations */
+      }
     }
     return total;
   });

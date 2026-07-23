@@ -319,6 +319,29 @@ export function ManagerJobsMonitor({
         </div>
       ) : null}
 
+      {health &&
+      (health.queueDepth >= 200 ||
+        health.errorRate24h >= 0.5 ||
+        (health.oldestQueuedAgeMs ?? 0) >= 45 * 60_000) ? (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 mb-4 text-xs text-red-900 dark:text-red-100 leading-relaxed">
+          <strong>AI queue CRITICAL</strong> — depth {health.queueDepth}, err rate{' '}
+          {(health.errorRate24h * 100).toFixed(0)}%, oldest{' '}
+          {health.oldestQueuedAgeMs != null
+            ? `${Math.round(health.oldestQueuedAgeMs / 60_000)}m`
+            : '—'}.
+          Check CF Queue consumer Worker / DLQ. Inline fallback may still run some bay work but
+          treat as production incident until cleared.
+        </div>
+      ) : health &&
+        (health.queueDepth >= 50 ||
+          health.errorRate24h >= 0.25 ||
+          (health.oldestQueuedAgeMs ?? 0) >= 15 * 60_000) ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 mb-4 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
+          <strong>AI queue elevated</strong> — monitor consumer; expect slower warranty stories if
+          backlog grows. Fallback may mask issues.
+        </div>
+      ) : null}
+
       {health ? (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="stat-card p-3">

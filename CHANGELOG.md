@@ -2,24 +2,28 @@
 
 All notable changes to Merlinus are documented here.
 
-## [4.1.0] — 2026-07-21
+## [4.1.0] — 2026-07-22 (national multi-rooftop readiness package)
 
-### Enterprise Fortress + Luxury Experience
+### Enterprise Fortress + Luxury Experience + Diligence Packet
 
-Production release on top of Modular OS 4.0: P0 hardening, durable Async AI, MFA fortress, bay tablet polish, multi-department Sophia + Personal Tailoring, Manager Control Center, zero-downtime encryption key rotation, and full validation sweep.
+Production release on top of Modular OS 4.0, finalized as the **v4.1.0 national readiness package**: P0 hardening closed, durable Async AI with **critical** queue health, MFA fortress, CSRF full mutating-route enforcement, bay/desktop polish, multi-department Sophia + Personal Tailoring, Manager Control Center, zero-downtime dual-key encryption with **full AES reencrypt including MFA**, documentation honesty (app-layer D1 tenancy), and buyer risk acceptance forms.
 
 | Area | Summary |
 |------|---------|
-| **Encryption rotation** | Dual-key `DATA_ENCRYPTION_KEY` + `DATA_ENCRYPTION_KEY_PREVIOUS`; Manager Settings UI; `EncryptionRotation` progress; background re-encrypt; health dual-key warn; [Reencryption-Runbook](docs/Reencryption-Runbook.md) |
-| **MFA fortress** | Native TOTP + backup codes; login second factor; forced enroll when `MERLIN_MFA_ENFORCE`; Settings + health policy |
-| **Async AI + SSE** | Durable AiJob + CF Queue / consumer bridge; job SSE events; Manager Job Monitor; bay progress UX |
-| **Voice multi-dept** | Sophia Service / Loaner / Parts / Sales + Personal Tailoring customizations |
-| **Manager Control Center** | `/manager/center` Overview / Jobs / Voice / Modules / Health + live SSE |
-| **Bay tablet** | Cold-start warmup, SWR RO list, pull-to-refresh, offline queues |
-| **Gates** | API default-deny (MFA login-verify bare allowlist); RLS registry complete; pre-rollout dual-key L4; `ready-to-deploy` code gate green |
-| **Docs** | [Production-Readiness-Checklist](docs/Production-Readiness-Checklist.md) SSoT; Security-Fortress MFA/rotation; Deployment + Admin runbooks |
+| **Encryption rotation (P0-1)** | Dual-key + `reencryptPlan.ts` full inventory (UserMfa + Technician MFA mirrors + all `*Encrypted`); MFA stale probe; health warn; [Reencryption-Runbook](docs/Reencryption-Runbook.md) |
+| **Docs honesty (P0-2)** | Security-Fortress / Multi-Tenant state **application-layer RLS on D1, not true DB RLS**; pre-rollout overclaim scan |
+| **AI queue (P0-4)** | Unbound/backlog/error/age/probe → **error** status; `/api/health` 503 when critical; Control Center `queueSignal` + operator guidance |
+| **CSRF (P1)** | Double-submit `merlin_csrf` + `X-Merlin-CSRF` on mutating APIs; middleware seed; bare auth routes enforce |
+| **RLS registry gate (P0-3)** | Hard `check:rls-registry` in CI + pre-deploy; PR template requires registration |
+| **MFA fortress** | TOTP + backup codes; **`MERLIN_MFA_ENFORCE=true` production recommendation** for national GO |
+| **Async AI + SSE** | Durable AiJob + CF Queue consumer; job SSE; Manager Job Monitor |
+| **Voice multi-dept** | Sophia Service / Loaner / Parts / Sales + Personal Tailoring |
+| **Manager Control Center** | Overview / Jobs / Voice / Modules / Health + live SSE + queue criticality |
+| **Companion residual** | Last-write-wins concurrent edits documented; dirty snapshot pause |
+| **Gates** | API default-deny; RLS registry; unit suite green; `ready-to-deploy` code gate |
+| **Diligence packet** | [Production-Readiness-Checklist](docs/Production-Readiness-Checklist.md) SSoT · [Buyer-Risk-Acceptance-Summary](docs/Buyer-Risk-Acceptance-Summary.md) · Security-Fortress · Multi-Tenant-Isolation · Master-Rollout |
 
-**Ops (not code):** set production secrets (KV, object storage, Grok); remove seed passwords from Worker; enroll managers then `MERLIN_MFA_ENFORCE=true`; apply D1 migrations; leave `DATA_ENCRYPTION_KEY_PREVIOUS` unset except during rotation. Recommend key rotation every **90 days**.
+**Ops (live Worker — not code):** secrets (KV, D1, R2, Grok, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`); remove seed passwords; bind AI queues + deploy consumer (`APP_BASE_URL`, `AI_QUEUE_CONSUMER_SECRET`); enroll managers then `MERLIN_MFA_ENFORCE=true`; apply D1 migrations; leave `DATA_ENCRYPTION_KEY_PREVIOUS` unset except during rotation; sign Production-Readiness + buyer risk acceptance. Recommend key rotation every **90 days**.
 
 ## [4.0.0] — 2026-07-17
 

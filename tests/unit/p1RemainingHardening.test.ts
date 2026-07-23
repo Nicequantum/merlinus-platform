@@ -103,11 +103,53 @@ describe('P1-6 CSRF double-submit', () => {
     assert.equal(validateCsrfRequest(good, { forceEnforce: true }), null);
   });
 
-  it('withAuth and clients wire CSRF', () => {
+  it('force-enforce rejects missing cookie, missing header, and token mismatch', () => {
+    const token = generateCsrfToken();
+    const other = generateCsrfToken();
+
+    const noCookie = new Request('https://example.com/api/x', {
+      method: 'PUT',
+      headers: { [CSRF_HEADER]: token },
+    });
+    assert.equal(validateCsrfRequest(noCookie, { forceEnforce: true }), CSRF_ERROR);
+
+    const noHeader = new Request('https://example.com/api/x', {
+      method: 'DELETE',
+      headers: { cookie: `${CSRF_COOKIE}=${token}` },
+    });
+    assert.equal(validateCsrfRequest(noHeader, { forceEnforce: true }), CSRF_ERROR);
+
+    const mismatch = new Request('https://example.com/api/x', {
+      method: 'PATCH',
+      headers: {
+        cookie: `${CSRF_COOKIE}=${token}`,
+        [CSRF_HEADER]: other,
+      },
+    });
+    assert.equal(validateCsrfRequest(mismatch, { forceEnforce: true }), CSRF_ERROR);
+
+    const getOk = new Request('https://example.com/api/x', { method: 'GET' });
+    assert.equal(validateCsrfRequest(getOk, { forceEnforce: true }), null);
+
+    const skipOk = new Request('https://example.com/api/x', {
+      method: 'POST',
+      headers: { cookie: `${CSRF_COOKIE}=${token}` },
+    });
+    assert.equal(validateCsrfRequest(skipOk, { forceEnforce: true, skipCsrf: true }), null);
+  });
+
+  it('withAuth, bare auth routes, middleware, and clients wire CSRF', () => {
     assert.match(readSrc('src/lib/apiRoute.ts'), /validateCsrfRequest/);
-    assert.match(readSrc('src/lib/api.ts'), /csrfClient/);
-    assert.match(readSrc('src/lib/clientFetchRetry.ts'), /csrfClient/);
-    assert.match(readSrc('src/app/api/auth/login/route.ts'), /applyCsrfCookieToResponse/);
+    assert.match(readSrc('src/lib/api.ts'), /csrfClient|withCsrfHeaders/);
+    assert.match(readSrc('src/lib/clientFetchRetry.ts'), /csrfClient|applyCsrfHeaderToHeaders/);
+    assert.match(readSrc('src/app/api/auth/login/route.ts'), /validateCsrfRequest/);
+    assert.match(readSrc('src/app/api/auth/login/route.ts'), /applyCsrfCookieFromRequest/);
+    assert.match(readSrc('src/app/api/auth/logout/route.ts'), /validateCsrfRequest/);
+    assert.match(readSrc('src/app/api/auth/refresh/route.ts'), /validateCsrfRequest/);
+    assert.match(readSrc('src/app/api/auth/mfa/login-verify/route.ts'), /validateCsrfRequest/);
+    assert.match(readSrc('src/app/api/auth/select-dealership/route.ts'), /validateCsrfRequest/);
+    assert.match(readSrc('src/middleware.ts'), /ensureCsrfCookie|CSRF_COOKIE/);
+    assert.match(readSrc('src/lib/csrf.ts'), /isCsrfEnforcementEnabled/);
   });
 });
 

@@ -10,6 +10,10 @@ import {
 } from '@/lib/queue/types';
 import { isAiJobsQueueConfigured } from '@/lib/queue/binding';
 import { luxuryPhaseFromProgress } from '@/lib/queue/jobEventsHub';
+import {
+  AI_QUEUE_HEALTH_THRESHOLDS,
+  evaluateAiJobsQueueHealth,
+} from '@/lib/healthChecks';
 
 const root = resolve(process.cwd());
 function readSrc(rel: string): string {
@@ -118,7 +122,16 @@ describe('Durable AI queue — schemas & producers', () => {
     assert.match(health, /checkAiJobsQueueHealth/);
     assert.match(health, /errorRate24h|oldestQueued/);
     assert.match(health, /getGlobalAiJobQueueHealth|getDealershipJobHealthStats/);
+    assert.match(health, /evaluateAiJobsQueueHealth/);
+    assert.match(health, /AI_QUEUE_HEALTH_THRESHOLDS/);
+    assert.match(health, /aiJobsQueue/);
     assert.match(readSrc('src/lib/queue/metrics.ts'), /recordQueueEnqueue/);
+    // P0-4 critical elevation
+    assert.match(health, /criticalDepth|producer_unbound_production/);
+    assert.match(
+      readSrc('src/lib/healthChecks.ts'),
+      /getCriticalHealthServices[\s\S]*aiJobsQueue/
+    );
   });
 
   it('luxury phase mapping covers bay stages', () => {
@@ -128,5 +141,98 @@ describe('Durable AI queue — schemas & producers', () => {
     assert.equal(luxuryPhaseFromProgress('succeeded', 100), 'complete');
     assert.equal(luxuryPhaseFromProgress('failed', 0), 'failed');
     assert.equal(luxuryPhaseFromProgress('cancelled', 0), 'cancelled');
+  });
+});
+
+describe('P0-4 AI queue health elevation', () => {
+  const base = {
+    queued: 0,
+    running: 0,
+    depth: 0,
+    errorRate24h: 0,
+    oldestAgeMs: 0,
+    isolateEnqueued: 0,
+    isolateCompleted: 0,
+    isolateFailed: 0,
+  };
+
+  it('ok when bound and quiet', () => {
+    const r = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: true,
+      production: true,
+    });
+    assert.equal(r.status, 'ok');
+    assert.match(r.operatorGuidance, /healthy/i);
+  });
+
+  it('error when producer unbound in production', () => {
+    const r = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: false,
+      production: true,
+    });
+    assert.equal(r.status, 'error');
+    assert.ok(r.reasons.includes('producer_unbound_production'));
+    assert.match(r.operatorGuidance, /CRITICAL|unbound/i);
+  });
+
+  it('warn (not error) when unbound in non-production', () => {
+    const r = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: false,
+      production: false,
+    });
+    assert.equal(r.status, 'warn');
+  });
+
+  it('warn then error on depth and age thresholds', () => {
+    const warn = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: true,
+      production: true,
+      depth: AI_QUEUE_HEALTH_THRESHOLDS.warnDepth,
+      queued: AI_QUEUE_HEALTH_THRESHOLDS.warnDepth,
+    });
+    assert.equal(warn.status, 'warn');
+
+    const crit = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: true,
+      production: true,
+      depth: AI_QUEUE_HEALTH_THRESHOLDS.criticalDepth,
+      queued: AI_QUEUE_HEALTH_THRESHOLDS.criticalDepth,
+      oldestAgeMs: AI_QUEUE_HEALTH_THRESHOLDS.criticalOldestAgeMs,
+    });
+    assert.equal(crit.status, 'error');
+  });
+
+  it('error on high failure rate and probe failure', () => {
+    const rate = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: true,
+      production: true,
+      errorRate24h: AI_QUEUE_HEALTH_THRESHOLDS.criticalErrorRate,
+    });
+    assert.equal(rate.status, 'error');
+
+    const probe = evaluateAiJobsQueueHealth({
+      ...base,
+      queueConfigured: true,
+      production: true,
+      probeFailed: true,
+      probeErrorMessage: 'D1 timeout',
+    });
+    assert.equal(probe.status, 'error');
+    assert.match(probe.operatorGuidance, /CRITICAL/i);
+  });
+
+  it('Control Center surfaces queueSignal and health API includes aiJobsQueue', () => {
+    assert.match(readSrc('src/lib/manager/centerSummary.ts'), /queueSignal/);
+    assert.match(readSrc('src/lib/manager/centerSummary.ts'), /operatorGuidance/);
+    assert.match(readSrc('src/components/manager/ManagerControlCenter.tsx'), /queueSignal/);
+    assert.match(readSrc('src/components/manager/ManagerControlCenter.tsx'), /AI queue health|AI jobs queue/i);
+    assert.match(readSrc('src/app/api/health/route.ts'), /aiJobsQueue/);
+    assert.match(readSrc('src/app/api/health/route.ts'), /operatorGuidance/);
   });
 });

@@ -24,7 +24,7 @@ import type {
   UsageAnalytics,
 } from '@/types';
 import { parseApiErrorResponse, readJsonBodySafe } from '@/lib/apiResponseParse';
-import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
+import { withCsrfHeaders } from '@/lib/csrfClient';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,
@@ -35,16 +35,6 @@ import {
   sleep,
 } from '@/lib/networkErrors';
 import { isRequestAborted } from '@/lib/requestAbort';
-
-/** Attach CSRF double-submit header when cookie is present (P1-6). */
-function withCsrfHeaders(headers?: HeadersInit): HeadersInit {
-  const csrf = readCsrfTokenFromDocument();
-  if (!csrf) return headers || {};
-  return {
-    ...headers,
-    [CSRF_HEADER]: csrf,
-  };
-}
 import {
   API_DEFAULT_CLIENT_MS,
   DIAGNOSTIC_EXTRACT_CLIENT_MS,
@@ -1045,6 +1035,19 @@ export const api = {
       } | null;
       canStartReencrypt: boolean;
       instructions: string[];
+      coverage?: {
+        tableCount: number;
+        columnCount: number;
+        includesMfa: boolean;
+        planVersion: string;
+        tables: Array<{ table: string; label: string; columns: string[] }>;
+      };
+      mfaStaleProbe?: {
+        sampled: number;
+        stillOnPreviousKey: number;
+        decryptFailed: number;
+        tablesChecked: string[];
+      } | null;
     }>('/api/manager/encryption/rotate', { cache: 'no-store' }),
 
   beginEncryptionRotation: () =>
@@ -1136,6 +1139,15 @@ export const api = {
         errorRate24h: number;
         queueDepth: number;
         oldestQueuedAgeMs: number | null;
+        oldestQueuedAt?: string | null;
+      };
+      queueSignal?: {
+        status: 'ok' | 'warn' | 'error';
+        detail?: string;
+        operatorGuidance: string;
+        oldestQueuedAgeMs: number | null;
+        oldestQueuedAgeMinutes: number | null;
+        queueConfigured: boolean;
       };
       queueMetrics: {
         enqueued: number;

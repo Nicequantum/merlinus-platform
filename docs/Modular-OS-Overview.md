@@ -1,10 +1,10 @@
 # Merlinus Modular Dealership OS — Feature Complete Summary
 
 **Document type:** Executive + operations handover  
-**Status:** Feature-complete for shippable modules (CDK live sync deferred)  
-**Code baseline:** `main` @ modular expansion through PR-M8 + production hardening  
-**Last updated:** 2026-07-17  
-**Related:** [Product-Modules.md](./Product-Modules.md) · [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) · [Go-Live-Deployment-Checklist.md](./Go-Live-Deployment-Checklist.md) · [Go-Live-Checklist.md](./Go-Live-Checklist.md) · [Support-Playbook.md](./Support-Playbook.md)
+**Status:** Feature-complete for shippable modules (CDK live sync deferred) · **v4.1.0 national readiness package**  
+**Code baseline:** `main` @ v4.1.0 (modular expansion + fortress + Async AI + diligence packet)  
+**Last updated:** 2026-07-22  
+**Related:** [Product-Modules.md](./Product-Modules.md) · [**Production-Readiness-Checklist.md**](./Production-Readiness-Checklist.md) · [Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md) · [Go-Live-Deployment-Checklist.md](./Go-Live-Deployment-Checklist.md) · [Support-Playbook.md](./Support-Playbook.md)
 
 ---
 
@@ -70,9 +70,11 @@ Merlinus has grown from a warranty narrative platform into a **modular dealershi
 ├─────────────────────────────────────────────────────────────────┤
 │  ALWAYS ON: RepairOrder / RepairLine / story AI / audit chain   │
 ├─────────────────────────────────────────────────────────────────┤
-│  Postgres + RLS · Blob · KV · Grok · (optional Twilio)          │
+│  D1 app-layer tenancy · R2/Blob · KV · Queues · Grok · Twilio   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Tenancy (v4.1 honesty):** **Application-layer RLS on Cloudflare D1** (registry + Prisma extension). **Not** Postgres/database-enforced RLS. Sign-off: [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) · residual risk: [Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md).
 
 **Rule:** Module gates wrap **optional** surfaces only. Story generate/score/review/certify paths must not depend on product modules.
 

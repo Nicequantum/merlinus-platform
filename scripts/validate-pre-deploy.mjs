@@ -186,8 +186,7 @@ function checkForbiddenPublicGrokKeys() {
  * unless ALLOW_OWNER_SEED_BOOTSTRAP is explicitly set for a one-shot window.
  */
 /**
- * P0-5 — static guard that rlsPrismaExtension uses the registry module
- * (full schema comparison is `npm run check:rls-registry`).
+ * P0-3 / P0-5 — static wiring + hard schema vs registry gate (same as CI).
  */
 function checkRlsRegistryWiring() {
   const registryPath = resolve(ROOT, 'src/lib/apex/rlsTenantRegistry.ts');
@@ -214,6 +213,26 @@ function checkRlsRegistryWiring() {
     return;
   }
   pass('RLS tenant registry wired (single source of truth + validation module present)');
+
+  // Hard gate: full schema comparison (fail deploy on drift)
+  try {
+    execSync('npm run check:rls-registry', {
+      cwd: ROOT,
+      stdio: 'pipe',
+      encoding: 'utf8',
+      env: process.env,
+    });
+    pass('check:rls-registry hard gate (all tenant models registered)');
+  } catch (error) {
+    const out =
+      error && typeof error === 'object' && 'stdout' in error
+        ? String(/** @type {{ stdout?: string; stderr?: string }} */ (error).stdout || '') +
+          String(/** @type {{ stderr?: string }} */ (error).stderr || '')
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    fail(`check:rls-registry failed — fix rlsTenantRegistry.ts before deploy:\n${out.slice(0, 800)}`);
+  }
 }
 
 function checkOwnerSeedSecrets() {

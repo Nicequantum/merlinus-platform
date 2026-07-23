@@ -350,29 +350,39 @@ These are **well-implemented** relative to typical pilot SaaS:
 
 ## 8. Prioritized residual risks before external audit
 
-### P0 — Before external audit (blockers for L2 “pass with findings”)
+### Closed in product (v4.1 diligence track — verify on each release)
 
-1. **Publish accurate tenancy model** — Replace “Postgres RLS” language with “application-enforced multi-tenant filters on D1”; attach F-01 risk acceptance or remediation plan.
-2. **Tenant isolation test matrix** — Automated IDOR suite for every object type (RO, user, advisor, ticket, loaner, video, department request, audit log).
-3. **MFA plan or explicit L2 risk acceptance** signed by security owner for privileged roles (F-02).
-4. **Cookie Secure flag** aligned to real production detection, not only `NODE_ENV` (F-03).
-5. **Confirm KV_STORE bound** and auth fail-closed on production Workers (already coded; verify live).
+| Item | Status |
+|------|--------|
+| **Accurate tenancy model + risk acceptance** | **Closed in docs** — Security-Fortress, Multi-Tenant-Isolation, Production-Readiness, pre-rollout overclaim scan. Mode: **application-layer RLS on D1, not true DB RLS**. |
+| **MFA TOTP** | **Implemented** — enroll/verify + `MERLIN_MFA_ENFORCE`; ops must enable enforce. |
+| **Dual-key encryption + full reencrypt inventory** | **Implemented** — `reencryptPlan.ts` covers all `*Encrypted` columns including MFA; health MFA stale probe. |
+
+### P0 — Before external audit (remaining blockers for L2 “pass with findings”)
+
+1. **Tenant isolation test matrix** — Automated IDOR suite for every object type (RO, user, advisor, ticket, loaner, video, department request, audit log).  
+2. **Cookie Secure flag** aligned to real production detection, not only `NODE_ENV` (F-03).  
+3. **Confirm KV_STORE bound** and auth fail-closed on production Workers (already coded; verify live).  
+4. **Signed risk acceptance** for app-layer tenancy (template in Multi-Tenant-Isolation.md) — process, not code.
 
 ### P1 — First 30 days post-audit kickoff
 
-6. Atomic / platform rate limiting for auth (F-04).  
-7. Password policy unification min 12 + complexity (F-05).  
-8. Upload magic-byte validation (F-08).  
-9. Timing-safe SETUP_SECRET (F-09).  
-10. CSP nonce migration roadmap (F-06).
+5. Atomic / platform rate limiting for auth (F-04).  
+6. Password policy unification min 12 + complexity (F-05).  
+7. Upload magic-byte validation (F-08).  
+8. Timing-safe SETUP_SECRET (F-09).  
+9. CSP nonce migration roadmap (F-06).
 
 ### P2 — Enterprise / L3 track
 
-11. Encryption key rotation dual-key (F-07).  
-12. MFA WebAuthn/TOTP.  
-13. `__Host-` cookies + refresh rotation unification.  
+10. Per-tenant / KMS envelope encryption (platform DEK residual).  
+11. WebAuthn / step-up MFA.  
+12. `__Host-` cookies + refresh rotation unification.  
+13. Optional Postgres + true DB RLS if contractually required.  
 14. D1 backup/DR + reduced observability sampling.  
 15. Continuous SCA gate in CI.
+
+**Buyer diligence packet:** Multi-Tenant-Isolation (risk acceptance) + Security-Fortress (honest architecture) + Reencryption-Runbook + Production-Readiness-Checklist + this ASVS report.
 
 ---
 

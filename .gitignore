@@ -41,3 +41,7 @@ tsconfig.tsbuildinfo
 .wrangler
 .open-next
 
+
+# Accidental nested local sqlite
+prisma/prisma/
+

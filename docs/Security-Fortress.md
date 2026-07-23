@@ -1,23 +1,41 @@
 # Security Fortress (Phase 6.0) + Hardening Sprint (6.1–6.5) + Enterprise Cleanup (7.1–7.3)
 
-**Status:** **Complete and production-ready** — Security Fortress (Phase 6.0) + Security Hardening Sprint (Phases 6.1–6.5) + **Enterprise Readiness Cleanup (Phases 7.1–7.3)**  
-**Code baseline:** Phases 6.1–6.5 + **7.1–7.3** shipped; pre-rollout **APEX 6.1–6.5** gates green. Deploy with production KV + RLS + Phase 7.3 timezone/index migrations applied.  
+**Status:** Production controls shipped — Security Fortress + Hardening 6.1–6.5 + Enterprise Cleanup 7.1–7.3 + **v4.1.0 national readiness package** (MFA, dual-key full AES reencrypt incl. MFA, CSRF, AI queue criticality, docs honesty)  
+**Code baseline:** v4.1.0 · Updated 2026-07-22  
 **Audience:** Platform security, compliance, enterprise buyers, and operators  
-**Default product mode:** Merlinus single-dealer remains the safe default; Apex enables multi-rooftop fortress controls.
+**Default product mode:** Merlinus single-dealer remains the safe default; Apex enables multi-rooftop fortress controls.  
+**Sign-off SSoT:** [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) · [Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md)
+
+---
+
+## Buyer / legal honesty (read first)
+
+**Application-layer RLS on D1 with registry + Prisma extension. Not true DB RLS.**
+
+| Claim | Reality (production) |
+|-------|----------------------|
+| “Postgres RLS / FORCE RLS / session GUCs” | **Not** the production tenancy model. Historical Prisma SQL migrations may still exist in git for a **non-D1** path; Cloudflare **D1/SQLite has no ROW LEVEL SECURITY**. |
+| Multi-tenant isolation | **Application-enforced**: `withAuth` + ALS `withSessionRls` + Prisma query rewrite (`rlsPrismaExtension.ts`) + model registry (`rlsTenantRegistry.ts`) + CI (`check:rls-registry`). |
+| Isolation mode id | `application_layer_d1` (see `docs/Multi-Tenant-Isolation.md`, `src/lib/tenantIsolation.ts`) |
+
+**Risk acceptance (legal/compliance):** Enterprise multi-tenant production on D1 means a **hostile holder of D1 credentials** (or a bug that uses `withRlsBypass` / bare Prisma outside tenant context) can access cross-rooftop data. Buyers must accept this residual risk **or** require a future Postgres+DB-RLS migration as a contractual control. Do not market this platform as “database-enforced RLS.”
+
+See **[Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md)** for the full risk-acceptance language and operator checklist.
 
 ---
 
 ## Goals
 
-1. **Defense-in-depth tenancy** — Postgres RLS on PII tables, set per transaction via `app.*` session vars  
+1. **Defense-in-depth tenancy** — Application-layer tenant predicates on every registered PII model (D1), not Postgres RLS  
 2. **Fail-closed compliance audits** — sensitive reads/writes must produce durable `AuditLog` rows  
 3. **Owner least-privilege** — national owners cannot see dealership PII until enter-dealership  
 4. **Session kill-switch** — credential change / logout / admin actions revoke JWT + apex refresh + Clerk  
 5. **Enterprise credential hygiene** — no hard-coded owner secrets; create-only seed; explicit platform operators  
+6. **MFA + dual-key encryption** — TOTP for elevated roles; AES-256-GCM with dual-key rotation and **full** reencrypt inventory (including MFA secrets)
 
 ---
 
-## Architecture
+## Architecture (production — D1)
 
 ```
 ┌──────────────────┐     withAuth      ┌─────────────────────┐
@@ -28,17 +46,16 @@
          │ withSessionRls (default)               │
          ▼                                        ▼
 ┌──────────────────┐                   ┌─────────────────────┐
-│ set_config LOCAL │                   │ writeAuditedAccess  │
-│ app.rls_enforced │                   │ (fail-closed)       │
-│ app.rls_soft_open│                   └─────────────────────┘
-│ app.scope_mode   │
-│ app.active_…_id  │
+│ AsyncLocalStorage│                   │ writeAuditedAccess  │
+│ RlsContext       │                   │ (fail-closed)       │
+│ + dealership id  │                   └─────────────────────┘
 └────────┬─────────┘
          │ getRlsDb() / rlsTransaction() / withRlsBypass()
          ▼
 ┌──────────────────┐
-│ Postgres FORCE   │
-│ RLS policies     │
+│ Prisma extension │  createRlsEnforcedClient
+│ rewrites WHERE   │  registry: rlsTenantRegistry.ts
+│ on tenant models │  D1 / SQLite — no DB RLS
 └──────────────────┘
 ```
 
@@ -46,16 +63,18 @@
 
 | Module | Role |
 |--------|------|
-| [`src/lib/apex/rlsContext.ts`](../src/lib/apex/rlsContext.ts) | `withSessionRls`, `getRlsDb`, `rlsTransaction`, `withRlsBypass`, `setRlsContext` |
+| [`src/lib/apex/rlsContext.ts`](../src/lib/apex/rlsContext.ts) | `withSessionRls`, `getRlsDb`, `rlsTransaction`, `withRlsBypass` (ALS; `setRlsContext` is a no-op on D1) |
+| [`src/lib/apex/rlsPrismaExtension.ts`](../src/lib/apex/rlsPrismaExtension.ts) | Query rewrite: inject dealership / parent relation predicates |
+| [`src/lib/apex/rlsTenantRegistry.ts`](../src/lib/apex/rlsTenantRegistry.ts) | Single source of truth for tenant models |
 | [`src/lib/auditedAccess.ts`](../src/lib/auditedAccess.ts) | Fail-closed `writeAuditedAccess` |
 | [`src/lib/auditMetadataSanitize.ts`](../src/lib/auditMetadataSanitize.ts) | Allowlist-only metadata; `hashRoNumberForAudit` |
 | [`src/lib/apex/tenantScope.ts`](../src/lib/apex/tenantScope.ts) | Dealership / national owner guards |
-| [`src/lib/apex/platformOperator.ts`](../src/lib/apex/platformOperator.ts) | Explicit platform operator allowlist (no “empty membership = superuser”) |
+| [`src/lib/apex/platformOperator.ts`](../src/lib/apex/platformOperator.ts) | Explicit platform operator allowlist |
 | [`src/lib/sessionRevocation.ts`](../src/lib/sessionRevocation.ts) | `revokeAllSessionsForTechnician`, scope-switch refresh drop |
-| [`src/lib/grokProxyAuth.ts`](../src/lib/grokProxyAuth.ts) | Short-lived HMAC proxy tokens + timing-safe verify |
+| [`src/lib/encryption.ts`](../src/lib/encryption.ts) + [`reencryptPlan.ts`](../src/lib/encryption/reencryptPlan.ts) | AES-GCM dual-key + **full** reencrypt table plan (incl. MFA) |
+| [`src/lib/mfa/service.ts`](../src/lib/mfa/service.ts) | TOTP enrollment / verify |
 | [`src/lib/rate-limit.ts`](../src/lib/rate-limit.ts) | Distributed KV limits; Apex production fail-closed without KV |
-| [`prisma/migrations/20250712120000_apex_phase6_1_rls_foundation/`](../prisma/migrations/20250712120000_apex_phase6_1_rls_foundation/) | ENABLE + FORCE RLS policies |
-| [`prisma/migrations/20250715120000_apex_phase6_2_rls_default_deny/`](../prisma/migrations/20250715120000_apex_phase6_2_rls_default_deny/) | Default-deny soft-open + Technician / UsageLog RLS |
+| [`src/lib/csrf.ts`](../src/lib/csrf.ts) + [`csrfClient.ts`](../src/lib/csrfClient.ts) | Double-submit CSRF (`merlin_csrf` + `X-Merlin-CSRF`) on mutating routes; middleware seeds cookie |
 
 ### Soft-open vs enforced (Phase 6.2+)
 
@@ -64,9 +83,12 @@
 | **Apex** | Never (default-deny without tenant match / bypass) | On by default; `RLS_ENABLED=false` ignored |
 | **Merlinus** | Soft-open when not forced | `RLS_ENABLED=true` forces enforce |
 
-- Soft-open requires explicit `app.rls_soft_open=on` (not merely “enforced off”).  
 - Control-plane (login, seed, national aggregates) uses `withRlsBypass`.  
 - PII routes set `enforced: true` inside `withSessionRls` / `rlsTransaction`.
+
+### Historical note (non-production)
+
+Older migrations under `prisma/migrations/*rls*` may reference Postgres `ENABLE/FORCE ROW LEVEL SECURITY` and `app.*` GUCs. Those are **not** active controls on the Cloudflare D1 path. Do not cite them as live production isolation.
 
 ---
 
@@ -74,30 +96,74 @@
 
 | Phase | Theme | Highlights |
 |-------|--------|------------|
-| **6.1** | Owner credentials & session | No hard-coded owner passwords/emails; create-only seed; no login password heal; admin reset sets `mustChangePassword`; re-validate `ownerMayEnterDealership` on refresh; explicit platform operator allowlist |
-| **6.2** | RLS default-deny + Grok proxy | Apex enforce-by-default; Technician/UsageLog/DealerGroupMembership RLS; short-lived Grok proxy HMAC tokens; timing-safe compare |
-| **6.3** | Manager parity + audit + limits | Manager/admin auto dealership context + `getRlsDb`; allowlist-only audit metadata + RO hash; fail-closed `ro.list`; companion rate limits; production auth KV warnings |
-| **6.4** | Finalize | Production KV guidance + boot warnings; MFA/SSO & pen-test roadmap; changelog + pre-rollout complete gates |
-| **6.5** | Remaining items | Apex production **fail-closed** without KV; MFA/SSO **implementation guidance**; final pre-rollout gates (no hard-coded credentials, RLS default-deny) |
+| **6.1** | Owner credentials & session | No hard-coded owner passwords/emails; create-only seed; admin reset sets `mustChangePassword`; explicit platform operator allowlist |
+| **6.2** | App-layer default-deny + Grok proxy | Apex enforce-by-default; Technician/UsageLog scoped; short-lived Grok proxy HMAC tokens |
+| **6.3** | Manager parity + audit + limits | Manager/admin dealership context + `getRlsDb`; allowlist audit metadata; companion rate limits |
+| **6.4** | Finalize | Production KV guidance; MFA/SSO roadmap; changelog + pre-rollout gates |
+| **6.5** | Remaining items | Apex production **fail-closed** without KV; MFA delivery path; no hard-coded credentials |
 
-**Sprint status: complete and production-ready** (Phases 6.1–6.5).  
-Engineering delivery is finished. Ops go-live still requires production KV, Supabase RLS migrations, and [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) sign-off. Follow-on product work (not blocking code readiness): MFA/SSO delivery, independent pen test.
+**Sprint status: complete.** Ops go-live still requires production KV, D1 migrations applied, and [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) sign-off. Follow-on: independent pen test.
 
 ---
 
 ## Enterprise Readiness Cleanup (Phases 7.1–7.3) — **complete**
 
-Post-hardening maintainability and multi-tenant scale pass. **Status: complete.**
-
 | Phase | Theme | Highlights |
 |-------|--------|------------|
-| **7.1** | Consistency & scale | Migrate bare Prisma → `getRlsDb` / `withRlsBypass`; advisor metrics **90d** window; owner summary SQL day buckets; batched image access; national session only for platform operators; production weak-secret hard-fail; Zod JWT claim validation |
-| **7.2** | Observability & test proof | Central log/Sentry redaction; Sentry only for **5xx**; rate-limit success → debug; request correlation IDs; Grok/Blob `reportMappedRouteError`; behavioral tests for 429, RLS contracts, session revoke, Clerk webhook |
-| **7.3** | Future-proofing | Per-dealership IANA **timezone**; `withStoryAiRoute` + consistent `blockServiceAdvisorAi`; multi-group portfolio switcher; hot-path composite indexes |
+| **7.1** | Consistency & scale | Prefer `getRlsDb` / `withRlsBypass`; production weak-secret hard-fail; Zod JWT claims |
+| **7.2** | Observability & test proof | Log/Sentry redaction; request correlation IDs; behavioral tests |
+| **7.3** | Future-proofing | Per-dealership IANA timezone; story AI route helpers; hot-path indexes |
 
-**Modules added/extended:** [`logRedact.ts`](../src/lib/logRedact.ts), [`requestContext.ts`](../src/lib/requestContext.ts), [`storyAiRoute.ts`](../src/lib/storyAiRoute.ts), [`dealershipDayBoundary.ts`](../src/lib/dealershipDayBoundary.ts), owner `dealer-groups` / `select-dealer-group` APIs, migration `20250716120000_apex_phase7_3_timezone_indexes`.
+**Cleanup status: complete.** Optional later: coverage gates, browser E2E, Postgres+DB-RLS **only if** contractually required (large migration — see Multi-Tenant-Isolation).
 
-**Cleanup status: complete.** Optional later: live Postgres RLS CI suite, coverage gates, browser E2E, MFA/SSO product delivery.
+---
+
+## Encryption rotation (v4.1 P0-1)
+
+- Dual-key online window: `DATA_ENCRYPTION_KEY` + `DATA_ENCRYPTION_KEY_PREVIOUS`.  
+- Reencrypt plan covers **all** AES `*Encrypted` columns including **UserMfa** and **Technician MFA mirrors**.  
+- Health warns if MFA ciphertext remains on previous key after rotation.  
+- Do **not** remove PREVIOUS until reencrypt complete **and** MFA probe is clean.  
+- Runbook: [Reencryption-Runbook.md](./Reencryption-Runbook.md).
+
+---
+
+## MFA / SSO — Phase 6.5 implementation guidance
+
+| Capability | Status |
+|------------|--------|
+| **Native TOTP MFA** | Shipped — `src/lib/mfa/service.ts`, UserMfa + Technician mirrors, in-app QR/enroll, backup codes |
+| **Enforce elevated roles** | **Production recommendation: `MERLIN_MFA_ENFORCE=true`** after managers enroll (required for national multi-rooftop). Without it, `mfaPolicy` health is **warn** in production. |
+| **Session impact** | Enrollment revoke sessions via `revokeAllSessionsForTechnician` |
+| **Clerk** | Optional identity provider path for linked accounts (`authProvider` / `clerkUserId`); fortress session still uses app JWT + refresh |
+| **SSO / WebAuthn** | Roadmap — compensating controls: TOTP MFA, strong password policy, fail-closed KV rate limits, sessionVersion kill-switch |
+| **Apex without KV** | **Fail closed** on auth rate limits (Phase 6.5) — do not run multi-isolate production without `KV_STORE` |
+
+Operators: enroll managers → enable `MERLIN_MFA_ENFORCE` → include MFA columns in every key rotation (full reencrypt plan).
+
+---
+
+## AI jobs queue — operational criticality (P0-4)
+
+Durable Async AI (CF Queues + `AiJob` + consumer Worker) is a **first-class production dependency**.
+
+| Condition | Health status | Notes |
+|-----------|---------------|--------|
+| Producer unbound in production | **error** (critical) | Inline fallback only — not “green” |
+| Depth ≥ 200 or oldest queued ≥ 45m | **error** | Consumer stall / backlog |
+| 24h error rate ≥ 50% | **error** | Grok/consumer failures |
+| D1 queue probe failed | **error** | Cannot observe jobs |
+| Depth ≥ 50, err ≥ 25%, oldest ≥ 15m | **warn** | Elevated |
+| Healthy | **ok** | — |
+
+- Manager `/api/health` includes `services.aiJobsQueue` and top-level `aiJobsQueue.operatorGuidance`.  
+- In production, **critical** queue status contributes to HTTP **503** (`getCriticalHealthServices` includes `aiJobsQueue`).  
+- Manager Control Center exposes `queueSignal` (status, oldest age minutes, operator guidance) on Overview + AI Jobs banners.  
+- **Residual:** some bay paths may still complete via inline fallback — operators must not treat fallback as healthy national-rollout posture.
+
+### Companion concurrent edits (residual)
+
+Desktop Command Center + bay tablet sync is **last-write-wins** on the same repair line (no OT/CRDT). Local dirty state on the bay **blocks** full remote snapshot clobber. Train managers/techs not to dual-edit the same line simultaneously.
 
 ---
 
@@ -108,195 +174,21 @@ Post-hardening maintainability and multi-tenant scale pass. **Status: complete.*
 | **National / group home** | `/api/owner/*`, enter-dealership (scoped rooftops) | RO/PII routes (`DEALERSHIP_CONTEXT_REQUIRED`) |
 | **Dealership** | PII routes for active rooftop | National summary / dealership list / re-enter without exit |
 
-- Platform-wide rooftop access requires **explicit** platform operator emails (`APEX_PLATFORM_OWNER_EMAILS` and/or `OWNER_SEED_EMAIL*`).  
+- Platform-wide rooftop access requires **explicit** platform operator emails.  
 - Group owners only see rooftops under their `DealerGroupMembership`.  
-- Sentinel `__apex_national__` is never an enterable rooftop.  
-- Enter / exit / multi-rooftop select revoke prior apex refresh families before re-issue.  
-- Enter rights are re-checked on every owner dealership session rebuild (stale membership cut-off).
+- Enter / exit revoke prior apex refresh families before re-issue.
 
 ---
 
 ## Mandatory audit surfaces (non-exhaustive)
 
-| Area | Actions (examples) |
-|------|--------------------|
-| Auth | `auth.login`, `auth.logout`, `auth.refresh`, `auth.select_dealership`, `auth.password_change`, `auth.clerk_link` |
-| Owner | `owner.national_access`, `owner.dealership_enter`, `owner.dealership_exit` |
-| Control plane | `dealer.provision` (PII-free metadata only) |
-| RO / story | `ro.create`, `ro.read`, `ro.list`, `ro.update`, `ro.delete`, `ro.extract`, `story.*` |
-| Compliance | `audit.access`, `image.upload`, `story.pdf_export` |
-| Admin | `user.*`, `advisor.*`, `template.save` / `template.use` |
-
-**Metadata policy:** allowlist-only; plaintext RO numbers hashed to `roNumberHash`; no free-text pass-through.
+Sensitive PII routes should call `writeAuditedAccess` (fail-closed where configured). Owner national aggregates and provision paths must stay on intentional bypass with audit.
 
 ---
 
-## Production rate limiting (Vercel KV)
+## ASVS alignment notes
 
-| Setting | Requirement |
-|---------|-------------|
-| `KV_REST_API_URL` | **Required in production** — Upstash/Vercel KV REST URL |
-| `KV_REST_API_TOKEN` | **Required in production** — REST token |
-
-**Setup**
-
-1. Vercel → Project → **Storage** → Create **KV** (Upstash) → Connect to project  
-2. Confirm Production env has both variables  
-3. Redeploy  
-
-**Behavior by mode (Phase 6.5)**
-
-| Environment | Missing / unhealthy KV |
-|-------------|------------------------|
-| **Apex + production** | **Fail closed** — `checkRateLimit` returns **503**; startup logs `rate_limit.apex_kv_required`; env validation treats KV as **required** (build/start fail when `throwOnError`) |
-| **Merlinus + production** | Loud **`rate_limit.auth_kv_required`** / **`auth_kv_unavailable_fallback`**; in-memory fallback for availability |
-| **Local / preview / CI** | In-memory fallback OK |
-
-Startup also logs `rate_limit.kv_ready` when configured.
-
----
-
-## Dealer provision (control plane)
-
-| Control | Behavior |
-|---------|----------|
-| Engine | `provisionDealer()` in RLS-bypass transaction (`withRlsBypass`) |
-| CLI | `npm run provision-dealer` — passwords never on argv |
-| HTTP | `POST /api/owner/provision-dealer` only when `APEX_ALLOW_HTTP_PROVISION=true`; owner **national** scope |
-| Audit | `dealer.provision` fail-closed; metadata allow-list (hashes/ids — no email, D7, rooftop name, password) |
-| First login | `Technician.mustChangePassword` → API `PASSWORD_CHANGE_REQUIRED` until change-password |
-| Session | Password change revokes JWT version + apex refresh + Clerk |
-
-Full operator runbook: [Apex-Dealer-Onboarding.md](./Apex-Dealer-Onboarding.md).
-
----
-
-## Session revocation matrix
-
-| Event | sessionVersion | Apex refresh | Clerk |
-|-------|----------------|--------------|-------|
-| Logout | yes | yes | active + linked |
-| Password change (self) | yes | yes | linked |
-| Forced password change (provision) | yes | yes | linked |
-| Admin password reset | yes | yes | linked (+ `mustChangePassword`) |
-| User deactivate / delete | yes | yes | linked |
-| Owner enter / exit | — | yes (scope switch) | — |
-| Multi-rooftop select | — | yes (scope switch) | — |
-
----
-
-## Encryption key rotation (AES-256-GCM dual-key)
-
-| Item | Detail |
-|------|--------|
-| **Primary** | `DATA_ENCRYPTION_KEY` (min 32 chars) — all new encrypts |
-| **Previous** | `DATA_ENCRYPTION_KEY_PREVIOUS` — decrypt fallback during rotation |
-| **Decrypt order** | current key → previous key → legacy salt variants |
-| **Manager UI** | Settings → **Encryption key rotation** |
-| **API** | `GET/POST /api/manager/encryption/rotate` (`begin`, `start-reencrypt`, `cancel`) |
-| **Background** | `scheduleBackgroundWork` walk of PII tables via `reencryptCiphertextWithCurrentKey` |
-| **Progress** | D1 `EncryptionRotation` (percent, table cursor, updated/failed counts) |
-| **Health** | `encryption` service warns when dual-key active or rotation running |
-| **Cadence** | Recommend every **90 days** or after suspected key exposure |
-
-### Ops procedure (zero-downtime)
-
-1. Backup D1/database.  
-2. Manager **Begin rotation** → copy one-time `newKey`.  
-3. Secrets: `DATA_ENCRYPTION_KEY_PREVIOUS=<old>`, `DATA_ENCRYPTION_KEY=<newKey>` → deploy.  
-4. Manager **Start re-encryption** → watch progress to 100%.  
-5. Validate app (RO list, stories, search).  
-6. Delete `DATA_ENCRYPTION_KEY_PREVIOUS` → deploy.  
-7. Second reencrypt optional (`npm run db:reencrypt`) should show near-zero updates.
-
-Full checklist: [Reencryption-Runbook.md](./Reencryption-Runbook.md).
-
----
-
-## MFA / SSO
-
-### MFA/SSO implementation guidance (Phase 6.5+)
-
-**Shipped:** Native TOTP MFA for elevated roles. **Roadmap:** enterprise SSO (SAML/OIDC via Clerk) and optional WebAuthn/passkeys after SSO baseline.
-
-| Control | Production posture |
-|---------|-------------------|
-| **Fail-closed MFA** | When `MERLIN_MFA_ENFORCE=true`, PII routes return 403 until enrollment; login requires second factor if enrolled |
-| **KV** | Apex production fails closed (503) without distributed KV rate limits |
-| **SSO broker** | Clerk Enterprise Connections preferred for dealer-group IdP cutover |
-
-### Native TOTP MFA (shipped)
-
-| Item | Detail |
-|------|--------|
-| **Library** | Pure RFC 6238 TOTP (`src/lib/mfa/totp.ts`) — Cloudflare Workers safe (no native addons). QR via `qrcode`. |
-| **Storage** | `UserMfa` table (secret + hashed backup codes, encrypted at rest) + denormalized `Technician.mfaEnabled` |
-| **Roles** | Default required when enforced: `manager`, `owner`, `admin` (`MERLIN_MFA_REQUIRED_ROLES`) |
-| **Pilot** | Password → if enrolled: `requiresMfa` + short-lived `mfaToken` → `POST /api/auth/mfa/login-verify` → session (or dealership select) |
-| **Enrollment** | In-app: client generates TOTP secret + QR (`totpClient`); `POST /api/auth/mfa/verify` with `{ code, secret }` stores encrypted secret + backup codes; revokes sessions |
-| **Recovery** | One-time backup codes; regenerate via `POST /api/auth/mfa/backup-codes` (manager/owner + current TOTP) |
-| **Enforcement** | `MERLIN_MFA_ENFORCE=true` → `mfaRequired` blocks PII routes until enrolled (`withAuth` + ForcedMfaEnrollScreen) |
-| **Bay techs** | MFA **not** required — keep login fast unless user opts in via Settings |
-| **Audit** | `auth.mfa_enroll_start`, `auth.mfa_enroll_complete`, `auth.mfa_challenge`, `auth.mfa_success`, `auth.mfa_failure`, `auth.mfa_backup_used` |
-| **Tokens** | Apex access default **15 min** (`ACCESS_TOKEN_TTL_SECONDS`); refresh rotation + `sessionVersion` kill-switch on password/MFA enable |
-
-**Zero-downtime rollout:** ship with enforce off → managers enroll in Settings → set `MERLIN_MFA_ENFORCE=true` in production.
-
-### SSO (SAML / OIDC) — remaining roadmap
-
-Compensating controls until SSO: create-only owner seed, no hard-coded secrets, session revocation, distributed rate limits, fail-closed audits, platform operator allowlist. **WebAuthn/passkeys** are a post-SSO option for phishing-resistant second factor; TOTP remains the production MFA path today.
-
-### SSO (SAML / OIDC) for dealer groups
-
-| Step | Guidance |
-|------|----------|
-| 1. IdP | Okta / Azure AD / Google Workspace enterprise app |
-| 2. Broker | **Clerk** Enterprise Connections (SAML/OIDC) or native OIDC if Clerk not used |
-| 3. Mapping | IdP groups → Apex `DealerGroupMembership` + rooftop roles (`manager` / `technician` / `service_advisor`) |
-| 4. Linking | Existing `authProvider` / `clerkUserId` on `Technician`; keep D7 login for bay techs who lack IdP seats |
-| 5. Provision | SCIM optional Phase 7+; until then JIT create on first SSO with manager approval |
-| 6. Cutover | `AUTH_MODE=dual` during migration → `clerk` for groups that completed SSO |
-
-**Code hooks (future PR):** Clerk webhook membership sync; map SAML attributes to `dealerGroupId` / rooftop codes.
-
-### Independent pen test
-
-| Item | Recommendation |
-|------|----------------|
-| **Scope** | Apex multi-tenant isolation, owner enter/exit, provision API (if enabled), auth brute-force, Grok proxy token path, RLS default-deny verification, KV fail-closed on Apex |
-| **Timing** | After Phase 6.1–6.5 deploys + RLS migrations on production Supabase + production KV connected |
-| **Evidence** | Written report; retest of Critical/High findings |
-
-Until pen test: internal pre-rollout + fortress integration suite + this document as security baseline.
-
----
-
-## Verification
-
-```bash
-npm run typecheck
-npm test
-npm run test:integration
-npm run smoke:dealer-provision
-npm run validate:pre-rollout
-```
-
-Security-focused suite: `tests/integration/security-fortress.test.ts`  
-Provision suite: `tests/integration/dealer-provision.test.ts`  
-Unit guards: `tests/unit/phase63Security.test.ts`, `tests/unit/phase63MediumHardening.test.ts`, `tests/unit/rlsContext.test.ts`, `tests/unit/provisionDealer.test.ts`
-
----
-
-## Phase 6 PR checklist
-
-| PR | Deliverable |
-|----|-------------|
-| 6.1 | Owner credential hygiene; enter re-validation; platform operator allowlist |
-| 6.2 | RLS default-deny (Apex); Technician RLS; Grok proxy short-lived tokens |
-| 6.3 | Manager `getRlsDb` parity; audit allowlist; `ro.list`; companion rate limits; auth KV warnings |
-| 6.4 | Production KV docs/boot logs; MFA/SSO + pen-test roadmap; changelog; pre-rollout complete gates |
-| 6.5 | Apex production fail-closed without KV; MFA/SSO implementation guidance; final pre-rollout gates |
-
-**Phase 6.0 Security Fortress: complete and production-ready.**  
-**Security Hardening Sprint (6.1–6.5): complete and production-ready.**  
-**Enterprise Readiness Cleanup (7.1–7.3): complete.**
+- **F-01 (app-layer tenancy):** Documented and risk-accepted here + Multi-Tenant-Isolation; not remediated by DB RLS on D1.  
+- MFA (former F-02 gap): TOTP implemented; enforce via `MERLIN_MFA_ENFORCE`.  
+- Dual-key + full reencrypt (former F-07 partial): closed for inventory completeness; single platform DEK remains an architectural residual.  
+- Full L2/L3 scores require independent re-assessment after pen-test.

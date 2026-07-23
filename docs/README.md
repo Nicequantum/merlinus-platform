@@ -1,7 +1,7 @@
 # Merlin Documentation Library
 
 **Product:** Merlinus — Modular Dealership OS + Warranty Narrative Platform  
-**Version:** 4.0.0  
+**Version:** 4.1.0  
 **Entry point:** [Modular OS Overview](./Modular-OS-Overview.md) · [Main README](../README.md)
 
 ---
@@ -26,9 +26,10 @@
 |----------|---------|
 | [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
 | [**Rollout-Runbook.md**](./Rollout-Runbook.md) | **Canonical multi-store rollout sequence** (prefer over older overlapping checklists) |
-| [Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md) | D1 app-layer tenancy vs future Postgres RLS (P3-1) |
+| [Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md) | **Application-layer RLS on D1 (not true DB RLS)** + risk acceptance |
 | [CDK-Sync-Deferred.md](./CDK-Sync-Deferred.md) | Why live CDK API is deferred; clipboard paste remains (P3-3) |
-| [Master-Rollout-Document.md](./Master-Rollout-Document.md) | Leadership rollout overview (< 10 min) |
+| [Master-Rollout-Document.md](./Master-Rollout-Document.md) | Leadership rollout overview (v4.1.0) |
+| [Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md) | **CISO / legal residual risk sign-off** |
 | [Go-Live-Summary.md](./Go-Live-Summary.md) | One-page executive approval brief |
 
 ### Enterprise reference (IT, legal, due diligence)
@@ -47,7 +48,7 @@
 | [Apex-National-Platform.md](./Apex-National-Platform.md) | Apex modes, owners, fortress summary, onboarding pointer |
 | [Apex-Dealer-Onboarding.md](./Apex-Dealer-Onboarding.md) | Secure multi-rooftop provision CLI, forced password, smoke tests |
 | [Apex-DealerGroup-Owner-Dashboard.md](./Apex-DealerGroup-Owner-Dashboard.md) | DealerGroup model, group owner login, dashboard tiers G1–G5 |
-| [Security-Fortress.md](./Security-Fortress.md) | Phase 6 RLS, mandatory audits, session revocation |
+| [Security-Fortress.md](./Security-Fortress.md) | App-layer tenancy (D1), audits, MFA, dual-key encryption — not Postgres RLS |
 
 ### Rollout execution
 | Document | Purpose |
@@ -55,7 +56,8 @@
 | [Rollout-Checklist.md](./Rollout-Checklist.md) | Full phased checklist (pre → day-of → post) |
 | [Go-Live-Checklist.md](./Go-Live-Checklist.md) | Final go/no-go 24–48 hours before launch |
 | [Go-Live-Deployment-Checklist.md](./Go-Live-Deployment-Checklist.md) | Deploy-time production checklist (env, modules, smoke) |
-| [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md) | Full production readiness sign-off (includes product modules) |
+| [**Production-Readiness-Checklist.md**](./Production-Readiness-Checklist.md) | **SSoT go-live / national multi-rooftop sign-off** |
+| [Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md) | CISO/legal residual risk acceptance (app-layer D1 tenancy, etc.) |
 | [Go-Live-Email-Template.md](./Go-Live-Email-Template.md) | Team announcement emails |
 
 ### Technician materials

@@ -1,4 +1,4 @@
-# Merlin — Master Rollout Document
+# Merlinus Apex — Master Rollout Document
 
 ---
 
@@ -6,21 +6,27 @@
 
 | | |
 |---|---|
-| **Document title** | Merlin Master Rollout Document |
-| **Product** | Merlin — Mercedes-Benz Warranty Story Generator |
-| **Version** | 3.0.1 |
-| **Document date** | [DOCUMENT DATE] |
+| **Document title** | Merlinus Apex Master Rollout Document |
+| **Product** | Merlinus Apex v4.1.0 — Modular Dealership OS + Warranty Narrative Platform |
+| **Version** | **4.1.0** (national multi-rooftop readiness package) |
+| **Document date** | 2026-07-22 · fill dealership fields below |
 | **Dealership** | [DEALERSHIP NAME] |
 | **Dealer group** | [DEALER GROUP NAME — if applicable] |
 | **Go-live target** | [GO-LIVE DATE] |
 | **Prepared by** | [FIXED OPS DIRECTOR / SERVICE MANAGER NAME] |
-| **Distribution** | General Manager · Fixed Ops Director · Service Manager · Dealership IT |
+| **Distribution** | General Manager · Fixed Ops Director · Service Manager · Dealership IT · (group) CISO |
 
 ### Document purpose
 
-This is the **single authoritative overview** for rolling out Merlin at [DEALERSHIP NAME]. It gives dealership leadership everything needed to approve, plan, and execute a successful launch — without reading the full technical library.
+This is the **leadership overview** for rolling out Merlinus Apex at [DEALERSHIP NAME] or a multi-rooftop group. Technical **sign-off SSoT** is always **[Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md)**. Residual risk for group/legal is **[Buyer-Risk-Acceptance-Summary.md](./Buyer-Risk-Acceptance-Summary.md)**.
 
-**Audience:** Fixed Ops Directors, Service Managers, General Managers, and dealer group leadership.
+**Audience:** Fixed Ops Directors, Service Managers, General Managers, dealer group leadership, IT.
+
+### Architecture honesty (must not be overclaimed)
+
+- Hosting: **Cloudflare Workers + D1 + R2 + KV + Queues** (OpenNext).  
+- Multi-tenant isolation: **application-layer RLS on D1** (registry + Prisma extension) — **not** Postgres/database-enforced RLS.  
+- See [Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md) and [Security-Fortress.md](./Security-Fortress.md).
 
 ### Manager Control Center (ops home)
 
@@ -28,16 +34,17 @@ After managers sign in, use **`/manager/center`** as the single pane of glass:
 
 | Section | Use for |
 |---------|---------|
-| Overview | RO / AI / voice KPIs, critical health, warm session, quick links |
-| AI Jobs | Real-time durable job monitor (retry/cancel) |
+| Overview | RO / AI / voice KPIs, **AI queue health signal**, critical health, warm session |
+| AI Jobs | Durable job monitor (retry/cancel) + backlog banners |
 | Voice | Department matrix + Personal Tailoring |
 | Modules | Per-rooftop SKU enable/disable |
-| Health | Full dependency matrix + queue isolate metrics |
+| Health | Full dependency matrix including **aiJobsQueue** criticality |
 
-API: `GET /api/manager/center/summary` (manager/owner, dealership context required).  
-Live: `GET /api/manager/center/live` (SSE — jobs + health; auto-pauses when the tab is hidden).  
+API: `GET /api/manager/center/summary` (manager/owner, dealership context).  
+Live: `GET /api/manager/center/live` (SSE — jobs + health).  
+
 **Reading time:** Under 10 minutes.  
-**Supporting detail:** Linked at the end of this document and in the [README](../README.md#documentation-library).
+**GO checklist:** [Production-Readiness-Checklist.md](./Production-Readiness-Checklist.md).
 
 ---
 
@@ -61,22 +68,28 @@ Live: `GET /api/manager/center/live` (SSE — jobs + health; auto-pauses when th
 
 ## 1. Executive Summary
 
-Merlin gives Mercedes-Benz service technicians a faster, more consistent way to produce warranty stories — without sacrificing accuracy or accountability. Technicians document real findings at the vehicle using **hands-free voice input** on shop-floor tablets; Merlin turns those notes into professional, MI 2.0–ready narratives for CDK and warranty submission. Leadership gains structured story quality, a tamper-evident audit trail, and measurable productivity gains. Based on comparable dealership deployments, we expect a **30–50% reduction** in time from job completion to story submission within 90 days, alongside fewer chargebacks driven by missing test steps or unclear Cause and Correction language. Merlin strengthens technician judgment — it does not replace it.
+Merlinus Apex gives Mercedes-Benz service technicians a faster, more consistent way to produce warranty stories — without sacrificing accuracy or accountability. Technicians document real findings at the vehicle using **hands-free voice input** on shop-floor tablets; Merlinus turns those notes into professional, MI-aligned narratives for CDK and warranty submission. **v4.1** adds modular fixed-ops products (optional Video MPI, departments, loaner, AI voice), Manager Control Center, MFA, dual-key encryption rotation, durable Async AI with **visible critical queue health**, and multi-rooftop Apex controls.
+
+Leadership gains structured story quality, an audit trail, and group-ready ops signals. Expected pilot outcomes remain in the **30–50%** documentation-time reduction band within 90 days where adoption is high; results vary by store. Merlinus strengthens technician judgment — it does not replace it.
+
+**National multi-rooftop GO** requires signed Production-Readiness checklist + buyer residual risk acceptance (app-layer D1 tenancy, MFA enforce, healthy AI queue).
 
 ---
 
-## 2. What is Merlin?
+## 2. What is Merlinus Apex?
 
-**Merlin** is a secure, dealership-specific warranty documentation platform built for the Mercedes-Benz service bay.
+**Merlinus Apex** is a secure warranty documentation and modular dealership OS built for the Mercedes-Benz service bay and multi-rooftop groups.
 
 | Question | Answer |
 |----------|--------|
-| **Who uses it?** | Service technicians daily; service managers for oversight and audit |
-| **Where does it run?** | Shop-floor tablets (Chrome or Edge) — cloud-hosted, no install on devices |
-| **What problem does it solve?** | Technicians spend too much time typing warranty stories; quality varies by person |
-| **How does it work?** | Technicians capture findings (voice or keyboard) → Merlin drafts the story → technician reviews and submits |
+| **Who uses it?** | Technicians daily; managers (Control Center, modules, health); owners (national/group scope) |
+| **Where does it run?** | Shop-floor tablets + desktop (Chrome/Edge) — Cloudflare Workers cloud, no device install |
+| **What problem does it solve?** | Slow, inconsistent warranty narratives; limited multi-store ops visibility |
+| **How does it work?** | Capture findings (voice/keyboard) → AI drafts story → tech certifies → audit trail |
 
-Merlin follows the **3 C's** — Complaint, Cause, and Correction. The technician owns accuracy. AI formats documented work; it **never invents** test results that were not recorded.
+Follows the **3 C's** — Complaint, Cause, and Correction. The technician owns accuracy. AI formats documented work; it **never invents** test results that were not recorded.
+
+**Desktop + bay:** Companion live sync is **last-write-wins** on concurrent same-line edits — train one active editor per line during certification.
 
 **Merlin URL:** [MERLIN URL]
 

@@ -18,6 +18,10 @@ export async function POST(request: Request) {
   const rateLimited = await checkRateLimit(request, 'auth.refresh', RATE_LIMITS.auth);
   if (rateLimited) return rateLimited;
 
+  const { validateCsrfRequest } = await import('@/lib/csrf');
+  const csrfError = validateCsrfRequest(request);
+  if (csrfError) return apiError(csrfError, 403);
+
   try {
     if (!isLegacyAuthPathEnabled()) {
       return apiError('Session refresh is disabled. Use Clerk sign-in.', 403);

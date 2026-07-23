@@ -1,14 +1,15 @@
 /**
- * P1-6 — Double-submit CSRF protection for cookie-authenticated mutating APIs.
+ * P1 CSRF — Double-submit protection for cookie-authenticated mutating APIs.
  *
  * Flow:
- *  1. Server sets non-httpOnly cookie `merlin_csrf` (SameSite=Lax) on login / me / warmup.
+ *  1. Middleware (and login/session responses) set non-httpOnly cookie `merlin_csrf`.
  *  2. Browser JS reads the cookie and sends header `X-Merlin-CSRF` on POST/PUT/PATCH/DELETE.
- *  3. withAuth / withPublicRoute reject mismatches in production (and when MERLIN_CSRF_ENFORCE=true).
+ *  3. withAuth / withPublicRoute / bare session routes reject mismatches when enforced.
  *
- * Client code must import from `@/lib/csrfClient` (not this module) to avoid server-only graphs.
+ * Enforcement: **on by default** outside test/CI (not only production).
+ * Disable only with MERLIN_CSRF_ENFORCE=false for local emergency debugging.
  *
- * Compensates for SameSite=Lax alone not meeting ASVS L2 ideal for state-changing APIs.
+ * Client code must import from `@/lib/csrfClient` (not this module).
  * Signature-validated public webhooks use skipCsrf / bare routes (not this path).
  */
 import 'server-only';
@@ -44,7 +45,11 @@ export function generateCsrfToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-/** Enforce CSRF on mutating methods when production or MERLIN_CSRF_ENFORCE is set. */
+/**
+ * Enforce CSRF on mutating methods outside test/CI.
+ * Explicit MERLIN_CSRF_ENFORCE=true forces on even in odd runtimes;
+ * false/off disables (ops escape hatch only).
+ */
 export function isCsrfEnforcementEnabled(
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
@@ -52,7 +57,8 @@ export function isCsrfEnforcementEnabled(
   const flag = env.MERLIN_CSRF_ENFORCE?.trim().toLowerCase();
   if (flag === '0' || flag === 'false' || flag === 'no' || flag === 'off') return false;
   if (flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on') return true;
-  return isProductionEnv();
+  // Default: enforce in all non-test environments (dev, staging, production)
+  return true;
 }
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -76,7 +82,11 @@ export function readCsrfTokenFromRequest(request: Request): {
   header: string | null;
 } {
   const cookie = readCookieFromHeader(request.headers.get('cookie'), CSRF_COOKIE);
-  const header = request.headers.get(CSRF_HEADER)?.trim() || null;
+  // Accept canonical lower-case and display-case header names
+  const header =
+    request.headers.get(CSRF_HEADER)?.trim() ||
+    request.headers.get('X-Merlin-CSRF')?.trim() ||
+    null;
   return { cookie, header };
 }
 
@@ -124,7 +134,7 @@ export function csrfCookieOptions(maxAgeSeconds = 60 * 60 * 8): {
   return {
     // Must be readable by client JS for double-submit header
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProductionEnv(),
     sameSite: 'lax',
     path: '/',
     maxAge: maxAgeSeconds,
@@ -138,4 +148,18 @@ export function applyCsrfCookieToResponse(
 ): string {
   response.cookies.set(CSRF_COOKIE, token, csrfCookieOptions());
   return token;
+}
+
+/**
+ * Prefer reusing existing token from the request cookie so client header stays valid
+ * across session responses that re-set the cookie.
+ */
+export function applyCsrfCookieFromRequest(
+  request: Request,
+  response: NextResponse
+): string {
+  const existing = readCsrfTokenFromRequest(request).cookie;
+  const token =
+    existing && existing.length >= 16 ? existing : generateCsrfToken();
+  return applyCsrfCookieToResponse(response, token);
 }

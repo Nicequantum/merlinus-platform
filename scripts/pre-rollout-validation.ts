@@ -2354,6 +2354,139 @@ function checkApexDealerProvisionFinalize(): void {
   }
 }
 
+/**
+ * P0-2 — Docs must not overclaim production DB/Postgres RLS.
+ * Allowed: future-state Postgres RLS discussion, historical migration notes.
+ * Forbidden as present-tense production claims in fortress/readiness docs.
+ */
+function checkTenancyDocumentationHonesty(): void {
+  section('P0-2 — Tenancy documentation honesty (app-layer D1)');
+
+  const fortress = resolve(process.cwd(), 'docs/Security-Fortress.md');
+  if (existsSync(fortress)) {
+    const text = readFileSync(fortress, 'utf8');
+    const honest =
+      text.includes('Application-layer RLS on D1') &&
+      text.includes('Not true DB RLS') &&
+      text.includes('rlsPrismaExtension') &&
+      text.includes('Risk acceptance');
+    // Present-tense overclaim: diagram claiming Postgres FORCE as current architecture
+    // without D1 honesty header is forbidden. Historical migration notes are OK.
+    const overclaim =
+      /Defense-in-depth tenancy\s*—\s*Postgres RLS/i.test(text) ||
+      (text.includes('Postgres FORCE') && !text.includes('Not true DB RLS'));
+    if (honest && !overclaim) {
+      record(
+        'P0-2 Tenancy docs',
+        'Security-Fortress honesty',
+        'pass',
+        'Application-layer D1 tenancy stated; not true DB RLS'
+      );
+    } else {
+      record(
+        'P0-2 Tenancy docs',
+        'Security-Fortress honesty',
+        'fail',
+        'Security-Fortress.md missing honesty language or still overclaims Postgres RLS as production'
+      );
+    }
+  } else {
+    record('P0-2 Tenancy docs', 'Security-Fortress honesty', 'fail', 'Missing Security-Fortress.md');
+  }
+
+  const multi = resolve(process.cwd(), 'docs/Multi-Tenant-Isolation.md');
+  if (existsSync(multi)) {
+    const text = readFileSync(multi, 'utf8');
+    if (
+      text.includes('Application-layer RLS on D1') &&
+      text.includes('Not true DB RLS') &&
+      text.includes('risk acceptance')
+    ) {
+      record(
+        'P0-2 Tenancy docs',
+        'Multi-Tenant-Isolation',
+        'pass',
+        'App-layer model + risk acceptance present'
+      );
+    } else {
+      record(
+        'P0-2 Tenancy docs',
+        'Multi-Tenant-Isolation',
+        'fail',
+        'Multi-Tenant-Isolation.md missing honesty / risk acceptance'
+      );
+    }
+  } else {
+    record('P0-2 Tenancy docs', 'Multi-Tenant-Isolation', 'fail', 'Missing Multi-Tenant-Isolation.md');
+  }
+
+  const planPath = resolve(process.cwd(), 'src/lib/encryption/reencryptPlan.ts');
+  if (existsSync(planPath)) {
+    const plan = readFileSync(planPath, 'utf8');
+    const mfaOk =
+      plan.includes("table: 'userMfa'") &&
+      plan.includes('secretEncrypted') &&
+      plan.includes('backupCodesEncrypted') &&
+      plan.includes("table: 'technician'") &&
+      plan.includes('mfaSecretEncrypted') &&
+      plan.includes('mfaBackupCodesEncrypted');
+    if (mfaOk) {
+      record(
+        'P0-1 Encryption',
+        'Full reencrypt plan includes MFA',
+        'pass',
+        'userMfa + technician MFA columns in REENCRYPT_TABLE_PLAN'
+      );
+    } else {
+      record(
+        'P0-1 Encryption',
+        'Full reencrypt plan includes MFA',
+        'fail',
+        'reencryptPlan.ts missing MFA tables/columns'
+      );
+    }
+  } else {
+    record('P0-1 Encryption', 'Full reencrypt plan includes MFA', 'fail', 'Missing reencryptPlan.ts');
+  }
+
+  // Scan selected product docs for forbidden present-tense production claims.
+  const scanTargets = [
+    'docs/Security-Fortress.md',
+    'docs/Production-Readiness-Checklist.md',
+    'docs/README.md',
+    'docs/Modular-OS-Overview.md',
+  ];
+  const forbiddenPresent = [
+    /Postgres\s*\+\s*RLS/i,
+    /production[^\n.]{0,80}Postgres RLS/i,
+    /database-enforced multi-tenant isolation/i,
+  ];
+  const hits: string[] = [];
+  for (const rel of scanTargets) {
+    const p = resolve(process.cwd(), rel);
+    if (!existsSync(p)) continue;
+    const text = readFileSync(p, 'utf8');
+    for (const re of forbiddenPresent) {
+      if (re.test(text)) hits.push(`${rel} matches ${re}`);
+    }
+  }
+  if (hits.length === 0) {
+    record(
+      'P0-2 Tenancy docs',
+      'Overclaim language scan',
+      'pass',
+      'No forbidden present-tense Postgres/DB RLS production claims in core docs'
+    );
+  } else {
+    record(
+      'P0-2 Tenancy docs',
+      'Overclaim language scan',
+      'fail',
+      hits.join('; ').slice(0, 400)
+    );
+  }
+}
+
 function checkApexPhase64FortressComplete(): void {
   section('APEX Phase 6.4 — Finalize Security Fortress Hardening');
 
@@ -2367,9 +2500,11 @@ function checkApexPhase64FortressComplete(): void {
       text.includes('revokeAllSessionsForTechnician') &&
       text.includes('Security Hardening Sprint') &&
       text.includes('MFA') &&
-      text.includes('pen test');
+      text.includes('pen test') &&
+      text.includes('Application-layer RLS on D1') &&
+      text.includes('Not true DB RLS');
     if (ok) {
-      record('APEX 6.4', 'Security Fortress docs', 'pass', 'docs/Security-Fortress.md complete + roadmap');
+      record('APEX 6.4', 'Security Fortress docs', 'pass', 'docs/Security-Fortress.md complete + D1 honesty');
     } else {
       record('APEX 6.4', 'Security Fortress docs', 'fail', 'Security-Fortress.md incomplete');
     }
@@ -3046,6 +3181,7 @@ async function main(): Promise<void> {
   checkApexPhase63SecurityExpansion();
   checkApexPhase64FortressComplete();
   checkApexPhase65RemainingSecurity();
+  checkTenancyDocumentationHonesty();
   checkApexDealerProvisionFinalize();
   checkApexDealerGroupFinalize();
   checkLowAuditFixes();

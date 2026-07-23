@@ -167,9 +167,40 @@ export function decryptPII(ciphertext: string): string {
 }
 
 /**
+ * True when AES-GCM ciphertext decrypts with the **current primary key only**
+ * (no previous dual-key candidates). Used after re-encrypt to detect rows still
+ * bound to DATA_ENCRYPTION_KEY_PREVIOUS.
+ */
+export function canDecryptWithPrimaryKeyOnly(ciphertext: string): boolean {
+  if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return true;
+  try {
+    decryptWithKey(ciphertext, getPrimaryKey());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when ciphertext cannot open with primary alone but succeeds under dual-key
+ * (or full candidate list). Indicates row still on previous key during/after rotation.
+ */
+export function requiresPreviousKeyToDecrypt(ciphertext: string): boolean {
+  if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return false;
+  if (canDecryptWithPrimaryKeyOnly(ciphertext)) return false;
+  try {
+    decryptPII(ciphertext);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Re-encrypt ciphertext with the current primary key.
  * Returns null if decrypt fails or value is empty / not ciphertext-shaped.
  * Used by rotation batch jobs.
+ * Zero-downtime: dual-key decrypt still works while PREVIOUS is set.
  */
 export function reencryptCiphertextWithCurrentKey(ciphertext: string): string | null {
   if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return null;

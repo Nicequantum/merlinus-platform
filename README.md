@@ -1,19 +1,22 @@
 # Merlinus
 
-> **v4.1.0 — Modular Dealership OS + production control plane (MFA, dual-key rotation, Async AI, Control Center).**  
-> Start here: **[docs/Modular-OS-Overview.md](./docs/Modular-OS-Overview.md)** — executive summary, shipped modules, architecture, manager go-live steps, and pilot test scenarios.  
+> **v4.1.0 — Modular Dealership OS + national multi-rooftop readiness package** (MFA, dual-key full reencrypt, Async AI critical queue health, CSRF, Control Center).  
+> Start here: **[docs/Modular-OS-Overview.md](./docs/Modular-OS-Overview.md)** · **Sign-off SSoT: [docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)** · **Buyer residual risk: [docs/Buyer-Risk-Acceptance-Summary.md](./docs/Buyer-Risk-Acceptance-Summary.md)**.  
 > Core warranty RO story is always on; Video MPI, Maintenance, Parts/Sales/Service inboxes, Loaner, and AI Voice are rooftop-entitled modules. Live CDK API sync (PR-M7) is deferred.
 
 **Mercedes-Benz Warranty Narrative Intelligence + Modular Dealership OS**
 
-![Pilot readiness](https://img.shields.io/badge/Pilot_readiness-Conditional_multi--store-0A2540?style=for-the-badge&logo=shield&logoColor=white)
-![Stack](https://img.shields.io/badge/Cloudflare_Workers%20%2B%20D1%20%2B%20R2-00ADEF?style=for-the-badge)
+![Readiness](https://img.shields.io/badge/National_readiness-Conditional_GO_after_sign--off-0A2540?style=for-the-badge&logo=shield&logoColor=white)
+![Stack](https://img.shields.io/badge/Cloudflare_Workers%20%2B%20D1%20%2B%20R2%20%2B%20KV-00ADEF?style=for-the-badge)
+![Tenancy](https://img.shields.io/badge/Tenancy-App--layer_D1_(not_DB_RLS)-1a1a2e?style=for-the-badge)
 ![Version](https://img.shields.io/badge/v4.1.0-1a1a2e?style=for-the-badge)
 
-Warranty narrative system for fixed ops: bay evidence → OEM-aligned stories, audit trail, and optional modular products (Video MPI, departments, loaner, AI voice, calendar hub).
+Warranty narrative system for fixed ops: bay evidence → OEM-aligned stories, audit trail, and optional modular products (Video MPI, departments, loaner, AI voice).
 
-**Readiness:** **Ready for Validation** / Conditional pilot — multi-dealership rollout after secrets, health, and module gates. Production gate: `npm run ready-to-deploy` (exit 0) + **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)** sign-off.  
-**Start:** **[docs/Rollout-Runbook.md](./docs/Rollout-Runbook.md)** · ops single source of truth **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)**.
+**Multi-tenant isolation:** **Application-layer RLS on Cloudflare D1** (registry + Prisma extension) — **not** Postgres/database-enforced RLS. See [docs/Multi-Tenant-Isolation.md](./docs/Multi-Tenant-Isolation.md).
+
+**Readiness:** Engineering package **4.1.0 ready for national Conditional GO** after Production-Readiness sign-off + buyer risk acceptance + live Worker ops (secrets, queue consumer, `MERLIN_MFA_ENFORCE`). Gates: `npm run ready-to-deploy` (0 critical code failures) + checklist signatures.  
+**Start:** **[docs/Rollout-Runbook.md](./docs/Rollout-Runbook.md)** · ops SSoT **[docs/Production-Readiness-Checklist.md](./docs/Production-Readiness-Checklist.md)** · residual risk **[docs/Buyer-Risk-Acceptance-Summary.md](./docs/Buyer-Risk-Acceptance-Summary.md)**.
 
 ---
 
@@ -47,8 +50,9 @@ Designed in the service bay. Trusted by service directors.
 - **Customer Pay Instant Mode** — 12+ pre-approved templates (zero AI footprint)
 - **Branded Exports** — Professional PDFs with dealership header and audit hash footer
 - **Modular product suite (v4)** — Video MPI, Maintenance, Parts/Sales/Service inboxes, Loaner, AI Voice Agent — manager-toggleable entitlements
-- **Enterprise Controls** — AES-256-GCM encryption, private blobs, session revocation, rate limiting, maintenance mode
-- **Real-time Desktop Companion** — Tablet + desktop stay in sync via Server-Sent Events and SWR (no separate WebSocket process)
+- **Enterprise Controls** — AES-256-GCM + dual-key rotation (incl. MFA ciphertext), MFA TOTP, CSRF double-submit, private blobs, session revocation, rate limiting, maintenance mode
+- **Async AI ops** — Durable jobs + CF Queues with **critical** health when unbound/backlogged (Control Center `queueSignal`)
+- **Real-time Desktop Companion** — Tablet + desktop SSE sync; concurrent same-line edits are **last-write-wins**
 
 ---
 

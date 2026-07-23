@@ -54,9 +54,13 @@ export async function loginWithIdentifier(
 ): Promise<ApexLoginResult> {
   // Login is not auto-retried on 500 (credential attempts must not stampede).
   // Transport-only retries stay available via one manual re-click.
+  const { withCsrfHeaders } = await import('@/lib/csrfClient');
   const res = await fetch('/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withCsrfHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    }),
     credentials: 'include',
     body: JSON.stringify({ identifier: identifier.trim(), password }),
   });
@@ -111,15 +115,13 @@ export async function verifyMfaLoginWithIdentifier(
   mfaToken: string,
   code: string
 ): Promise<ApexLoginResult> {
-  const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
-  const csrf = readCsrfTokenFromDocument();
+  const { withCsrfHeaders } = await import('@/lib/csrfClient');
   const res = await fetch('/api/auth/mfa/login-verify', {
     method: 'POST',
-    headers: {
+    headers: withCsrfHeaders({
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
-    },
+    }),
     credentials: 'include',
     body: JSON.stringify({ mfaToken, code }),
   });

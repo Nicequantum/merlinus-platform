@@ -116,7 +116,9 @@ describe('P1 system hardening — session / list / xentry / poll', () => {
   it('companion poll backs off when SSE connected and snapshot interval is slower', () => {
     const src = readSrc('src/hooks/useCompanionSync.ts');
     assert.match(src, /POLL_MS_CONNECTED/);
-    assert.match(src, /RO_SNAPSHOT_MS\s*=\s*8_000/);
+    // Live bay vs idle desktop snapshot intervals (v4.1 dual-speed mirror)
+    assert.match(src, /RO_SNAPSHOT_MS_IDLE\s*=\s*8_000/);
+    assert.match(src, /RO_SNAPSHOT_MS_LIVE\s*=\s*3_500/);
   });
 
   it('flushPendingSave defaults to a max wait', () => {

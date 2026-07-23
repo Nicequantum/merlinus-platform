@@ -71,6 +71,11 @@ export async function POST(request: Request) {
   const rateLimited = await checkRateLimit(request, 'auth.logout', RATE_LIMITS.default);
   if (rateLimited) return rateLimited;
 
+  const { validateCsrfRequest } = await import('@/lib/csrf');
+  const { apiError } = await import('@/lib/errors');
+  const csrfError = validateCsrfRequest(request);
+  if (csrfError) return apiError(csrfError, 403);
+
   try {
     return await performLogout(request);
   } catch (error) {

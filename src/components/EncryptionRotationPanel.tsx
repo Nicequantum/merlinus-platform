@@ -32,6 +32,21 @@ type RotationDto = {
   dualKeyActive: boolean;
 };
 
+type ReencryptCoverage = {
+  tableCount: number;
+  columnCount: number;
+  includesMfa: boolean;
+  planVersion: string;
+  tables: Array<{ table: string; label: string; columns: string[] }>;
+};
+
+type MfaStaleProbe = {
+  sampled: number;
+  stillOnPreviousKey: number;
+  decryptFailed: number;
+  tablesChecked: string[];
+};
+
 /**
  * Manager Settings → Security → Encryption Key Rotation
  * Guided flow: generate → deploy secrets → paste/submit new key → re-encrypt.
@@ -46,6 +61,8 @@ export function EncryptionRotationPanel() {
   } | null>(null);
   const [rotation, setRotation] = useState<RotationDto | null>(null);
   const [instructions, setInstructions] = useState<string[]>([]);
+  const [coverage, setCoverage] = useState<ReencryptCoverage | null>(null);
+  const [mfaStaleProbe, setMfaStaleProbe] = useState<MfaStaleProbe | null>(null);
   const [oneTimeKey, setOneTimeKey] = useState<string | null>(null);
   const [newKeyFingerprint, setNewKeyFingerprint] = useState<string | null>(null);
   const [previousKeyFingerprint, setPreviousKeyFingerprint] = useState<string | null>(null);
@@ -60,6 +77,8 @@ export function EncryptionRotationPanel() {
       setKeys(data.keys);
       setRotation((data.rotation as RotationDto) || null);
       setInstructions(data.instructions || []);
+      setCoverage((data.coverage as ReencryptCoverage) || null);
+      setMfaStaleProbe((data.mfaStaleProbe as MfaStaleProbe) || null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load encryption status');
     } finally {
@@ -185,8 +204,8 @@ export function EncryptionRotationPanel() {
         <div>
           <div className="font-semibold text-sm tracking-tight">Encryption key rotation</div>
           <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
-            AES-256-GCM dual-key · generate, submit, and re-encrypt from this page. Raw keys are never
-            stored in the database.
+            AES-256-GCM dual-key · generate, submit, and re-encrypt from this page. Walks all AES
+            columns including MFA secrets. Raw keys are never stored in the database.
           </div>
         </div>
       </div>
@@ -238,13 +257,53 @@ export function EncryptionRotationPanel() {
                 {keys?.dualKeyActive ? 'ACTIVE' : 'off'}
               </strong>
             </div>
+            {coverage ? (
+              <div className="rounded bg-black/5 dark:bg-white/5 px-2 py-1.5 space-y-1">
+                <div className="text-[10px] uppercase tracking-wide text-benz-muted">
+                  Full re-encrypt coverage ({coverage.planVersion})
+                </div>
+                <div className="text-[11px] text-benz-secondary">
+                  {coverage.tableCount} tables · {coverage.columnCount} AES columns · MFA:{' '}
+                  <strong className={coverage.includesMfa ? 'text-emerald-600' : 'text-red-600'}>
+                    {coverage.includesMfa ? 'included' : 'MISSING'}
+                  </strong>
+                </div>
+                <details className="text-[10px] text-benz-muted">
+                  <summary className="cursor-pointer select-none">Show tables</summary>
+                  <ul className="mt-1 max-h-28 overflow-y-auto space-y-0.5 list-disc list-inside">
+                    {coverage.tables.map((t) => (
+                      <li key={t.table}>
+                        <span className="font-medium text-benz-secondary">{t.label}</span>
+                        <span className="font-mono"> ({t.table})</span> — {t.columns.length} col
+                        {t.columns.length === 1 ? '' : 's'}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            ) : null}
+            {mfaStaleProbe && mfaStaleProbe.sampled > 0 ? (
+              <div
+                className={`rounded px-2 py-1.5 text-[11px] ${
+                  mfaStaleProbe.stillOnPreviousKey > 0
+                    ? 'border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100'
+                    : 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                }`}
+              >
+                MFA probe: {mfaStaleProbe.stillOnPreviousKey} still on previous key /{' '}
+                {mfaStaleProbe.sampled} sampled
+                {mfaStaleProbe.stillOnPreviousKey > 0
+                  ? ' — do not remove DATA_ENCRYPTION_KEY_PREVIOUS yet'
+                  : ' — clean'}
+              </div>
+            ) : null}
           </div>
 
           {keys?.dualKeyActive ? (
             <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-              Dual-key is active. Finish re-encryption, validate ROs, then remove
-              DATA_ENCRYPTION_KEY_PREVIOUS from Worker secrets.
+              Dual-key is active. Finish re-encryption (all tables including MFA), validate ROs and
+              MFA login, then remove DATA_ENCRYPTION_KEY_PREVIOUS from Worker secrets.
             </div>
           ) : null}
 
@@ -364,9 +423,26 @@ export function EncryptionRotationPanel() {
                 <p className="text-red-600">{rotation.errorMessage}</p>
               ) : null}
               {rotation.status === 'completed' ? (
-                <p className="text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 size={14} />
-                  Re-encryption complete — remove DATA_ENCRYPTION_KEY_PREVIOUS when ready.
+                <p
+                  className={
+                    mfaStaleProbe && mfaStaleProbe.stillOnPreviousKey > 0
+                      ? 'text-amber-700 dark:text-amber-200 flex items-center gap-1.5'
+                      : 'text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5'
+                  }
+                >
+                  {mfaStaleProbe && mfaStaleProbe.stillOnPreviousKey > 0 ? (
+                    <>
+                      <AlertTriangle size={14} />
+                      Job finished but MFA ciphertext still on previous key — re-run re-encryption
+                      before removing PREVIOUS.
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} />
+                      Re-encryption complete (full AES plan incl. MFA) — remove
+                      DATA_ENCRYPTION_KEY_PREVIOUS when MFA probe is clean.
+                    </>
+                  )}
                 </p>
               ) : null}
             </div>

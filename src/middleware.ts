@@ -8,6 +8,7 @@ import {
   logBootstrapSeedBlockedAttempt,
 } from './lib/bootstrapGuard';
 import { isClerkAuthPathEnabled } from './lib/authMode';
+import { CSRF_COOKIE } from './lib/csrfClient';
 import { isProductionRuntime } from './lib/productionRuntime';
 import { isMerlinPublicPath, MERLIN_PUBLIC_ROUTE_PATTERNS } from './lib/publicRoutes';
 import { applySecurityHeaders, isCrossOriginRequest } from './lib/securityHeaders';
@@ -15,6 +16,29 @@ import { applySecurityHeaders, isCrossOriginRequest } from './lib/securityHeader
 /** M12 CSP (security-policy.mjs): default-src 'self'; script-src 'self' 'unsafe-inline'; object-src 'none'. */
 
 const isPublicRoute = createRouteMatcher([...MERLIN_PUBLIC_ROUTE_PATTERNS]);
+
+/** Edge-safe CSRF seed so login/forms have a double-submit cookie before first POST. */
+function generateCsrfTokenEdge(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+  // base64url without padding
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function ensureCsrfCookie(request: NextRequest, response: NextResponse): void {
+  const existing = request.cookies.get(CSRF_COOKIE)?.value?.trim();
+  if (existing && existing.length >= 16) return;
+  const secure = isProductionRuntime();
+  response.cookies.set(CSRF_COOKIE, generateCsrfTokenEdge(), {
+    httpOnly: false,
+    secure,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 8,
+  });
+}
 
 function denyCrossOriginApi(request: NextRequest): NextResponse | null {
   if (!request.nextUrl.pathname.startsWith('/api/')) return null;
@@ -52,6 +76,8 @@ function applyMerlinSecurityHeaders(request: NextRequest): NextResponse {
   if (isMerlinPublicPath(pathname) || isPublicRoute(request)) {
     response.headers.set('x-merlin-public-route', '1');
   }
+  // Seed CSRF cookie for document navigations and API so mutations can double-submit.
+  ensureCsrfCookie(request, response);
   return response;
 }
 

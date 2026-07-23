@@ -130,12 +130,43 @@ export async function checkEncryption(): Promise<DependencyCheck> {
     } = await import('@/lib/encryption');
     const dual = isDualKeyRotationActive();
     let rotationRunning = false;
+    let rotationCompleted = false;
+    let mfaStale = 0;
+    let mfaSampled = 0;
     try {
-      const { getActiveOrLatestRotation } = await import('@/lib/encryption/rotationService');
+      const {
+        getActiveOrLatestRotation,
+        probeStaleMfaCiphertext,
+        getReencryptCoverageSummary,
+      } = await import('@/lib/encryption/rotationService');
       const rot = await getActiveOrLatestRotation();
       rotationRunning = Boolean(rot && (rot.status === 'running' || rot.status === 'pending_env'));
+      rotationCompleted = Boolean(rot && rot.status === 'completed');
+      // P0-1: warn if MFA ciphertext still on previous key after / during rotation window.
+      if (dual || rotationCompleted || rotationRunning) {
+        const probe = await probeStaleMfaCiphertext(25);
+        mfaStale = probe.stillOnPreviousKey;
+        mfaSampled = probe.sampled;
+      }
+      // Ensure plan still lists MFA (static invariant for health detail).
+      const coverage = getReencryptCoverageSummary();
+      if (!coverage.includesMfa) {
+        return {
+          status: 'warn',
+          latencyMs,
+          detail: 'REENCRYPT_TABLE_PLAN missing MFA tables — do not remove PREVIOUS key',
+        };
+      }
     } catch {
       // rotation table may not exist yet
+    }
+
+    if (mfaStale > 0) {
+      return {
+        status: 'warn',
+        latencyMs,
+        detail: `MFA ciphertext still on previous key (stale=${mfaStale}/${mfaSampled} sampled) — re-run full re-encrypt before removing DATA_ENCRYPTION_KEY_PREVIOUS`,
+      };
     }
 
     if (rotationRunning) {
@@ -144,20 +175,20 @@ export async function checkEncryption(): Promise<DependencyCheck> {
         latencyMs,
         detail: `PII key rotation in progress (fp ${getPrimaryKeyFingerprint()}${
           dual ? ` dual previous=${getPreviousKeyFingerprint()}` : ''
-        })`,
+        }; MFA sample clean)`,
       };
     }
     if (dual) {
       return {
         status: 'warn',
         latencyMs,
-        detail: `Dual-key active (primary=${getPrimaryKeyFingerprint()} previous=${getPreviousKeyFingerprint()}) — finish re-encrypt then remove DATA_ENCRYPTION_KEY_PREVIOUS`,
+        detail: `Dual-key active (primary=${getPrimaryKeyFingerprint()} previous=${getPreviousKeyFingerprint()}) — finish re-encrypt (incl. MFA) then remove DATA_ENCRYPTION_KEY_PREVIOUS`,
       };
     }
     return {
       status: 'ok',
       latencyMs,
-      detail: `primary=${getPrimaryKeyFingerprint()} dualKey=off`,
+      detail: `primary=${getPrimaryKeyFingerprint()} dualKey=off fullReencryptPlan=yes`,
     };
   } catch (error) {
     return {
@@ -736,12 +767,169 @@ export function checkMfaPolicyHealth(dealershipId?: string | null): DependencyCh
 }
 
 /**
+ * P0-4 — AI queue health thresholds (first-class production signal).
+ * Inline fallback may still run jobs, but operators must see degraded/critical state.
+ */
+export const AI_QUEUE_HEALTH_THRESHOLDS = {
+  /** Depth (queued+running) → warn */
+  warnDepth: 50,
+  /** Depth → error (critical) */
+  criticalDepth: 200,
+  /** 24h terminal failure ratio → warn */
+  warnErrorRate: 0.25,
+  /** 24h failure ratio → error */
+  criticalErrorRate: 0.5,
+  /** Oldest queued age → warn */
+  warnOldestAgeMs: 15 * 60_000,
+  /** Oldest queued age → error (consumer stall / unreachable) */
+  criticalOldestAgeMs: 45 * 60_000,
+} as const;
+
+export type AiJobsQueueHealthEvalInput = {
+  queueConfigured: boolean;
+  production: boolean;
+  depth: number;
+  queued: number;
+  running: number;
+  errorRate24h: number;
+  oldestAgeMs: number;
+  isolateEnqueued: number;
+  isolateCompleted: number;
+  isolateFailed: number;
+  /** When D1/stats probe throws */
+  probeFailed?: boolean;
+  probeErrorMessage?: string;
+};
+
+/**
+ * Pure evaluator for unit tests + checkAiJobsQueueHealth.
+ * Returns status, compact detail, and operator-facing guidance.
+ */
+export function evaluateAiJobsQueueHealth(input: AiJobsQueueHealthEvalInput): {
+  status: DependencyStatus;
+  detail: string;
+  operatorGuidance: string;
+  reasons: string[];
+} {
+  const T = AI_QUEUE_HEALTH_THRESHOLDS;
+  const reasons: string[] = [];
+  let status: DependencyStatus = 'ok';
+
+  const escalate = (next: DependencyStatus) => {
+    if (next === 'error') status = 'error';
+    else if (next === 'warn' && status === 'ok') status = 'warn';
+  };
+
+  if (input.probeFailed) {
+    // Cannot measure queue — critical when producer is bound (expect working consumer path)
+    if (input.queueConfigured || input.production) {
+      escalate('error');
+      reasons.push('queue_probe_failed');
+    } else {
+      escalate('warn');
+      reasons.push('queue_probe_failed_dev');
+    }
+  }
+
+  if (!input.queueConfigured) {
+    if (input.production) {
+      escalate('error');
+      reasons.push('producer_unbound_production');
+    } else {
+      // Dev may use inline-only path
+      escalate('warn');
+      reasons.push('producer_unbound_dev');
+    }
+  }
+
+  if (input.depth >= T.criticalDepth) {
+    escalate('error');
+    reasons.push(`backlog_critical_depth=${input.depth}`);
+  } else if (input.depth >= T.warnDepth) {
+    escalate('warn');
+    reasons.push(`backlog_elevated_depth=${input.depth}`);
+  }
+
+  if (input.errorRate24h >= T.criticalErrorRate) {
+    escalate('error');
+    reasons.push(`error_rate_critical=${(input.errorRate24h * 100).toFixed(0)}%`);
+  } else if (input.errorRate24h >= T.warnErrorRate) {
+    escalate('warn');
+    reasons.push(`error_rate_elevated=${(input.errorRate24h * 100).toFixed(0)}%`);
+  }
+
+  if (input.oldestAgeMs >= T.criticalOldestAgeMs) {
+    escalate('error');
+    reasons.push(`oldest_queued_stale_critical`);
+  } else if (input.oldestAgeMs >= T.warnOldestAgeMs) {
+    escalate('warn');
+    reasons.push(`oldest_queued_stale`);
+  }
+
+  const oldestMin =
+    input.oldestAgeMs > 0 ? Math.round(input.oldestAgeMs / 60_000) : 0;
+  const bindingNote = input.queueConfigured
+    ? 'producer bound'
+    : input.production
+      ? 'producer unbound (inline fallback only — CRITICAL in production)'
+      : 'producer unbound (dev inline fallback)';
+
+  const detail = input.probeFailed
+    ? [
+        'queue health probe failed',
+        input.probeErrorMessage || 'unknown',
+        bindingNote,
+        `binding=${input.queueConfigured ? 'yes' : 'no'}`,
+      ].join('; ')
+    : [
+        bindingNote,
+        `depth=${input.depth} (queued=${input.queued} running=${input.running})`,
+        `errorRate24h=${(input.errorRate24h * 100).toFixed(1)}%`,
+        input.oldestAgeMs > 0 ? `oldestQueued=${oldestMin}m` : 'oldestQueued=none',
+        `isolateMetrics enq=${input.isolateEnqueued} ok=${input.isolateCompleted} fail=${input.isolateFailed}`,
+        reasons.length ? `reasons=${reasons.join(',')}` : 'reasons=none',
+      ].join('; ');
+
+  let operatorGuidance = 'AI queue healthy. Durable jobs + optional inline fallback available.';
+  if (status === 'error') {
+    if (reasons.includes('producer_unbound_production')) {
+      operatorGuidance =
+        'CRITICAL: CF Queue producer unbound. Jobs use inline fallback only — bind AI_JOBS queue + consumer Worker (APP_BASE_URL, AI_QUEUE_CONSUMER_SECRET), redeploy. Bay AI may slow under load.';
+    } else if (reasons.some((r) => r.startsWith('oldest_queued') || r.includes('backlog_critical'))) {
+      operatorGuidance =
+        'CRITICAL: AI job backlog / consumer stall. Check merlinus-ai-jobs consumer Worker, DLQ, D1 write latency. Inline fallback may still serve some bay requests but warranty story latency will rise. Page on-call if oldest job > 45m or depth ≥ 200.';
+    } else if (reasons.some((r) => r.startsWith('error_rate_critical'))) {
+      operatorGuidance =
+        'CRITICAL: AI job failure rate ≥ 50% (24h). Inspect Grok keys, job errors in Manager → AI Jobs, and consumer logs. Retry failed jobs after fix.';
+    } else if (reasons.includes('queue_probe_failed')) {
+      operatorGuidance =
+        'CRITICAL: Cannot read AI job queue from D1. Database/RLS or AiJob table issue — verify D1 binding and migrations. Do not ignore green bay UX; async path may be broken.';
+    } else {
+      operatorGuidance =
+        'CRITICAL: AI jobs queue unhealthy. Open Manager Control Center → AI Jobs + Health. Fallback may mask symptoms — restore queue before multi-rooftop peak.';
+    }
+  } else if (status === 'warn') {
+    if (reasons.includes('producer_unbound_dev')) {
+      operatorGuidance =
+        'Queue producer unbound (dev). Inline path OK for local; bind CF Queues before production traffic.';
+    } else {
+      operatorGuidance =
+        'AI queue elevated (depth, age, or error rate). Monitor Manager → AI Jobs. Confirm consumer Worker is processing; expect slower stories if backlog grows. Fallback still available for some paths.';
+    }
+  }
+
+  return { status, detail, operatorGuidance, reasons };
+}
+
+/**
  * Queue health: CF producer binding + D1 job depth / 24h error rate / oldest queued age.
+ * P0-4: critical (error) for unbound prod, high error rate, severe backlog/age, probe failure.
  */
 export async function checkAiJobsQueueHealth(
   dealershipId?: string | null
 ): Promise<DependencyCheck> {
   const queueConfigured = isAiJobsQueueConfigured();
+  const production = isProductionEnv();
   const start = Date.now();
 
   try {
@@ -760,40 +948,45 @@ export async function checkAiJobsQueueHealth(
     const depth = stats.queueDepth;
     const errorRate = Math.max(stats.errorRate24h, isolateErrorRate);
     const oldestAgeMs = stats.oldestQueuedAgeMs ?? 0;
-    const oldestMin = oldestAgeMs > 0 ? Math.round(oldestAgeMs / 60_000) : 0;
 
-    // Warn when backlog or failure rate is elevated (never critical — jobs have inline fallback)
-    let status: DependencyStatus = 'ok';
-    if (!queueConfigured && isProductionEnv()) {
-      status = 'warn';
-    } else if (depth >= 50 || errorRate >= 0.25 || oldestAgeMs >= 15 * 60_000) {
-      status = 'warn';
-    }
-
-    const bindingNote = queueConfigured
-      ? 'producer bound'
-      : isProductionEnv()
-        ? 'producer unbound (inline fallback)'
-        : 'producer unbound (dev)';
+    const evaluated = evaluateAiJobsQueueHealth({
+      queueConfigured,
+      production,
+      depth,
+      queued: stats.queued,
+      running: stats.running,
+      errorRate24h: errorRate,
+      oldestAgeMs,
+      isolateEnqueued: metrics.enqueued,
+      isolateCompleted: metrics.completed,
+      isolateFailed: metrics.failed,
+    });
 
     return {
-      status,
+      status: evaluated.status,
       latencyMs,
-      detail: [
-        bindingNote,
-        `depth=${depth} (queued=${stats.queued} running=${stats.running})`,
-        `errorRate24h=${(stats.errorRate24h * 100).toFixed(1)}%`,
-        oldestAgeMs > 0 ? `oldestQueued=${oldestMin}m` : 'oldestQueued=none',
-        `isolateMetrics enq=${metrics.enqueued} ok=${metrics.completed} fail=${metrics.failed}`,
-      ].join('; '),
+      detail: `${evaluated.detail} | ops: ${evaluated.operatorGuidance}`,
     };
   } catch (error) {
+    const latencyMs = Date.now() - start;
+    const evaluated = evaluateAiJobsQueueHealth({
+      queueConfigured,
+      production,
+      depth: 0,
+      queued: 0,
+      running: 0,
+      errorRate24h: 0,
+      oldestAgeMs: 0,
+      isolateEnqueued: 0,
+      isolateCompleted: 0,
+      isolateFailed: 0,
+      probeFailed: true,
+      probeErrorMessage: error instanceof Error ? error.message : String(error),
+    });
     return {
-      status: queueConfigured ? 'warn' : isProductionEnv() ? 'warn' : 'ok',
-      latencyMs: Date.now() - start,
-      detail: `queue health probe failed: ${
-        error instanceof Error ? error.message : String(error)
-      }; binding=${queueConfigured ? 'yes' : 'no'}`,
+      status: evaluated.status,
+      latencyMs,
+      detail: `${evaluated.detail} | ops: ${evaluated.operatorGuidance}`,
     };
   }
 }
@@ -810,8 +1003,9 @@ export function aggregateHealthStatus(
 /** Critical deps that map to HTTP 503 on manager /api/health. */
 export function getCriticalHealthServices(): string[] {
   // ownerSeedSecrets: production must not keep OWNER_SEED_PASSWORD* on the Worker.
+  // aiJobsQueue: P0-4 first-class — unbound / severe backlog / high fail rate / probe fail.
   return isProductionEnv()
-    ? ['database', 'kv', 'ownerSeedSecrets']
+    ? ['database', 'kv', 'ownerSeedSecrets', 'aiJobsQueue']
     : ['database'];
 }
 

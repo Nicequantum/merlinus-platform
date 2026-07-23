@@ -18,6 +18,7 @@ import {
 } from '@/lib/healthChecks';
 import { isMaintenanceModeEnabled } from '@/lib/env';
 import { listModuleStatuses, type ModuleStatus } from '@/lib/modules/entitlements';
+import { isAiJobsQueueConfigured } from '@/lib/queue/binding';
 import { getQueueMetricsSnapshot, type QueueMetricsSnapshot } from '@/lib/queue/metrics';
 import {
   getDepartmentCustomization,
@@ -65,12 +66,26 @@ export type ManagerCenterVoiceSlice = {
   }>;
 };
 
+/** First-class AI queue signal for Control Center (mirrors healthChecks aiJobsQueue). */
+export type ManagerCenterQueueSignal = {
+  status: 'ok' | 'warn' | 'error';
+  /** Compact metrics line */
+  detail?: string;
+  /** What the manager/ops should do */
+  operatorGuidance: string;
+  oldestQueuedAgeMs: number | null;
+  oldestQueuedAgeMinutes: number | null;
+  queueConfigured: boolean;
+};
+
 export type ManagerCenterSummary = {
   dealershipId: string;
   generatedAt: string;
   kpis: ManagerCenterKpis;
   health: ManagerCenterHealth;
   queue: AiJobQueueHealthStats;
+  /** P0-4 elevated queue posture + operator guidance */
+  queueSignal: ManagerCenterQueueSignal;
   queueMetrics: Pick<
     QueueMetricsSnapshot,
     'enqueued' | 'completed' | 'failed' | 'retried' | 'inlineFallback' | 'byJobType' | 'byPriority'
@@ -163,6 +178,31 @@ export async function buildManagerCenterSummary(input: {
   const metrics = getQueueMetricsSnapshot();
   const overall = aggregateAuthenticatedHealthStatus(checks);
 
+  const aiJobsCheck = checks.aiJobsQueue;
+  const oldestMs = queue.oldestQueuedAgeMs;
+  const queueSignal: ManagerCenterQueueSignal = {
+    status: aiJobsCheck?.status === 'error' || aiJobsCheck?.status === 'warn' || aiJobsCheck?.status === 'ok'
+      ? aiJobsCheck.status
+      : 'ok',
+    detail: aiJobsCheck?.detail,
+    operatorGuidance: (() => {
+      const d = aiJobsCheck?.detail || '';
+      const opsIdx = d.indexOf('| ops: ');
+      if (opsIdx >= 0) return d.slice(opsIdx + 7).trim();
+      if (aiJobsCheck?.status === 'error') {
+        return 'AI queue critical — open AI Jobs + Health tabs; restore consumer/bindings before peak.';
+      }
+      if (aiJobsCheck?.status === 'warn') {
+        return 'AI queue elevated — monitor depth and oldest job age; confirm consumer is processing.';
+      }
+      return 'AI queue healthy. Durable jobs available; inline fallback is secondary.';
+    })(),
+    oldestQueuedAgeMs: oldestMs,
+    oldestQueuedAgeMinutes:
+      oldestMs != null && oldestMs > 0 ? Math.round(oldestMs / 60_000) : null,
+    queueConfigured: isAiJobsQueueConfigured(),
+  };
+
   // Voice usage approx: hub audit + voice customization updates in 7d
   let voiceQueriesApprox7d = 0;
   try {
@@ -233,6 +273,7 @@ export async function buildManagerCenterSummary(input: {
       critical: pickCritical(checks),
     },
     queue,
+    queueSignal,
     queueMetrics: {
       enqueued: metrics.enqueued,
       completed: metrics.completed,

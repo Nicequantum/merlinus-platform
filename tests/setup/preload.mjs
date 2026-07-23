@@ -14,6 +14,12 @@ if (!globalThis.AsyncLocalStorage) {
   globalThis.AsyncLocalStorage = AsyncLocalStorage;
 }
 
+// CSRF and other production gates: unit/integration runs are not production enforcement.
+process.env.MERLIN_TEST_RUNTIME = process.env.MERLIN_TEST_RUNTIME || '1';
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'test';
+}
+
 getCookieJar();
 patchCjsModuleLoader();
 

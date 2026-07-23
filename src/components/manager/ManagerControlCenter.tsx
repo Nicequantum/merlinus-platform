@@ -415,17 +415,46 @@ export function ManagerControlCenter({
             />
           </div>
           <div className="hidden lg:grid grid-cols-3 gap-3 desktop-kpi-widgets">
-            <div className="stat-card p-4">
-              <div className="text-[10px] uppercase tracking-wider text-benz-secondary mb-1">
-                Queue health
+            <div
+              className={`stat-card p-4 ${
+                summary.queueSignal?.status === 'error'
+                  ? 'border border-red-500/40'
+                  : summary.queueSignal?.status === 'warn'
+                    ? 'border border-amber-500/40'
+                    : ''
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="text-[10px] uppercase tracking-wider text-benz-secondary">
+                  AI queue health
+                </div>
+                <span
+                  className={`text-[10px] font-bold uppercase ${
+                    summary.queueSignal?.status === 'error'
+                      ? 'text-red-600'
+                      : summary.queueSignal?.status === 'warn'
+                        ? 'text-amber-600'
+                        : 'text-emerald-600'
+                  }`}
+                >
+                  {summary.queueSignal?.status || 'ok'}
+                </span>
               </div>
-              <div className="text-2xl font-bold">{summary.queue.queueDepth}</div>
+              <div className="text-2xl font-bold tabular-nums">{summary.queue.queueDepth}</div>
               <p className="text-xs text-benz-muted mt-1">
-                Depth · err rate{' '}
+                Depth · err{' '}
                 {typeof summary.queue.errorRate24h === 'number'
                   ? `${Math.round(summary.queue.errorRate24h * 100)}%`
                   : '—'}
+                {summary.queueSignal?.oldestQueuedAgeMinutes != null
+                  ? ` · oldest ${summary.queueSignal.oldestQueuedAgeMinutes}m`
+                  : ' · oldest none'}
               </p>
+              {!summary.queueSignal?.queueConfigured ? (
+                <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">
+                  Producer unbound — inline fallback only
+                </p>
+              ) : null}
             </div>
             <div className="stat-card p-4">
               <div className="text-[10px] uppercase tracking-wider text-benz-secondary mb-1">
@@ -442,6 +471,28 @@ export function ManagerControlCenter({
               <p className="text-xs text-benz-muted mt-1">Control Center SSE</p>
             </div>
           </div>
+
+          {summary.queueSignal && summary.queueSignal.status !== 'ok' ? (
+            <div
+              className={`rounded-lg border px-3 py-2.5 text-xs leading-relaxed flex items-start gap-2 ${
+                summary.queueSignal.status === 'error'
+                  ? 'border-red-500/40 bg-red-500/10 text-red-900 dark:text-red-100'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100'
+              }`}
+            >
+              <ShieldAlert size={14} className="shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold mb-0.5">
+                  AI jobs queue {summary.queueSignal.status === 'error' ? 'CRITICAL' : 'elevated'}
+                </div>
+                <p>{summary.queueSignal.operatorGuidance}</p>
+                <p className="text-[11px] opacity-90 mt-1">
+                  Fallback may still complete some bay AI work — treat as degraded ops, not healthy
+                  green. Open AI Jobs tab or standalone Jobs page.
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
             {summary.health.critical.map((c) => (
@@ -549,7 +600,28 @@ export function ManagerControlCenter({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard label="Queue depth" value={summary.queue.queueDepth} icon={<Cpu size={14} />} />
+            <KpiCard
+              label="Queue depth"
+              value={summary.queue.queueDepth}
+              icon={<Cpu size={14} />}
+              hint={`${summary.queue.queued} queued · ${summary.queue.running} run`}
+            />
+            <KpiCard
+              label="Oldest queued"
+              value={
+                summary.queueSignal?.oldestQueuedAgeMinutes != null
+                  ? `${summary.queueSignal.oldestQueuedAgeMinutes}m`
+                  : '—'
+              }
+              icon={<Activity size={14} />}
+              hint={
+                summary.queueSignal?.status === 'error'
+                  ? 'CRITICAL age'
+                  : summary.queueSignal?.status === 'warn'
+                    ? 'Elevated age'
+                    : 'None waiting'
+              }
+            />
             <KpiCard
               label="Failed 24h"
               value={summary.queue.failedLast24h}
@@ -560,11 +632,6 @@ export function ManagerControlCenter({
               label="Stories"
               value={summary.kpis.warrantyStories}
               icon={<Sparkles size={14} />}
-            />
-            <KpiCard
-              label="Active techs"
-              value={summary.kpis.activeTechnicians}
-              icon={<Users size={14} />}
             />
           </div>
         </div>

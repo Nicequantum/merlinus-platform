@@ -19,7 +19,7 @@ import {
   buildSessionPayloadFromTechnician,
   type TechnicianForSession,
 } from '@/lib/auth';
-import { applyCsrfCookieToResponse } from '@/lib/csrf';
+import { applyCsrfCookieFromRequest, validateCsrfRequest } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { apiError, handleRouteError } from '@/lib/errors';
@@ -46,6 +46,9 @@ export async function POST(request: Request) {
     RATE_LIMITS.authMfaLogin
   );
   if (rateLimited) return rateLimited;
+
+  const csrfError = validateCsrfRequest(request);
+  if (csrfError) return apiError(csrfError, 403);
 
   try {
     await getDb();
@@ -251,7 +254,7 @@ export async function POST(request: Request) {
         mfaVerified: true,
       });
       await issueApexSessionCookies(response, clientSession, request, { authSource: 'legacy' });
-      applyCsrfCookieToResponse(response);
+      applyCsrfCookieFromRequest(request, response);
       logApiWriteRequest({
         routeKey: 'auth.mfa.login-verify',
         method: request.method,
@@ -270,7 +273,7 @@ export async function POST(request: Request) {
       mfaVerified: true,
     });
     applySessionCookieToResponse(response, token);
-    applyCsrfCookieToResponse(response);
+    applyCsrfCookieFromRequest(request, response);
     logApiWriteRequest({
       routeKey: 'auth.mfa.login-verify',
       method: request.method,

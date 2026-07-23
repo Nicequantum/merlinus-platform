@@ -136,7 +136,8 @@ async function withAuthInner<T>(
     }
   }
 
-  // P1-6 CSRF double-submit (mutating methods only; skipped in test/CI)
+  // P1 CSRF double-submit: X-Merlin-CSRF must match merlin_csrf cookie on mutations.
+  // skipCsrf only for signature/bearer public paths (Twilio, queue consumer, etc.).
   if (!options.skipCsrf) {
     const { validateCsrfRequest } = await import('@/lib/csrf');
     const csrfError = validateCsrfRequest(request, { skipCsrf: options.skipCsrf });
@@ -420,7 +421,7 @@ export async function withPublicRoute<T>(
       }
     }
 
-    // Public token routes may still mutate (rare); allow skipCsrf for media/passcode paths
+    // Public routes that mutate still need CSRF unless skipCsrf (token/signature routes)
     if (!options.skipCsrf) {
       const { validateCsrfRequest } = await import('@/lib/csrf');
       const csrfError = validateCsrfRequest(request, { skipCsrf: options.skipCsrf });
