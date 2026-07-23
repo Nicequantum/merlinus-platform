@@ -80,6 +80,7 @@ export type AuditAction =
   /** Manager updated Sophia department personal tailoring. */
   | 'voice.customization_update'
   | 'encryption.rotation_begin'
+  | 'encryption.rotation_env_confirmed'
   | 'encryption.rotation_reencrypt_start'
   | 'encryption.rotation_cancel'
   | 'encryption.rotation_complete';

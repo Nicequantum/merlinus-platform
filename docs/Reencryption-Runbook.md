@@ -65,18 +65,20 @@ Decrypt order: current key → previous key → legacy scrypt salt variants.
 
 1. **Backup** — full database snapshot before any key change.
 2. **Optional maintenance** — `MERLIN_MAINTENANCE_MODE=true` for large fleets (not strictly required for dual-key online window).
-3. **Begin rotation (UI)** — Settings → Encryption key rotation → **Begin rotation**  
-   - Copy the one-time **newKey** (not stored in D1).  
-   - Fingerprints shown for primary/previous (never the raw key).
+3. **Generate key (UI)** — Settings → **Security** → Encryption key rotation → **Generate new key**  
+   - Copy the one-time **newKey** (not stored in D1). Fingerprints compare live vs target.
 4. **Activate dual-key secrets**  
    - `DATA_ENCRYPTION_KEY_PREVIOUS` = **old** key  
    - `DATA_ENCRYPTION_KEY` = **newKey**  
    - Deploy Worker secrets and restart.
-5. **Start re-encryption (UI)** — **Start re-encryption** runs a background table walk (`EncryptionRotation` progress %).  
-   - CLI alternative: `npm run db:reencrypt` with dual-key env still set.
-6. **Verify** — `npm run validate:pre-rollout`, spot-check RO detail + list search, health `encryption` status.
-7. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
-8. **Clear maintenance** if used. Recommend rotation every **90 days**.
+5. **Submit New Key (UI)** — paste into **Enter newly rotated key** → **Submit New Key**  
+   - Verifies fingerprint vs rotation target and live primary under dual-key.  
+   - Optionally auto-starts re-encryption.
+6. **Re-encryption progress** — same page progress bar (`EncryptionRotation`).  
+   - Manual **Start re-encryption** if auto-start was off. CLI: `npm run db:reencrypt`.
+7. **Verify** — spot-check RO detail + list search, health `encryption` status.
+8. **Close dual-key** — delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
+9. **Clear maintenance** if used. Recommend rotation every **90 days**.
 
 ### API skeleton
 
@@ -84,6 +86,7 @@ Decrypt order: current key → previous key → legacy scrypt salt variants.
 |--------|------|---------|
 | `GET /api/manager/encryption/rotate` | — | Fingerprints + rotation progress |
 | `POST` | `{ "action": "begin" }` | Generate new key (one-time response) |
+| `POST` | `{ "action": "confirm-env", "newKey": "…" }` | Verify pasted key vs live dual-key; optional auto re-encrypt |
 | `POST` | `{ "action": "start-reencrypt" }` | Background re-encrypt under dual-key |
 | `POST` | `{ "action": "cancel" }` | Cancel pending/running rotation |
 

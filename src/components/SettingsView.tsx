@@ -367,6 +367,12 @@ export function SettingsView({
         </form>
       </div>
 
+      {/* Security — MFA (all roles) + encryption rotation (managers) */}
+      <div className="mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-benz-secondary px-0.5 mb-2">
+          Security
+        </h2>
+      </div>
       <MfaSettingsPanel session={session} onSessionRefresh={onSessionRefresh} />
 
       {(session.role === 'manager' ||

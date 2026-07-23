@@ -1,10 +1,11 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Copy, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { CSRF_HEADER, readCsrfTokenFromDocument } from '@/lib/csrfClient';
+import { beginInAppMfaEnrollment } from '@/lib/mfa/totpClient';
 import { isApexPlatformMode } from '@/lib/platformMode';
 
 interface ForcedMfaEnrollScreenProps {
@@ -14,8 +15,8 @@ interface ForcedMfaEnrollScreenProps {
 }
 
 /**
- * Manager/owner MFA enrollment when MERLIN_MFA_ENFORCE requires it.
- * Uses /api/auth/mfa/setup + verify (TOTP) with QR + backup codes.
+ * Full in-app forced MFA enrollment (manager/owner when MERLIN_MFA_ENFORCE).
+ * Secret + QR generated in browser; server verifies code and stores encrypted secret.
  */
 export function ForcedMfaEnrollScreen({
   userName,
@@ -46,9 +47,6 @@ export function ForcedMfaEnrollScreen({
     });
     const data = (await res.json().catch(() => ({}))) as {
       error?: string;
-      secret?: string;
-      otpauthUrl?: string;
-      qrCodeDataUrl?: string | null;
       message?: string;
       backupCodes?: string[];
     };
@@ -61,10 +59,10 @@ export function ForcedMfaEnrollScreen({
   const startEnroll = async () => {
     setEnrolling(true);
     try {
-      const data = await apiPost('/api/auth/mfa/setup', {});
-      setSecret(data.secret || null);
-      setOtpauthUrl(data.otpauthUrl || null);
-      setQrCodeDataUrl(data.qrCodeDataUrl || null);
+      const local = await beginInAppMfaEnrollment(userName || 'manager');
+      setSecret(local.secret);
+      setOtpauthUrl(local.otpauthUrl);
+      setQrCodeDataUrl(local.qrCodeDataUrl);
       toast.success('Authenticator secret ready — scan and enter a code');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start MFA enrollment');
@@ -75,15 +73,25 @@ export function ForcedMfaEnrollScreen({
 
   const verify = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!secret) {
+      toast.error('Start enrollment first');
+      return;
+    }
     if (code.trim().length < 6) {
       toast.error('Enter the 6-digit code from your authenticator app');
       return;
     }
     setLoading(true);
     try {
-      const data = await apiPost('/api/auth/mfa/verify', { code: code.trim() });
+      const data = await apiPost('/api/auth/mfa/verify', {
+        code: code.trim(),
+        secret,
+      });
       if (data.backupCodes?.length) {
         setBackupCodes(data.backupCodes);
+        setSecret(null);
+        setOtpauthUrl(null);
+        setQrCodeDataUrl(null);
         toast.success('MFA active — save your backup codes, then continue');
       } else {
         toast.success('Multi-factor authentication is active');
@@ -116,14 +124,15 @@ export function ForcedMfaEnrollScreen({
               </h1>
               <p className="text-sm text-benz-secondary mt-1 leading-relaxed">
                 {userName ? `${userName}, your` : 'Your'} role requires an authenticator app before
-                accessing dealership data.
+                accessing dealership data. Setup happens entirely in this screen.
               </p>
             </div>
           </div>
 
           {backupCodes ? (
             <div className="space-y-3">
-              <p className="text-sm text-benz-secondary leading-relaxed">
+              <p className="text-sm text-benz-secondary leading-relaxed flex items-start gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                 Save these one-time backup codes offline. You will need them if you lose your phone.
               </p>
               <ul className="grid grid-cols-2 gap-1.5 font-mono text-xs">
@@ -133,6 +142,21 @@ export function ForcedMfaEnrollScreen({
                   </li>
                 ))}
               </ul>
+              <button
+                type="button"
+                className="secondary-btn w-full h-10 text-xs"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(backupCodes.join('\n'));
+                    toast.success('Copied');
+                  } catch {
+                    toast.message('Copy manually');
+                  }
+                }}
+              >
+                <Copy size={14} className="inline mr-1" />
+                Copy all codes
+              </button>
               <button
                 type="button"
                 className="primary-btn w-full touch-target"
@@ -148,7 +172,7 @@ export function ForcedMfaEnrollScreen({
               disabled={enrolling}
               onClick={() => void startEnroll()}
             >
-              {enrolling ? 'Preparing…' : 'Generate authenticator key'}
+              {enrolling ? 'Preparing…' : 'Generate authenticator key in app'}
             </button>
           ) : (
             <form id={formId} onSubmit={(e) => void verify(e)} className="space-y-4">

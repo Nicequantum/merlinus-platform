@@ -266,7 +266,7 @@ export function ManagerControlCenter({
   }, [summary]);
 
   return (
-    <div className="benz-page benz-page-compact benz-bay-shell min-h-dvh">
+    <div className="benz-page benz-page-compact benz-bay-shell min-h-dvh desktop-control-center">
       <header className="flex flex-wrap items-center justify-between gap-3 mb-4 pt-2">
         <div className="flex items-center gap-2 min-w-0">
           {onBack ? (
@@ -389,7 +389,7 @@ export function ManagerControlCenter({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 desktop-kpi-grid">
             <KpiCard
               label="Repair Orders"
               value={summary.kpis.totalRepairOrders}
@@ -413,6 +413,34 @@ export function ManagerControlCenter({
               icon={<Puzzle size={14} />}
               hint={`${summary.kpis.activeTechnicians} active techs`}
             />
+          </div>
+          <div className="hidden lg:grid grid-cols-3 gap-3 desktop-kpi-widgets">
+            <div className="stat-card p-4">
+              <div className="text-[10px] uppercase tracking-wider text-benz-secondary mb-1">
+                Queue health
+              </div>
+              <div className="text-2xl font-bold">{summary.queue.queueDepth}</div>
+              <p className="text-xs text-benz-muted mt-1">
+                Depth · err rate{' '}
+                {typeof summary.queue.errorRate24h === 'number'
+                  ? `${Math.round(summary.queue.errorRate24h * 100)}%`
+                  : '—'}
+              </p>
+            </div>
+            <div className="stat-card p-4">
+              <div className="text-[10px] uppercase tracking-wider text-benz-secondary mb-1">
+                Active techs
+              </div>
+              <div className="text-2xl font-bold">{summary.kpis.activeTechnicians}</div>
+              <p className="text-xs text-benz-muted mt-1">Session-active rooftop users</p>
+            </div>
+            <div className="stat-card p-4">
+              <div className="text-[10px] uppercase tracking-wider text-benz-secondary mb-1">
+                Live stream
+              </div>
+              <div className="text-2xl font-bold capitalize">{live.connectionState}</div>
+              <p className="text-xs text-benz-muted mt-1">Control Center SSE</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">

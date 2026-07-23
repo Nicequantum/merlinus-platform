@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
   code: z.string().trim().min(6).max(16),
+  /** Optional client-generated secret for in-app enrollment (never logged). */
+  secret: z.string().trim().min(16).max(128).optional(),
 });
 
 export async function POST(request: Request) {
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
         const { backupCodes } = await confirmMfaEnrollment({
           technicianId: session.technicianId,
           code: parsed.data.code,
+          secret: parsed.data.secret,
           revokeSessions: true,
         });
 

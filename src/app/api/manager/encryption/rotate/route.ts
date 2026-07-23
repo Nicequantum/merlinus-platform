@@ -2,16 +2,17 @@
  * Encryption key rotation control plane (manager/owner).
  *
  * GET  — status (fingerprints + active rotation progress)
- * POST — { action: begin | start-reencrypt | cancel }
+ * POST — { action: begin | confirm-env | start-reencrypt | cancel }
  *
- * Keys are never stored in D1. `begin` returns a one-time new key for ops to
- * place into Worker secrets (PREVIOUS=old, KEY=new), then start-reencrypt walks PII.
+ * Keys are never stored in D1. `begin` returns a one-time new key for ops secrets.
+ * `confirm-env` accepts the pasted new key (fingerprinted only) to verify dual-key is live.
  */
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
 import {
   beginEncryptionRotation,
   cancelEncryptionRotation,
+  confirmEncryptionEnvKey,
   getRotationStatusBundle,
   startReencryptPass,
 } from '@/lib/encryption/rotationService';
@@ -29,7 +30,6 @@ export async function GET(request: Request) {
       return {
         ok: true,
         ...bundle,
-        // Never echo secrets
         secrets: undefined,
       };
     },
@@ -42,8 +42,11 @@ export async function GET(request: Request) {
 }
 
 const postSchema = z.object({
-  action: z.enum(['begin', 'start-reencrypt', 'cancel']),
+  action: z.enum(['begin', 'confirm-env', 'start-reencrypt', 'cancel']),
   rotationId: z.string().trim().min(1).max(64).optional(),
+  /** Pasted new key for confirm-env only — never persisted */
+  newKey: z.string().min(32).max(256).optional(),
+  startReencrypt: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -63,12 +66,29 @@ export async function POST(request: Request) {
             ok: true,
             action: 'begin',
             rotation: result.rotation,
-            /** ONE-TIME — set as DATA_ENCRYPTION_KEY after PREVIOUS=current secret */
             newKey: result.newKey,
             previousKeyFingerprint: result.previousKeyFingerprint,
             newKeyFingerprint: result.newKeyFingerprint,
             warning:
-              'Copy newKey now — it is not stored. Set DATA_ENCRYPTION_KEY_PREVIOUS to the old key and DATA_ENCRYPTION_KEY to newKey, then deploy.',
+              'Copy newKey now — it is not stored server-side. Set PREVIOUS=old KEY=new on the Worker, deploy, then paste the new key below and Submit New Key.',
+          };
+        }
+
+        if (parsed.data.action === 'confirm-env') {
+          if (!parsed.data.newKey) {
+            return apiError('newKey is required for confirm-env', 400);
+          }
+          const result = await confirmEncryptionEnvKey({
+            technicianId: session.technicianId,
+            dealershipId: session.dealershipId,
+            rotationId: parsed.data.rotationId,
+            newKey: parsed.data.newKey,
+            startReencrypt: parsed.data.startReencrypt !== false,
+          });
+          return {
+            ok: true,
+            action: 'confirm-env',
+            ...result,
           };
         }
 

@@ -5,8 +5,11 @@ import { ArrowLeft, Briefcase, Package, Plus, Trash2, Wrench } from 'lucide-reac
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { DepartmentInbox } from '@/components/department/DepartmentInbox';
+import { DesktopDataTable, type DesktopColumn } from '@/components/desktop/DesktopDataTable';
+import { DesktopPageFrame } from '@/components/desktop/DesktopPageFrame';
 import { ModuleDisabledNotice } from '@/components/modules/ModuleDisabledNotice';
 import { DepartmentVoicePanel } from '@/components/voice/DepartmentVoicePanel';
+import { useDesktopCompanion } from '@/hooks/useDesktopCompanion';
 import type { VoiceDepartmentId } from '@/lib/modules/catalog';
 import {
   DEPARTMENT_LABELS,
@@ -63,6 +66,7 @@ export function DepartmentRequestDashboard({
   const label = DEPARTMENT_LABELS[department];
   const isParts = department === 'parts';
   const Icon = department === 'parts' ? Package : department === 'sales' ? Briefcase : Wrench;
+  const isDesktop = useDesktopCompanion();
 
   const [mode, setMode] = useState<Mode>('list');
   const [requests, setRequests] = useState<DepartmentRequestSummary[]>([]);
@@ -71,6 +75,7 @@ export function DepartmentRequestDashboard({
   const [selected, setSelected] = useState<DepartmentRequestDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [moduleDisabled, setModuleDisabled] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   // create / edit fields
   const [subject, setSubject] = useState('');
@@ -487,8 +492,69 @@ export function DepartmentRequestDashboard({
     </div>
   );
 
+  const desktopColumns: DesktopColumn<DepartmentRequestSummary>[] = [
+    {
+      id: 'subject',
+      header: 'Subject',
+      sortable: true,
+      sortValue: (r) => r.subject,
+      cell: (r) => <span className="font-medium">{r.subject || 'Untitled'}</span>,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      sortValue: (r) => r.status,
+      cell: (r) => <span className="status-pill text-[10px]">{r.status.replace(/_/g, ' ')}</span>,
+    },
+    {
+      id: 'priority',
+      header: 'Priority',
+      sortable: true,
+      sortValue: (r) => r.priority || '',
+      cell: (r) => r.priority || '—',
+    },
+    {
+      id: 'updated',
+      header: 'Updated',
+      sortable: true,
+      sortValue: (r) => r.updatedAt || r.createdAt || '',
+      cell: (r) => {
+        const raw = r.updatedAt || r.createdAt;
+        if (!raw) return '—';
+        try {
+          return new Date(raw).toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+        } catch {
+          return '—';
+        }
+      },
+    },
+  ];
+
+  const bulkClose = async () => {
+    if (selectedIds.size === 0) return;
+    setBusy(true);
+    try {
+      await Promise.all(
+        [...selectedIds].map((id) => api.patchDepartmentRequest(id, { status: 'closed' }))
+      );
+      toast.success(`Closed ${selectedIds.size} request(s)`);
+      setSelectedIds(new Set());
+      void refreshList();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Bulk update failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="benz-page">
+    <DesktopPageFrame className="benz-page">
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 text-sm text-benz-secondary min-w-0">
           {onBack ? (
@@ -499,9 +565,19 @@ export function DepartmentRequestDashboard({
           <Icon size={18} className="text-benz-blue shrink-0" />
           <span className="font-semibold text-benz-primary">{label}</span>
           <span className="truncate">· {session.dealershipName}</span>
-          <span className="truncate">· {session.name}</span>
+          <span className="truncate hidden sm:inline">· {session.name}</span>
         </div>
         <div className="flex gap-2 shrink-0">
+          {isDesktop && selectedIds.size > 0 ? (
+            <button
+              type="button"
+              className="secondary-btn h-9 px-3 text-xs"
+              disabled={busy}
+              onClick={() => void bulkClose()}
+            >
+              Close selected ({selectedIds.size})
+            </button>
+          ) : null}
           <button type="button" className="secondary-btn h-9 px-3 text-xs" onClick={onOpenSettings}>
             Settings
           </button>
@@ -525,19 +601,77 @@ export function DepartmentRequestDashboard({
             <DepartmentVoicePanel
               department={department as VoiceDepartmentId}
               className="mb-4"
-              compact
+              compact={!isDesktop}
             />
           )}
-          <DepartmentInbox
-            department={department}
-            requests={requests}
-            loading={loading}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            onSelect={(id) => void openDetail(id)}
-            onCreate={openCreate}
-            emptyLabel={INBOX_EMPTY_COPY[department]}
-          />
+          {/* Mobile / tablet: card inbox */}
+          <div className={isDesktop ? 'lg:hidden' : undefined}>
+            <DepartmentInbox
+              department={department}
+              requests={requests}
+              loading={loading}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              onSelect={(id) => void openDetail(id)}
+              onCreate={openCreate}
+              emptyLabel={INBOX_EMPTY_COPY[department]}
+            />
+          </div>
+          {/* Desktop: sortable table */}
+          {isDesktop ? (
+            <div className="hidden lg:block space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="benz-input text-sm w-auto h-9"
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as 'all' | DepartmentRequestStatus)
+                  }
+                >
+                  <option value="all">All statuses</option>
+                  {DEPARTMENT_REQUEST_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="primary-btn h-9 px-3 text-xs" onClick={openCreate}>
+                  <Plus size={14} className="inline mr-1" />
+                  New request
+                </button>
+              </div>
+              {loading ? (
+                <p className="text-sm text-benz-secondary">Loading…</p>
+              ) : (
+                <DesktopDataTable
+                  columns={desktopColumns}
+                  rows={
+                    statusFilter === 'all'
+                      ? requests
+                      : requests.filter((r) => r.status === statusFilter)
+                  }
+                  selectedIds={selectedIds}
+                  onToggleSelect={(id) =>
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    })
+                  }
+                  onToggleSelectAll={(ids) => {
+                    setSelectedIds((prev) => {
+                      if (ids.every((id) => prev.has(id))) return new Set();
+                      return new Set(ids);
+                    });
+                  }
+                  }
+                  emptyLabel={INBOX_EMPTY_COPY[department]}
+                  onRowClick={(row) => void openDetail(row.id)}
+                />
+              )}
+            </div>
+          ) : null}
         </>
       ) : mode === 'create' ? (
         <div>
@@ -663,6 +797,6 @@ export function DepartmentRequestDashboard({
           </div>
         </div>
       ) : null}
-    </div>
+    </DesktopPageFrame>
   );
 }

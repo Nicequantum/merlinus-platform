@@ -1,8 +1,11 @@
 export type CompanionSyncRole = 'publisher' | 'subscriber' | 'full';
 
-/** Narrow viewport = tablet (publishes). Wide viewport = desktop companion (subscribes). */
+/**
+ * Narrow viewport = bay tablet (primary publisher).
+ * Wide viewport = desktop command center (`full`: publish local edits + subscribe to bay live).
+ */
 export function deriveCompanionSyncRole(isDesktopViewport: boolean): CompanionSyncRole {
-  return isDesktopViewport ? 'subscriber' : 'publisher';
+  return isDesktopViewport ? 'full' : 'publisher';
 }
 
 export function companionRolePublishes(role: CompanionSyncRole): boolean {

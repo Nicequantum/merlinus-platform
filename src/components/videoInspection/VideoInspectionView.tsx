@@ -962,7 +962,7 @@ export function VideoInspectionView({
   }
 
   return (
-    <div className="benz-page">
+    <div className="benz-page desktop-video-mpi">
       <button type="button" className="benz-nav-back" onClick={onBack}>
         <ArrowLeft size={18} /> Back
       </button>

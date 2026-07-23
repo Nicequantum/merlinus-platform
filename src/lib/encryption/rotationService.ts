@@ -164,14 +164,130 @@ export async function getRotationStatusBundle(): Promise<{
 
   const instructions = [
     '1. Backup the database before any key change.',
-    '2. Click Begin rotation to generate a new key (shown once).',
-    '3. Set Worker secrets: DATA_ENCRYPTION_KEY_PREVIOUS=<old key>, DATA_ENCRYPTION_KEY=<new key>.',
-    '4. Deploy/restart the Worker so dual-key is live.',
-    '5. Click Start re-encryption to rewrite ciphertext under the new primary key.',
-    '6. After 100% complete and validation, remove DATA_ENCRYPTION_KEY_PREVIOUS.',
+    '2. Generate a new key on this page (shown once — copy to your secret store).',
+    '3. Deploy Worker secrets: DATA_ENCRYPTION_KEY_PREVIOUS=<old>, DATA_ENCRYPTION_KEY=<new>.',
+    '4. Paste the new key into “Enter newly rotated key” and Submit New Key to verify dual-key is live.',
+    '5. Start re-encryption (or it starts automatically after a successful submit).',
+    '6. When 100% complete, remove DATA_ENCRYPTION_KEY_PREVIOUS and redeploy.',
   ];
 
   return { keys, rotation, canStartReencrypt, instructions };
+}
+
+/**
+ * After ops deploys dual-key secrets, manager pastes the new key to prove fingerprints match live env.
+ * Optionally starts re-encrypt immediately.
+ */
+export async function confirmEncryptionEnvKey(input: {
+  technicianId: string;
+  dealershipId: string;
+  rotationId?: string;
+  /** Pasted new key — never stored; only fingerprinted for verification */
+  newKey: string;
+  /** When true (default), start background re-encrypt if dual-key is live */
+  startReencrypt?: boolean;
+}): Promise<{
+  rotation: EncryptionRotationDto;
+  verified: boolean;
+  fingerprints: {
+    submitted: string;
+    livePrimary: string;
+    livePrevious: string | null;
+    target: string;
+  };
+  message: string;
+}> {
+  const newKey = input.newKey.trim();
+  if (newKey.length < 32) {
+    throw new Error('New key must be at least 32 characters.');
+  }
+
+  const submittedFp = fingerprintSecret(newKey);
+  const live = getEncryptionKeyStatus();
+
+  const row = await withRlsBypass(async () => {
+    const db = getRlsDb();
+    return input.rotationId
+      ? db.encryptionRotation.findUnique({ where: { id: input.rotationId } })
+      : db.encryptionRotation.findFirst({ orderBy: { createdAt: 'desc' } });
+  });
+
+  if (!row) {
+    throw new Error('No rotation in progress. Click Generate new key first.');
+  }
+
+  if (row.targetFingerprint && row.targetFingerprint !== submittedFp) {
+    throw new Error(
+      `Submitted key fingerprint (${submittedFp}) does not match rotation target (${row.targetFingerprint}). Paste the key generated for this rotation.`
+    );
+  }
+
+  if (!live.dualKeyActive) {
+    throw new Error(
+      'Dual-key is not active yet. Deploy DATA_ENCRYPTION_KEY_PREVIOUS=<old> and DATA_ENCRYPTION_KEY=<new>, then retry Submit New Key.'
+    );
+  }
+
+  if (live.primaryFingerprint !== submittedFp) {
+    throw new Error(
+      `Live primary fingerprint (${live.primaryFingerprint}) does not match submitted key (${submittedFp}). Ensure Worker DATA_ENCRYPTION_KEY was set to this new key and the Worker was redeployed.`
+    );
+  }
+
+  try {
+    await writeAuditedAccess({
+      action: 'encryption.rotation_env_confirmed',
+      dealershipId: input.dealershipId,
+      technicianId: input.technicianId,
+      entityType: 'encryptionRotation',
+      entityId: row.id,
+      metadata: {
+        submittedFingerprint: submittedFp,
+        livePrimary: live.primaryFingerprint,
+        livePrevious: live.previousFingerprint,
+      },
+    });
+  } catch {
+    // best-effort
+  }
+
+  logger.info('encryption.rotation_env_confirmed', {
+    rotationId: row.id,
+    submittedFingerprint: submittedFp,
+  });
+
+  const start = input.startReencrypt !== false;
+  if (start) {
+    const rotation = await startReencryptPass({
+      technicianId: input.technicianId,
+      dealershipId: input.dealershipId,
+      rotationId: row.id,
+    });
+    return {
+      rotation,
+      verified: true,
+      fingerprints: {
+        submitted: submittedFp,
+        livePrimary: live.primaryFingerprint,
+        livePrevious: live.previousFingerprint,
+        target: row.targetFingerprint,
+      },
+      message: 'New key verified against live dual-key env. Background re-encryption started.',
+    };
+  }
+
+  const rotation = mapDto(row);
+  return {
+    rotation,
+    verified: true,
+    fingerprints: {
+      submitted: submittedFp,
+      livePrimary: live.primaryFingerprint,
+      livePrevious: live.previousFingerprint,
+      target: row.targetFingerprint,
+    },
+    message: 'New key verified. Click Start re-encryption when ready.',
+  };
 }
 
 /**

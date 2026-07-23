@@ -233,7 +233,7 @@ Full checklist: [Reencryption-Runbook.md](./Reencryption-Runbook.md).
 | **Storage** | `UserMfa` table (secret + hashed backup codes, encrypted at rest) + denormalized `Technician.mfaEnabled` |
 | **Roles** | Default required when enforced: `manager`, `owner`, `admin` (`MERLIN_MFA_REQUIRED_ROLES`) |
 | **Pilot** | Password → if enrolled: `requiresMfa` + short-lived `mfaToken` → `POST /api/auth/mfa/login-verify` → session (or dealership select) |
-| **Enrollment** | `POST /api/auth/mfa/setup` + `POST /api/auth/mfa/verify` (issues backup codes; revokes sessions) |
+| **Enrollment** | In-app: client generates TOTP secret + QR (`totpClient`); `POST /api/auth/mfa/verify` with `{ code, secret }` stores encrypted secret + backup codes; revokes sessions |
 | **Recovery** | One-time backup codes; regenerate via `POST /api/auth/mfa/backup-codes` (manager/owner + current TOTP) |
 | **Enforcement** | `MERLIN_MFA_ENFORCE=true` → `mfaRequired` blocks PII routes until enrolled (`withAuth` + ForcedMfaEnrollScreen) |
 | **Bay techs** | MFA **not** required — keep login fast unless user opts in via Settings |

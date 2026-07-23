@@ -333,7 +333,7 @@ export function HubDashboard({
   }, [items]);
 
   return (
-    <div className="benz-page pb-10">
+    <div className="benz-page pb-10 desktop-hub-layout">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 text-sm text-benz-secondary min-w-0">
           {onBack ? (

@@ -61,13 +61,14 @@ describe('desktop companion sync', () => {
     assert.ok(bridge.includes('ensureRepairOrderOpen'));
   });
 
-  it('uses subscriber role on desktop and polls KV as SSE fallback', () => {
+  it('uses full role on desktop (publish+subscribe) and polls KV as SSE fallback', () => {
     const role = readSrc('src/lib/companionSyncRole.ts');
     const hook = readSrc('src/hooks/useCompanionSync.ts');
     const pollRoute = readSrc('src/app/api/companion/poll/route.ts');
-    assert.ok(role.includes("return isDesktopViewport ? 'subscriber' : 'publisher'"));
+    assert.ok(role.includes("return isDesktopViewport ? 'full' : 'publisher'"));
     assert.ok(hook.includes('/api/companion/poll'));
     assert.ok(hook.includes('canAutoPublish'));
+    assert.ok(hook.includes('liveTechnicianSession'));
     assert.ok(pollRoute.includes('drainKvCompanionEvents'));
   });
 
@@ -91,12 +92,12 @@ describe('desktop companion sync', () => {
 
   it('merges companion story state from active line and persisted audit fields', () => {
     const layout = readSrc('src/components/desktop/DesktopCompanionLayout.tsx');
+    const shell = readSrc('src/components/desktop/DesktopCommandShell.tsx');
     const state = readSrc('src/lib/companionLineStoryState.ts');
     assert.ok(layout.includes('deriveCompanionLineStoryState'));
     assert.ok(layout.includes('activeLineId'));
-    assert.ok(layout.includes('showRepairLineList'));
-    assert.ok(layout.includes('onOpenLine'));
-    assert.ok(layout.includes('benz-companion-line-row-btn'));
+    assert.ok(shell.includes('LiveTechnicianSessionBadge') || shell.includes('liveTechnicianSession'));
+    assert.ok(shell.includes('benz-command-shell'));
     assert.ok(state.includes('resolveQualityForLine'));
     assert.ok(state.includes('resolveCertificationForLine'));
   });
@@ -112,19 +113,23 @@ describe('desktop companion sync', () => {
     assert.ok(bridge.includes('navigateToRO'));
     assert.ok(app.includes('navigateToRO'));
     assert.ok(app.includes('onOpenLine={ro.navigateToLine}'));
-    assert.ok(app.includes('onBackToRepairLines'));
-    assert.ok(app.includes('onBackToHome'));
+    assert.ok(app.includes('DesktopCommandShell'));
+    assert.ok(app.includes('useDesktopDeepLink'));
     assert.equal(bridge.includes("setView('ro')"), false);
   });
 
-  it('shows diagnostic photos and navigation on desktop companion', () => {
-    const layout = readSrc('src/components/desktop/DesktopCompanionLayout.tsx');
+  it('desktop command shell + deep links + diagnostic parity', () => {
+    const shell = readSrc('src/components/desktop/DesktopCommandShell.tsx');
+    const deep = readSrc('src/lib/desktopLayoutPrefs.ts');
     const snapshot = readSrc('src/lib/companionSnapshot.ts');
     const lightbox = readSrc('src/components/ImageLightbox.tsx');
     const roScan = readSrc('src/hooks/repairOrders/useROScan.ts');
-    assert.ok(layout.includes('benz-companion-nav'));
-    assert.ok(layout.includes('onBackToHome'));
-    assert.ok(layout.includes('XentryImageGallery'));
+    const openBtn = readSrc('src/components/desktop/OpenDesktopCompanionButton.tsx');
+    assert.ok(shell.includes('benz-command-nav'));
+    assert.ok(shell.includes('Ctrl+'));
+    assert.ok(deep.includes('buildDesktopDeepLink'));
+    assert.ok(deep.includes('parseDesktopDeepLink'));
+    assert.ok(openBtn.includes('Open in Desktop Companion'));
     assert.ok(snapshot.includes('photosUpdated'));
     assert.ok(lightbox.includes('goPrev'));
     assert.ok(lightbox.includes('ZoomIn'));

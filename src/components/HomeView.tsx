@@ -95,8 +95,8 @@ export function HomeView({
   const { t: tVideo } = useTranslation('video');
 
   return (
-    <div className="relative min-h-dvh benz-page-compact benz-bay-shell">
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+    <div className="relative min-h-dvh benz-page-compact benz-bay-shell desktop-home-layout">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1 desktop-home-chrome">
         {onOpenMaintenance ? (
           <button
             type="button"
@@ -129,15 +129,15 @@ export function HomeView({
         </button>
       </div>
 
-      <div className="pt-10">
-        <div className="merlin-brand-hero mb-8">
+      <div className="pt-10 desktop-home-body">
+        <div className="merlin-brand-hero mb-8 desktop-home-hero">
           <ApexLogoMark size="lg" className="mb-1" title="Apex" />
           <div className="merlin-brand-divider" aria-hidden="true" />
           <DealershipBranding size="lg" className="mb-2" displayName={dealershipName} />
           <p className="text-benz-secondary text-sm font-medium">
             {technicianName || t('technicianFallback')}
           </p>
-          <div className="flex flex-wrap gap-2 mt-4 justify-center">
+          <div className="flex flex-wrap gap-2 mt-4 justify-center desktop-home-quick-actions">
             {onOpenVideoInspection ? (
               <button
                 type="button"
@@ -161,6 +161,7 @@ export function HomeView({
           </div>
         </div>
 
+        <div className="desktop-home-scan">
         <ScanROSection
           pendingROImages={pendingROImages}
           isProcessingOCR={isProcessingOCR}
@@ -175,8 +176,9 @@ export function HomeView({
           onCreateManualRO={onCreateManualRO}
           scanButtonLabel={t('scanRo')}
         />
+        </div>
 
-        <div className="mb-4">
+        <div className="mb-4 desktop-home-lists">
           <input
             type="search"
             enterKeyHint="search"

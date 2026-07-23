@@ -155,7 +155,7 @@ export function VoiceOpsDashboard({
   };
 
   return (
-    <div className="benz-page">
+    <div className="benz-page desktop-voice-ops">
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 text-sm text-benz-secondary min-w-0">
           {onBack ? (
@@ -248,11 +248,11 @@ export function VoiceOpsDashboard({
                       ))
                     )}
                     <div className="font-semibold text-sm mt-3 mb-1">Slots</div>
-                    <pre className="text-[10px] whitespace-pre-wrap break-all text-benz-secondary">
+                    <pre className="text-[10px] whitespace-pre-wrap break-all text-benz-secondary desktop-transcript">
                       {JSON.stringify(selected.slots || {}, null, 2)}
                     </pre>
                     <div className="font-semibold text-sm mt-3 mb-1">Metrics</div>
-                    <pre className="text-[10px] whitespace-pre-wrap break-all text-benz-secondary">
+                    <pre className="text-[10px] whitespace-pre-wrap break-all text-benz-secondary desktop-transcript">
                       {JSON.stringify(selected.metrics || {}, null, 2)}
                     </pre>
                   </div>

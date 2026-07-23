@@ -248,7 +248,11 @@ export const api = {
       body: JSON.stringify({ rotate: Boolean(rotate) }),
     }),
 
-  mfaVerifyEnroll: (code: string) =>
+  /**
+   * Confirm MFA enrollment. Prefer client-generated `secret` (in-app QR flow);
+   * server verifies TOTP then stores encrypted secret + backup codes.
+   */
+  mfaVerifyEnroll: (code: string, secret?: string) =>
     apiFetch<{
       ok: boolean;
       mfaEnabled: boolean;
@@ -257,7 +261,7 @@ export const api = {
       message?: string;
     }>('/api/auth/mfa/verify', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(secret ? { code, secret } : { code }),
     }),
 
   mfaRegenerateBackupCodes: (code: string) =>
@@ -1054,6 +1058,33 @@ export const api = {
     }>('/api/manager/encryption/rotate', {
       method: 'POST',
       body: JSON.stringify({ action: 'begin' }),
+    }),
+
+  /** Verify pasted new key against live dual-key env; optionally start re-encrypt. */
+  confirmEncryptionEnvKey: (input: {
+    newKey: string;
+    rotationId?: string;
+    startReencrypt?: boolean;
+  }) =>
+    apiFetch<{
+      ok: boolean;
+      verified: boolean;
+      message: string;
+      rotation: unknown;
+      fingerprints: {
+        submitted: string;
+        livePrimary: string;
+        livePrevious: string | null;
+        target: string;
+      };
+    }>('/api/manager/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'confirm-env',
+        newKey: input.newKey,
+        rotationId: input.rotationId,
+        startReencrypt: input.startReencrypt !== false,
+      }),
     }),
 
   startEncryptionReencrypt: (rotationId?: string) =>

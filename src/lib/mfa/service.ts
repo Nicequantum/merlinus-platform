@@ -138,37 +138,55 @@ export async function beginMfaEnrollment(input: {
 
 /**
  * Confirm TOTP enrollment → enable MFA, issue backup codes, bump session version.
+ * Prefer `secret` from in-app client generation (never logged); falls back to pending setup row.
  */
 export async function confirmMfaEnrollment(input: {
   technicianId: string;
   code: string;
+  /** Client-generated secret for full in-app enrollment */
+  secret?: string;
   revokeSessions?: boolean;
 }): Promise<{ backupCodes: string[] }> {
   return withRlsBypass(async () => {
-    const secret = await resolveTotpSecret(input.technicianId);
-    if (!secret) {
-      throw new Error('Start enrollment first via POST /api/auth/mfa/setup.');
-    }
-    if (!verifyTotpCode(secret, input.code)) {
-      throw new Error('Invalid authentication code. Check your authenticator app.');
+    const clientSecret = input.secret?.replace(/\s/g, '').toUpperCase().trim();
+    let secret: string | null = null;
+
+    if (clientSecret) {
+      if (clientSecret.length < 16 || !/^[A-Z2-7]+=*$/.test(clientSecret)) {
+        throw new Error('Invalid authenticator secret format.');
+      }
+      if (!verifyTotpCode(clientSecret, input.code)) {
+        throw new Error('Invalid authentication code. Check your authenticator app.');
+      }
+      secret = clientSecret;
+    } else {
+      secret = await resolveTotpSecret(input.technicianId);
+      if (!secret) {
+        throw new Error('Start enrollment first (in-app setup or POST /api/auth/mfa/setup).');
+      }
+      if (!verifyTotpCode(secret, input.code)) {
+        throw new Error('Invalid authentication code. Check your authenticator app.');
+      }
     }
 
     const plainCodes = generateBackupCodes();
     const hashes = await hashBackupCodes(plainCodes);
     const backupEncrypted = encryptBackupCodeHashes(hashes);
     const now = new Date();
+    const secretEncrypted = encryptSensitiveText(secret);
 
     const db = getRlsDb();
     await db.userMfa.upsert({
       where: { technicianId: input.technicianId },
       create: {
         technicianId: input.technicianId,
-        secretEncrypted: encryptSensitiveText(secret),
+        secretEncrypted,
         enabled: true,
         backupCodesEncrypted: backupEncrypted,
         enrolledAt: now,
       },
       update: {
+        secretEncrypted,
         enabled: true,
         backupCodesEncrypted: backupEncrypted,
         enrolledAt: now,
@@ -179,6 +197,7 @@ export async function confirmMfaEnrollment(input: {
     await db.technician.update({
       where: { id: input.technicianId },
       data: {
+        mfaSecretEncrypted: secretEncrypted,
         mfaEnabled: true,
         mfaEnrolledAt: now,
         mfaBackupCodesEncrypted: backupEncrypted,

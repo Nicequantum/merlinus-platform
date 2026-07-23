@@ -15,8 +15,10 @@ import { ROView } from '@/components/ROView';
 import { SettingsView } from '@/components/SettingsView';
 import { ViewErrorBoundary } from '@/components/ViewErrorBoundary';
 import { CompanionSyncBridge } from '@/components/CompanionSyncBridge';
+import { OpenDesktopCompanionButton } from '@/components/desktop/OpenDesktopCompanionButton';
 import { VoiceInputProvider } from '@/components/VoiceInputProvider';
 import { useDesktopCompanion } from '@/hooks/useDesktopCompanion';
+import { useDesktopDeepLink } from '@/hooks/useDesktopDeepLink';
 import { deriveCompanionSyncRole } from '@/lib/companionSyncRole';
 import { useOcrProgress } from '@/hooks/useOcrProgress';
 import { useRepairOrders } from '@/hooks/useRepairOrders';
@@ -67,9 +69,9 @@ const AdvisorDashboard = dynamic(
   { loading: () => <LoadingScreen label="Loading advisor dashboard" /> }
 );
 
-const DesktopCompanionLayout = dynamic(
-  () => import('@/components/desktop/DesktopCompanionLayout').then((m) => m.DesktopCompanionLayout),
-  { loading: () => <LoadingScreen label="Loading desktop companion" /> }
+const DesktopCommandShell = dynamic(
+  () => import('@/components/desktop/DesktopCommandShell').then((m) => m.DesktopCommandShell),
+  { loading: () => <LoadingScreen label="Loading desktop command center" /> }
 );
 
 const VideoInspectionView = dynamic(
@@ -200,6 +202,7 @@ export function BenzTechAuthenticatedApp({
   const isDepartmentStaff = isParts || isSales || isService;
   const isDesktop = useDesktopCompanion();
   const companionSyncRole = deriveCompanionSyncRole(isDesktop);
+  useDesktopDeepLink(ro, true);
   // Child UI that branches on role/isAdmin should see the View As lens.
   // Keep the real `session` for identity, companion sync, and API cookies.
   const uiSession: TechnicianSession = isOwnerDealershipView(session)
@@ -482,24 +485,56 @@ export function BenzTechAuthenticatedApp({
     (ro.allROs.find((item) => item.id === ro.openingROId)?.roNumber || 'repair order');
 
   const wideLayout = ro.view === 'home' && isManager;
-  const showDesktopCompanion =
-    isDesktop && ro.currentRO && (ro.view === 'ro' || ro.view === 'line');
-  const companionMode = showDesktopCompanion;
+  const companionMode = isDesktop;
+
+  const shellNavigate = useCallback(
+    (dest: string) => {
+      if (dest === 'home') {
+        ro.setView('home');
+        return;
+      }
+      if (dest === 'settings') {
+        goToSettings();
+        return;
+      }
+      if (dest === 'center') {
+        window.location.assign('/manager/center');
+        return;
+      }
+      if (dest === 'jobs') {
+        window.location.assign('/manager/jobs');
+        return;
+      }
+      if (
+        dest === 'videoInspection' ||
+        dest === 'parts' ||
+        dest === 'sales' ||
+        dest === 'service' ||
+        dest === 'loaner' ||
+        dest === 'maintenance' ||
+        dest === 'voice' ||
+        dest === 'hub'
+      ) {
+        ro.setView(dest as typeof ro.view);
+      }
+    },
+    [goToSettings, ro]
+  );
 
   return (
     <VoiceInputProvider speechLanguage={speechLanguage}>
     <CompanionSyncBridge session={session} enabled role={companionSyncRole} ro={ro} ocr={ocr}>
-      {(companion) => (
-    <div
-      className={`app-container${wideLayout ? ' benz-app-wide' : ''}${companionMode ? ' benz-companion-mode' : ''}`}
-    >
+      {(companion) => {
+    const appBody = (
+    <>
       <MaintenanceBanner />
       <LoadingOverlay
         visible={!!ro.openingROId}
         message={openingRoNumber ? `Loading ${openingRoNumber}…` : 'Loading repair order…'}
       />
 
-      {ro.view !== 'home' &&
+      {!isDesktop &&
+        ro.view !== 'home' &&
         ro.view !== 'settings' &&
         ro.view !== 'audit' &&
         ro.view !== 'advisors' &&
@@ -517,6 +552,16 @@ export function BenzTechAuthenticatedApp({
             onOpenSettings={goToSettings}
           />
         )}
+
+      {!isDesktop && (ro.view === 'ro' || ro.view === 'line') && ro.currentRO ? (
+        <div className="px-5 pt-2 flex justify-end">
+          <OpenDesktopCompanionButton
+            roId={ro.currentRO.id}
+            lineId={ro.currentLineId}
+            view={ro.view}
+          />
+        </div>
+      ) : null}
 
       {ro.view === 'parts' && (
         <ViewErrorBoundary viewName="the parts inbox">
@@ -686,41 +731,10 @@ export function BenzTechAuthenticatedApp({
         />
       )}
 
-      {showDesktopCompanion && ro.currentRO && (
-        <div className="benz-desktop-only">
-          <ViewErrorBoundary viewName="the desktop companion">
-            <DesktopCompanionLayout
-              key={`companion-${ro.currentRO.id}-${ro.companionRevision}`}
-              view={ro.view}
-              ro={ro.currentRO}
-              line={
-                ro.view === 'line' || ro.currentLineId ? (ro.currentLine ?? null) : null
-              }
-              activeLineId={ro.currentLineId}
-              technicianName={session.name}
-              storyQuality={ro.storyQualityForLine}
-              storyReview={ro.storyReviewForLine}
-              storyQualityStale={ro.storyQualityStaleForLine}
-              storyCertification={ro.storyCertificationForLine}
-              lastGeneratedStoryText={ro.lastGeneratedStoryForLine}
-              connectionState={companion.connectionState}
-              workflowStatus={companion.workflowStatus}
-              statusMessage={companion.statusMessage}
-              statusProgress={companion.statusProgress}
-              activities={companion.activities}
-              onOpenLine={ro.navigateToLine}
-              onBackToRepairLines={() => ro.navigateToRO()}
-              onBackToHome={() => ro.setView('home')}
-            />
-          </ViewErrorBoundary>
-        </div>
-      )}
-
       {ro.view === 'ro' && ro.currentRO && (() => {
         const roXentry = ro.buildXentrySection({ scope: 'ro', roId: ro.currentRO.id });
         return (
         <ViewErrorBoundary viewName="the repair order">
-          <div className={showDesktopCompanion ? 'benz-tablet-only' : undefined}>
           <ROView
             ro={ro.currentRO}
             isProcessingOCR={ocr.xentry.isProcessing}
@@ -754,7 +768,6 @@ export function BenzTechAuthenticatedApp({
             }
             onOpenVideoInspection={(repairOrderId) => openVideoInspection(repairOrderId)}
           />
-          </div>
         </ViewErrorBoundary>
         );
       })()}
@@ -766,7 +779,6 @@ export function BenzTechAuthenticatedApp({
         });
         return (
         <ViewErrorBoundary viewName="the repair line">
-          <div className={showDesktopCompanion ? 'benz-tablet-only' : undefined}>
           <LineView
             ro={ro.currentRO}
             line={ro.currentLine}
@@ -873,7 +885,6 @@ export function BenzTechAuthenticatedApp({
               );
             }}
           />
-          </div>
         </ViewErrorBoundary>
         );
       })()}
@@ -922,8 +933,52 @@ export function BenzTechAuthenticatedApp({
       )}
 
       <AppFooter />
-    </div>
-      )}
+    </>
+    );
+
+    if (isDesktop) {
+      return (
+        <div className={`app-container benz-companion-mode benz-command-root${wideLayout ? ' benz-app-wide' : ''}`}>
+          <DesktopCommandShell
+            view={ro.view}
+            technicianName={session.name}
+            dealershipName={session.dealershipName}
+            currentRoNumber={ro.currentRO?.roNumber}
+            currentLineLabel={
+              ro.currentLine ? `Line ${ro.currentLine.lineNumber}` : null
+            }
+            connectionState={companion.connectionState}
+            workflowStatus={companion.workflowStatus}
+            statusMessage={companion.statusMessage}
+            statusProgress={companion.statusProgress}
+            activities={companion.activities}
+            liveTechnicianSession={companion.liveTechnicianSession}
+            liveWorkflowStatus={companion.workflowStatus}
+            liveLastSeenAt={companion.liveLastSeenAt}
+            roSummaries={ro.todayROs || ro.allROs || []}
+            onOpenRo={(id) => void ro.ensureRepairOrderOpen(id)}
+            onNavigate={shellNavigate}
+            searchValue={ro.searchTerm}
+            onSearchChange={ro.setSearchTerm}
+            onGenerateStory={
+              ro.currentLine
+                ? () =>
+                    runAction('Generate story', () => ro.generateStory(ro.currentLine!.id))
+                : undefined
+            }
+          >
+            {appBody}
+          </DesktopCommandShell>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`app-container${wideLayout ? ' benz-app-wide' : ''}`}>
+        {appBody}
+      </div>
+    );
+      }}
     </CompanionSyncBridge>
     </VoiceInputProvider>
   );

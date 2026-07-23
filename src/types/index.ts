@@ -743,6 +743,7 @@ export const AUDIT_ACTIONS = [
   'module.set',
   'voice.customization_update',
   'encryption.rotation_begin',
+  'encryption.rotation_env_confirmed',
   'encryption.rotation_reencrypt_start',
   'encryption.rotation_cancel',
   'encryption.rotation_complete',

@@ -27,8 +27,10 @@ const RECONNECT_MS = 2_000;
 const POLL_MS_CONNECTED = 15_000;
 const POLL_MS_DISCONNECTED = 3_000;
 const POLL_LOOKBACK_MS = 120_000;
-/** Desktop companion full-RO refresh — was 2s (too aggressive / clobber risk). */
-const RO_SNAPSHOT_MS = 8_000;
+/** Desktop full-RO refresh when idle (no live bay session). */
+const RO_SNAPSHOT_MS_IDLE = 8_000;
+/** Faster mirror when live technician session is active. */
+const RO_SNAPSHOT_MS_LIVE = 3_500;
 
 interface CompanionHandlers {
   onNavigation: (payload: {
@@ -77,6 +79,10 @@ export function useCompanionSync({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusProgress, setStatusProgress] = useState<number | null>(null);
   const [activities, setActivities] = useState<CompanionActivityEntry[]>([]);
+  /** Another device is actively syncing (tablet bay) */
+  const [liveTechnicianSession, setLiveTechnicianSession] = useState(false);
+  const [liveLastSeenAt, setLiveLastSeenAt] = useState<string | null>(null);
+  const [liveRemoteDeviceId, setLiveRemoteDeviceId] = useState<string | null>(null);
 
   const seenIdsRef = useRef(new Set<string>());
   const applyingRemoteRef = useRef(false);
@@ -146,6 +152,16 @@ export function useCompanionSync({
     [deviceId]
   );
 
+  const markRemoteLive = useCallback(
+    (event: CompanionEvent) => {
+      if (event.sourceDeviceId === 'server' || event.sourceDeviceId === deviceId) return;
+      setLiveTechnicianSession(true);
+      setLiveLastSeenAt(event.timestamp);
+      setLiveRemoteDeviceId(event.sourceDeviceId);
+    },
+    [deviceId]
+  );
+
   const handleEvent = useCallback(
     async (event: CompanionEvent) => {
       if (shouldIgnoreEvent(event)) return;
@@ -153,6 +169,7 @@ export function useCompanionSync({
       if (Date.parse(event.timestamp) >= Date.parse(lastPollAtRef.current)) {
         lastPollAtRef.current = event.timestamp;
       }
+      markRemoteLive(event);
 
       const handlers = handlersRef.current;
       try {
@@ -269,8 +286,20 @@ export function useCompanionSync({
         });
       }
     },
-    [pushActivity, shouldIgnoreEvent]
+    [markRemoteLive, pushActivity, shouldIgnoreEvent]
   );
+
+  // Expire live session if no remote events for 60s
+  useEffect(() => {
+    if (!liveTechnicianSession || !liveLastSeenAt) return;
+    const t = setInterval(() => {
+      const age = Date.now() - Date.parse(liveLastSeenAt);
+      if (age > 60_000) {
+        setLiveTechnicianSession(false);
+      }
+    }, 5_000);
+    return () => clearInterval(t);
+  }, [liveLastSeenAt, liveTechnicianSession]);
 
   const handleEventRef = useRef(handleEvent);
   handleEventRef.current = handleEvent;
@@ -502,12 +531,15 @@ export function useCompanionSync({
     statusMessage,
     statusProgress,
     activities,
+    liveTechnicianSession,
+    liveLastSeenAt,
+    liveRemoteDeviceId,
     publishNavigation,
     publishStatus,
     publishActivity,
     publishROPatch,
     recordActivity,
     isSubscriber,
-    roSnapshotIntervalMs: RO_SNAPSHOT_MS,
+    roSnapshotIntervalMs: liveTechnicianSession ? RO_SNAPSHOT_MS_LIVE : RO_SNAPSHOT_MS_IDLE,
   };
 }
