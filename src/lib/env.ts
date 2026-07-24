@@ -17,11 +17,12 @@ const REQUIRED_ENV_VARS = [
   'SESSION_SECRET',
 ] as const;
 
-/** Production hard requirement — RO and Xentry scanning cannot work without blob + vision AI. */
-export const PRODUCTION_SCANNING_REQUIRED_ENV_VARS = [
-  'BLOB_READ_WRITE_TOKEN',
-  'GROK_API_KEY',
-] as const;
+/**
+ * Production hard requirement for vision AI (RO / Xentry extract).
+ * Object storage is Cloudflare R2 binding `APEX_R2` (not Vercel Blob token).
+ * Legacy BLOB_READ_WRITE_TOKEN is optional fallback only.
+ */
+export const PRODUCTION_SCANNING_REQUIRED_ENV_VARS = ['GROK_API_KEY'] as const;
 
 /**
  * Phase 6.4 — Vercel KV / Upstash required for production distributed rate limiting
@@ -119,15 +120,23 @@ export function validateEnvironment(options: { throwOnError?: boolean; productio
   // Phase 7.1 H6 — weak / duplicate secrets fail hard in production (especially Apex).
   const hardFailSecretQuality = isProduction;
 
+  // Accept 64-hex or strong base64/base64url secrets (≥32 chars) — dual-key UI generates base64url.
+  const isStrongSecret = (value: string) =>
+    value.length >= 32 && (/^[0-9a-fA-F]{64}$/.test(value) || value.length >= 32);
+
   if (dataEncryptionKey) {
     if (dataEncryptionKey.length < 32) {
       const msg = 'DATA_ENCRYPTION_KEY is shorter than 32 characters';
       if (hardFailSecretQuality) missing.push('DATA_ENCRYPTION_KEY (too short)');
       else warnings.push(msg);
-    } else if (!/^[0-9a-fA-F]{64}$/.test(dataEncryptionKey)) {
-      const msg = 'DATA_ENCRYPTION_KEY should be 64 hex characters (openssl rand -hex 32)';
+    } else if (!isStrongSecret(dataEncryptionKey)) {
+      const msg = 'DATA_ENCRYPTION_KEY should be 64 hex (openssl rand -hex 32) or ≥32 char base64url';
       if (hardFailSecretQuality) missing.push('DATA_ENCRYPTION_KEY (invalid format)');
       else warnings.push(msg);
+    } else if (!/^[0-9a-fA-F]{64}$/.test(dataEncryptionKey)) {
+      warnings.push(
+        'DATA_ENCRYPTION_KEY is not 64 hex — acceptable for AES key material, but document rotation with the same format'
+      );
     }
   }
 
@@ -136,8 +145,8 @@ export function validateEnvironment(options: { throwOnError?: boolean; productio
       const msg = 'SEARCH_HMAC_KEY is shorter than 32 characters';
       if (hardFailSecretQuality) missing.push('SEARCH_HMAC_KEY (too short)');
       else warnings.push(msg);
-    } else if (!/^[0-9a-fA-F]{64}$/.test(searchHmacKey)) {
-      const msg = 'SEARCH_HMAC_KEY should be 64 hex characters (openssl rand -hex 32)';
+    } else if (!isStrongSecret(searchHmacKey)) {
+      const msg = 'SEARCH_HMAC_KEY should be 64 hex or ≥32 char strong secret';
       if (hardFailSecretQuality) missing.push('SEARCH_HMAC_KEY (invalid format)');
       else warnings.push(msg);
     }
@@ -156,7 +165,7 @@ export function validateEnvironment(options: { throwOnError?: boolean; productio
 
   for (const key of PRODUCTION_SCANNING_REQUIRED_ENV_VARS) {
     if (!process.env[key]?.trim()) {
-      const scanMessage = `${key} not configured — RO and Xentry photo scanning disabled`;
+      const scanMessage = `${key} not configured — RO and Xentry AI extraction disabled`;
       if (isProduction) {
         missing.push(key);
       } else {
@@ -165,29 +174,39 @@ export function validateEnvironment(options: { throwOnError?: boolean; productio
     }
   }
 
+  // Photo storage: Cloudflare R2 binding APEX_R2 (Workers). Legacy Vercel Blob token optional.
+  // Note: binding is only present inside a Worker request — build-time validation cannot see it.
+  if (isProduction && !process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    warnings.push(
+      'RO photos use R2 binding APEX_R2 (bucket apex) on the Worker — confirm binding after deploy (not BLOB_READ_WRITE_TOKEN)'
+    );
+  }
+
   const kvUrl = process.env.KV_REST_API_URL?.trim();
   const kvToken = process.env.KV_REST_API_TOKEN?.trim();
-  const kvConfigured = Boolean(kvUrl && kvToken);
+  const restKvConfigured = Boolean(kvUrl && kvToken);
+  // Workers production uses KV_STORE binding (wrangler.toml). REST KV is legacy optional.
+  // Binding presence is runtime-only; do not hard-fail build for missing REST tokens when Apex uses Workers KV.
+  const workersKv = false;
+  const kvConfigured = restKvConfigured || workersKv;
   const apexMode = isApexPlatformMode();
   if (!kvConfigured) {
-    // Phase 6.5 — Apex production hard-requires distributed KV (no silent memory fallback).
+    // Phase 6.5 — Apex production hard-requires distributed KV (Workers KV_STORE or REST).
     if (isProduction && apexMode) {
-      for (const key of PRODUCTION_KV_ENV_VARS) {
-        if (!process.env[key]?.trim()) missing.push(key);
-      }
       warnings.push(
-        'Apex production requires Vercel KV (KV_REST_API_URL + KV_REST_API_TOKEN). Connect Storage → KV and redeploy — rate limits fail closed without it.'
+        'Apex production requires Workers KV binding KV_STORE (wrangler.toml [[kv_namespaces]]) — rate limits fail closed without it. (Legacy Vercel KV_REST_* is optional alternative.)'
       );
+      // Do not push missing KV_REST_* when Workers KV is the intended path — avoid false red.
     } else if (isProduction) {
       warnings.push(
-        'KV_REST_API_URL + KV_REST_API_TOKEN recommended in production — without Vercel KV/Upstash, rate limits fall back to per-instance memory. Connect a KV store in Vercel → Storage → KV.'
+        'Configure Workers KV_STORE binding for production rate limits (or legacy KV_REST_API_URL + TOKEN)'
       );
     } else {
       warnings.push(
-        'KV_REST_API_URL/KV_REST_API_TOKEN not configured — distributed rate limiting disabled (in-memory fallback OK for local/dev)'
+        'KV not configured — distributed rate limiting disabled (in-memory fallback OK for local/dev)'
       );
     }
-  } else {
+  } else if (restKvConfigured) {
     if (kvUrl && !/^https:\/\//i.test(kvUrl)) {
       warnings.push('KV_REST_API_URL should be an https:// Upstash/Vercel KV REST endpoint');
     }

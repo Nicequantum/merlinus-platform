@@ -7,6 +7,14 @@
 export const NON_JSON_API_ERROR_MESSAGE =
   'Service temporarily unavailable. Check your connection and try again.';
 
+/** Prefer status-aware copy so bay techs / ops can distinguish 503 storage vs network. */
+export function nonJsonApiErrorMessage(status?: number): string {
+  if (status && status > 0) {
+    return `Service temporarily unavailable (HTTP ${status}). Check your connection and try again.`;
+  }
+  return NON_JSON_API_ERROR_MESSAGE;
+}
+
 export interface ParsedApiErrorBody {
   /** User-safe message */
   message: string;
@@ -15,6 +23,8 @@ export interface ParsedApiErrorBody {
   /** Optional machine code from JSON body */
   code?: string;
   requestId?: string;
+  /** HTTP status when known (helps ops + client logs) */
+  status?: number;
 }
 
 function looksLikeHtml(text: string): boolean {
@@ -38,22 +48,28 @@ export async function parseApiErrorResponse(
     text = await res.text();
   } catch {
     return {
-      message: `${fallbackMessage} (${res.status})`,
+      message: `${fallbackMessage} (HTTP ${res.status})`,
       nonJson: true,
+      status: res.status,
     };
   }
 
   if (!text.trim()) {
     return {
-      message: res.status >= 500 ? NON_JSON_API_ERROR_MESSAGE : `${fallbackMessage} (${res.status})`,
+      message:
+        res.status >= 500
+          ? nonJsonApiErrorMessage(res.status)
+          : `${fallbackMessage} (HTTP ${res.status})`,
       nonJson: !isJsonHeader,
+      status: res.status,
     };
   }
 
   if (looksLikeHtml(text) || (!isJsonHeader && text.trimStart().startsWith('<'))) {
     return {
-      message: NON_JSON_API_ERROR_MESSAGE,
+      message: nonJsonApiErrorMessage(res.status),
       nonJson: true,
+      status: res.status,
     };
   }
 
@@ -70,10 +86,11 @@ export async function parseApiErrorResponse(
         (typeof data.message === 'string' && data.message.trim()) ||
         '';
       return {
-        message: err || `${fallbackMessage} (${res.status})`,
+        message: err || `${fallbackMessage} (HTTP ${res.status})`,
         nonJson: false,
         code: typeof data.code === 'string' ? data.code : undefined,
         requestId: typeof data.requestId === 'string' ? data.requestId : undefined,
+        status: res.status,
       };
     }
   } catch {
@@ -83,14 +100,16 @@ export async function parseApiErrorResponse(
   // Non-JSON text body (plain text error, CF ray pages, etc.)
   if (!isJsonHeader || looksLikeHtml(text)) {
     return {
-      message: NON_JSON_API_ERROR_MESSAGE,
+      message: nonJsonApiErrorMessage(res.status),
       nonJson: true,
+      status: res.status,
     };
   }
 
   return {
-    message: `${fallbackMessage} (${res.status})`,
+    message: `${fallbackMessage} (HTTP ${res.status})`,
     nonJson: true,
+    status: res.status,
   };
 }
 
@@ -116,8 +135,9 @@ export async function readJsonBodySafe<T>(
     return {
       ok: false,
       error: {
-        message: NON_JSON_API_ERROR_MESSAGE,
+        message: nonJsonApiErrorMessage(res.status),
         nonJson: true,
+        status: res.status,
       },
     };
   }
@@ -128,8 +148,9 @@ export async function readJsonBodySafe<T>(
     return {
       ok: false,
       error: {
-        message: NON_JSON_API_ERROR_MESSAGE,
+        message: nonJsonApiErrorMessage(res.status),
         nonJson: true,
+        status: res.status,
       },
     };
   }

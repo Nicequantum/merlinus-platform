@@ -2,7 +2,11 @@ import 'server-only';
 
 /**
  * Cloudflare R2 binding resolution (OpenNext + workerd).
- * Binding name must match wrangler.toml: APEX_R2 → bucket Apex.
+ * Binding name must match wrangler.toml: APEX_R2 → bucket apex.
+ *
+ * Resolution order mirrors D1 (src/lib/d1.ts) so OpenNext request context
+ * is preferred — missing ALS/package fallbacks were a common live cause of
+ * "storage not available" / generic client toasts on RO photo upload.
  */
 
 export const R2_BINDING_NAME = 'APEX_R2' as const;
@@ -59,6 +63,10 @@ function isR2Bucket(value: unknown): value is R2BucketLike {
   );
 }
 
+/**
+ * OpenNext sets `globalThis[Symbol.for("__cloudflare-context__")]` via ALS.
+ * Prefer this over package require — most reliable on production Workers.
+ */
 function readOpenNextAlsR2(): R2BucketLike | null {
   try {
     const ctx = Reflect.get(globalThis, Symbol.for('__cloudflare-context__')) as
@@ -68,6 +76,24 @@ function readOpenNextAlsR2(): R2BucketLike | null {
     if (isR2Bucket(bucket)) return bucket;
   } catch {
     // outside request
+  }
+  return null;
+}
+
+function readOpenNextPackageR2(): R2BucketLike | null {
+  try {
+    // eslint-disable-next-line no-new-func
+    const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+    if (!req) return null;
+    const mod = req('@opennextjs/cloudflare') as {
+      getCloudflareContext?: (opts?: { async?: boolean }) => { env?: Record<string, unknown> };
+    };
+    if (typeof mod.getCloudflareContext !== 'function') return null;
+    const ctx = mod.getCloudflareContext({ async: false });
+    const bucket = ctx?.env?.[R2_BINDING_NAME];
+    if (isR2Bucket(bucket)) return bucket;
+  } catch {
+    // package graph missing or outside request
   }
   return null;
 }
@@ -88,12 +114,25 @@ function readWorkersModuleR2(): R2BucketLike | null {
 
 /** Returns the APEX_R2 binding when running on Cloudflare; otherwise null. */
 export function getR2Bucket(): R2BucketLike | null {
+  // OpenNext production path first (ALS / symbol)
   const fromAls = readOpenNextAlsR2();
   if (fromAls) return fromAls;
+
+  const fromOpenNextPkg = readOpenNextPackageR2();
+  if (fromOpenNextPkg) return fromOpenNextPkg;
+
   const fromWorkers = readWorkersModuleR2();
   if (fromWorkers) return fromWorkers;
-  const g = globalThis as typeof globalThis & { APEX_R2?: R2BucketLike };
+
+  const g = globalThis as typeof globalThis & {
+    APEX_R2?: R2BucketLike;
+    __CLOUDFLARE_ENV__?: Record<string, unknown>;
+  };
   if (isR2Bucket(g.APEX_R2)) return g.APEX_R2;
+  if (g.__CLOUDFLARE_ENV__ && isR2Bucket(g.__CLOUDFLARE_ENV__[R2_BINDING_NAME])) {
+    return g.__CLOUDFLARE_ENV__[R2_BINDING_NAME] as R2BucketLike;
+  }
+
   return null;
 }
 

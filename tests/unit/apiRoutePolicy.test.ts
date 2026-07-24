@@ -94,8 +94,11 @@ describe('P0-4 client API response parse', () => {
       headers: { 'Content-Type': 'text/html' },
     });
     const parsed = await parseApiErrorResponse(res);
-    assert.equal(parsed.message, NON_JSON_API_ERROR_MESSAGE);
+    // Include HTTP status so ops can distinguish edge/storage failures from pure offline.
+    assert.match(parsed.message, /Service temporarily unavailable/);
+    assert.match(parsed.message, /HTTP 502/);
     assert.equal(parsed.nonJson, true);
+    assert.equal(parsed.status, 502);
   });
 
   it('readJsonBodySafe returns data on success', async () => {

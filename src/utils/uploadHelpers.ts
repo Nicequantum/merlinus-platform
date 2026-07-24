@@ -34,7 +34,10 @@ async function mapWithConcurrency<T, R>(
 }
 
 function isRetriableUploadError(error: unknown): boolean {
-  if (error instanceof ApiError) return isRetriableHttpStatus(error.status);
+  if (error instanceof ApiError) {
+    // Include bare 500 — Workers cold-start / first R2 put often surfaces as 500 HTML or JSON.
+    return isRetriableHttpStatus(error.status, { includeServerError: true });
+  }
   return isNetworkFailure(error);
 }
 

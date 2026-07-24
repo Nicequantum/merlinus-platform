@@ -166,6 +166,8 @@ async function apiFetch<T>(
 }
 
 async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number): Promise<T> {
+  // maxRetries=0: FormData bodies cannot be safely re-sent after a failed attempt.
+  // uploadHelpers retries with a freshly compressed File / new FormData instead.
   const res = await fetchWithNetworkRetry(
     path,
     {
@@ -174,7 +176,9 @@ async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number
       credentials: 'include',
       headers: withCsrfHeaders(),
     },
-    timeoutMs
+    timeoutMs,
+    undefined,
+    0
   );
 
   if (!res.ok) {
@@ -184,7 +188,7 @@ async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number
 
   const parsed = await readJsonBodySafe<T>(res);
   if (!parsed.ok) {
-    throw new ApiError(parsed.error.message, res.status);
+    throw new ApiError(parsed.error.message, res.status || 502);
   }
   return parsed.data;
 }

@@ -70,19 +70,25 @@ export function reportMappedRouteError(
   });
 
   if (shouldCaptureRouteError(mapped.status)) {
-    Sentry.captureException(err, {
-      tags: {
-        routeContext: context,
-        requestId: getRequestId() ?? 'none',
-        httpStatus: String(mapped.status),
-      },
-      extra: {
-        routeContext: context,
-        logDetail: mapped.logDetail,
-        status: mapped.status,
-        requestId: getRequestId(),
-      },
-    });
+    // Never let a bad Sentry DSN (e.g. placeholder NEXT_PUBLIC_SENTRY_DSN) crash the route
+    // into an HTML 500 — that surfaces as the bay "Service temporarily unavailable" toast.
+    try {
+      Sentry.captureException(err, {
+        tags: {
+          routeContext: context,
+          requestId: getRequestId() ?? 'none',
+          httpStatus: String(mapped.status),
+        },
+        extra: {
+          routeContext: context,
+          logDetail: mapped.logDetail,
+          status: mapped.status,
+          requestId: getRequestId(),
+        },
+      });
+    } catch {
+      // ignore Sentry misconfiguration
+    }
   }
 
   return apiError(mapped.message, mapped.status);
@@ -106,19 +112,23 @@ export function handleRouteError(error: unknown, context: string): NextResponse 
 
   // Phase 7.2 H9 — do not flood Sentry with expected 4xx domain errors
   if (shouldCaptureRouteError(mapped.status)) {
-    Sentry.captureException(err, {
-      tags: {
-        routeContext: context,
-        requestId: getRequestId() ?? 'none',
-        httpStatus: String(mapped.status),
-      },
-      extra: {
-        routeContext: context,
-        logDetail: mapped.logDetail,
-        status: mapped.status,
-        requestId: getRequestId(),
-      },
-    });
+    try {
+      Sentry.captureException(err, {
+        tags: {
+          routeContext: context,
+          requestId: getRequestId() ?? 'none',
+          httpStatus: String(mapped.status),
+        },
+        extra: {
+          routeContext: context,
+          logDetail: mapped.logDetail,
+          status: mapped.status,
+          requestId: getRequestId(),
+        },
+      });
+    } catch {
+      // ignore Sentry misconfiguration
+    }
   }
 
   return apiError(mapped.message, mapped.status);

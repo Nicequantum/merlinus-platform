@@ -2,9 +2,15 @@ import { auditDealerIdFromSession } from '@/lib/audit';
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { withAuth } from '@/lib/apiRoute';
 import { uploadImageToBlob } from '@/lib/blob';
-import { apiError, reportMappedRouteError, VALIDATION_ERROR } from '@/lib/errors';
+import {
+  apiError,
+  handleRouteError,
+  reportMappedRouteError,
+  VALIDATION_ERROR,
+} from '@/lib/errors';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapAuditRouteError, mapBlobRouteError } from '@/lib/scanRouteErrors';
+import { isR2Configured } from '@/lib/storage/r2';
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -72,7 +78,29 @@ export async function POST(request: Request) {
   return withAuth(
     request,
     async (session) => {
-      const formData = await request.formData();
+      // Fail fast with JSON so bay clients never map storage misconfig to a generic toast.
+      if (!isR2Configured()) {
+        return apiError(
+          'Photo storage is not configured. Contact your service manager (R2 / APEX_R2).',
+          503
+        );
+      }
+
+      let formData: FormData;
+      try {
+        formData = await request.formData();
+      } catch (error) {
+        return reportMappedRouteError(
+          {
+            message: 'Could not read the photo upload. Try again or use a smaller JPEG/PNG.',
+            status: 400,
+            logDetail: error instanceof Error ? error.message : String(error),
+          },
+          error,
+          'upload.formData'
+        );
+      }
+
       const file = formData.get('file');
 
       if (!isUploadFile(file)) {
@@ -91,13 +119,26 @@ export async function POST(request: Request) {
         return apiError('Image must be smaller than 8 MB.', 400);
       }
 
+      if (file.size === 0) {
+        return apiError('Empty image file. Take the photo again and retry.', 400);
+      }
+
       let uploaded;
       try {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        uploaded = await uploadImageToBlob(buffer, file.name || 'capture.jpg', contentType);
+        // Prefer Uint8Array for workerd R2 puts (Buffer can be fragile under multi-tenant load).
+        const ab = await file.arrayBuffer();
+        if (ab.byteLength === 0) {
+          return apiError('Empty image payload. Take the photo again and retry.', 400);
+        }
+        const bytes = new Uint8Array(ab);
+        uploaded = await uploadImageToBlob(
+          Buffer.from(bytes),
+          file.name || 'capture.jpg',
+          contentType
+        );
       } catch (error) {
         const mapped = mapBlobRouteError(error, 'upload');
-        // Phase 7.2 — no raw fileName (may contain RO/customer hints); report via shared path
+        // Always JSON — status 502/503 with explicit storage message when possible.
         return reportMappedRouteError(mapped, error, 'upload');
       }
 
@@ -118,7 +159,12 @@ export async function POST(request: Request) {
         return reportMappedRouteError(mapped, error, 'upload');
       }
 
-      return { pathname: uploaded.pathname, url: uploaded.url, name: file.name };
+      return {
+        pathname: uploaded.pathname,
+        url: uploaded.url,
+        name: file.name,
+        ok: true as const,
+      };
     },
     {
       rateLimitKey: 'upload',
@@ -128,5 +174,8 @@ export async function POST(request: Request) {
       // Blob I/O is outside the DB tx; audit uses writeAuditedAccess separately.
       useRls: false,
     }
-  );
+  ).catch((error: unknown) => {
+    // Last-resort JSON envelope — never let OpenNext HTML replace bay upload errors.
+    return handleRouteError(error, 'upload');
+  });
 }

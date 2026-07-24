@@ -38,13 +38,18 @@ export interface UploadedBlobImage {
 }
 
 export async function uploadImageToBlob(
-  buffer: Buffer,
+  buffer: Buffer | Uint8Array,
   filename: string,
   contentType: string
 ): Promise<UploadedBlobImage> {
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'capture.jpg';
   const key = `benz-tech/${Date.now()}-${safeName}`;
-  await putObject(key, buffer, { contentType });
+  // Always pass a standalone Uint8Array — workerd R2 is more reliable than Node Buffer views.
+  // Buffer is a Uint8Array subclass; copy into a plain Uint8Array for R2.
+  const view = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  await putObject(key, copy, { contentType });
   return {
     pathname: key,
     url: buildImageProxyUrl(key),

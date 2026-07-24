@@ -108,10 +108,10 @@ export function validateProductModuleEnvironment(options?: {
     }
   }
 
-  // Video MPI / loaner / voice recordings share Blob.
+  // Media: Cloudflare R2 (APEX_R2). Legacy Vercel Blob token is optional/unused on Workers.
   if (!env.BLOB_READ_WRITE_TOKEN?.trim()) {
     warnings.push(
-      'BLOB_READ_WRITE_TOKEN not set — Video MPI media, voice recordings, and RO photo scanning require Vercel Blob'
+      'BLOB_READ_WRITE_TOKEN not set (legacy) — Workers use R2 binding APEX_R2 for RO photos, Video MPI, and voice media'
     );
   }
 
