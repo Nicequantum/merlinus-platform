@@ -133,6 +133,12 @@ export function mapGrokRouteError(error: unknown, featureLabel: string): RouteEr
     const statusCode = Number(grokMatch[1]);
     const detail = grokMatch[2]?.trim();
     const detailSuffix = detail ? ` — ${detail}` : '';
+    // xAI often returns HTTP 400 (not 401) for bad/placeholder keys with console.x.ai copy.
+    const badApiKey =
+      /incorrect api key|invalid api key|invalid.?key|api key.*invalid|unauthorized/i.test(
+        detail || message
+      ) ||
+      (statusCode === 400 && /api key|authorization|bearer/i.test(detail || ''));
 
     if (statusCode === 429) {
       return {
@@ -141,15 +147,16 @@ export function mapGrokRouteError(error: unknown, featureLabel: string): RouteEr
         logDetail,
       };
     }
-    if (statusCode === 401 || statusCode === 403) {
+    if (badApiKey || statusCode === 401 || statusCode === 403) {
       const protection =
         /protect(ed|ion)|deployment protection|authentication required|vercel/i.test(
           detail || message
         );
       return {
+        // Bay-safe: do not surface console.x.ai / key material — manager fixes Worker secret.
         message: protection
-          ? `${featureLabel} failed — AI gateway blocked (HTTP ${statusCode} deployment protection).${detailSuffix} Contact your service manager.`
-          : `${featureLabel} failed — AI API key rejected (HTTP ${statusCode}).${detailSuffix} Contact your service manager.`,
+          ? `${featureLabel} failed — AI gateway blocked (HTTP ${statusCode}). Contact your service manager.`
+          : `${featureLabel} failed — AI API key rejected or misconfigured. Service manager: update Cloudflare Worker secret GROK_API_KEY (xAI console).`,
         status: 503,
         logDetail,
       };

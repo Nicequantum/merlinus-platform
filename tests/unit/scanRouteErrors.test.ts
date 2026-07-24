@@ -28,14 +28,26 @@ describe('scan route errors', () => {
     assert.match(legacy.logDetail, /BLOB_READ_WRITE_TOKEN/);
   });
 
-  it('includes Grok API status and detail in the message', () => {
-    const mapped = mapGrokRouteError(
+  it('maps bad xAI API keys to bay-safe 503 without console.x.ai copy', () => {
+    const mapped401 = mapGrokRouteError(
       new Error('Grok API error: 401 — Invalid API key provided'),
       'Repair order scan'
     );
-    assert.equal(mapped.status, 503);
-    assert.match(mapped.message, /401/);
-    assert.match(mapped.message, /Invalid API key/);
+    assert.equal(mapped401.status, 503);
+    assert.match(mapped401.message, /API key rejected|misconfigured/i);
+    assert.doesNotMatch(mapped401.message, /console\.x\.ai/i);
+
+    // xAI often returns HTTP 400 for incorrect keys (live RO scan symptom).
+    const mapped400 = mapGrokRouteError(
+      new Error(
+        'Grok API error: 400 — Incorrect API key provided. You can obtain an API key from https://console.x.ai.'
+      ),
+      'Repair order scan'
+    );
+    assert.equal(mapped400.status, 503);
+    assert.match(mapped400.message, /API key rejected|misconfigured/i);
+    assert.doesNotMatch(mapped400.message, /console\.x\.ai/i);
+    assert.match(mapped400.logDetail, /Incorrect API key/i);
   });
 
   it('parses xAI JSON error bodies', () => {
