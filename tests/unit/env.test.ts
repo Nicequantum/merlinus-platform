@@ -39,7 +39,7 @@ describe('environment validation', () => {
     else process.env.NEXT_PUBLIC_GROK_API_KEY = saved;
   });
 
-  test('requires BLOB_READ_WRITE_TOKEN in production for scanning', () => {
+  test('requires GROK_API_KEY in production; photo storage is R2 APEX_R2 not Blob token', () => {
     const saved = {
       BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
       GROK_API_KEY: process.env.GROK_API_KEY,
@@ -48,15 +48,21 @@ describe('environment validation', () => {
     delete process.env.GROK_API_KEY;
 
     const prod = validateEnvironment({ throwOnError: false, production: true });
-    assert.ok(prod.missing.includes('BLOB_READ_WRITE_TOKEN'));
+    // Workers use R2 binding APEX_R2 — legacy BLOB_READ_WRITE_TOKEN is optional, not hard-missing.
+    assert.equal(prod.missing.includes('BLOB_READ_WRITE_TOKEN'), false);
     assert.ok(prod.missing.includes('GROK_API_KEY'));
+    assert.ok(
+      prod.warnings.some((w) => w.includes('APEX_R2') || w.includes('R2')),
+      'production without Blob token should warn to confirm Worker R2 binding'
+    );
 
     const dev = validateEnvironment({ throwOnError: false, production: false });
-    assert.ok(dev.warnings.some((w) => w.includes('BLOB_READ_WRITE_TOKEN')));
     assert.ok(dev.warnings.some((w) => w.includes('GROK_API_KEY')));
 
-    process.env.BLOB_READ_WRITE_TOKEN = saved.BLOB_READ_WRITE_TOKEN;
-    process.env.GROK_API_KEY = saved.GROK_API_KEY;
+    if (saved.BLOB_READ_WRITE_TOKEN === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = saved.BLOB_READ_WRITE_TOKEN;
+    if (saved.GROK_API_KEY === undefined) delete process.env.GROK_API_KEY;
+    else process.env.GROK_API_KEY = saved.GROK_API_KEY;
   });
 
   test('getBuildCommit falls back to dev', () => {
