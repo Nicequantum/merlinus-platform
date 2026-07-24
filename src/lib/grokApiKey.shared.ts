@@ -5,8 +5,8 @@
  *
  * | Env var           | Slot      | Features |
  * |-------------------|-----------|----------|
- * | GROK_API_KEY      | default   | Warranty story generate/score/review, customer-pay narrative, video MPI report, Hub insights, health probe, Apex proxy upstream |
- * | GROK_API_KEY_1    | vision    | RO photo extract, Xentry/diagnostics vision extract |
+ * | GROK_API_KEY      | default   | Warranty story generate/score/review, customer-pay narrative, Hub insights, health probe, Apex proxy upstream |
+ * | GROK_API_KEY_1    | vision    | RO photo extract, Xentry/diagnostics, MPI video analysis + customer report |
  * | GROK_API_KEY_2    | voice     | Sophia voice chat tools, realtime WebSocket |
  *
  * Fallbacks (when a slot secret is unset):
@@ -40,8 +40,8 @@ export const GROK_KEY_SLOT_ENV_VARS: Record<GrokKeySlot, readonly string[]> = {
 } as const;
 
 export const GROK_KEY_SLOT_LABELS: Record<GrokKeySlot, string> = {
-  default: 'stories / hub / general completions',
-  vision: 'RO + Xentry vision extract',
+  default: 'stories / hub / customer-pay text',
+  vision: 'RO + Xentry + MPI video/report vision',
   voice: 'Sophia voice + realtime',
 };
 

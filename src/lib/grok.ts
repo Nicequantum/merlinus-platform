@@ -714,6 +714,8 @@ export async function generateCustomerVideoReport(input: {
       max_tokens: 2048,
       timeoutMs: CUSTOMER_VIDEO_REPORT_GROK_MS,
       perfLabel: 'grok.customer_video_report',
+      // Multimodal MPI analysis (transcript + optional frames) → vision key (GROK_API_KEY_1).
+      keySlot: 'vision',
     }
   );
 

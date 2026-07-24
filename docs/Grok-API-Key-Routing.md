@@ -8,8 +8,8 @@ Merlinus Apex supports **three** server-only xAI keys for quota isolation.
 
 | Env var (Worker secret) | Slot | Features |
 |-------------------------|------|----------|
-| **`GROK_API_KEY`** | `default` | Warranty story generate / score / review · customer-pay dynamic narrative · video MPI customer report · Hub conversation insights · health probe (default) · Apex `/api/grok/proxy` upstream |
-| **`GROK_API_KEY_1`** | `vision` | **RO scan extract** · **Xentry / diagnostics extract** |
+| **`GROK_API_KEY`** | `default` | Warranty story generate / score / review · customer-pay dynamic narrative · Hub conversation insights · health probe (default) · Apex `/api/grok/proxy` upstream (**text-only**) |
+| **`GROK_API_KEY_1`** | `vision` | **RO scan extract** · **Xentry / diagnostics extract** · **MPI video analysis + customer report** (`generateCustomerVideoReport`) |
 | **`GROK_API_KEY_2`** | `voice` | **Sophia** voice chat tools · realtime WebSocket session |
 
 ## Fallbacks (when a purpose secret is missing)
@@ -27,7 +27,8 @@ Never set `NEXT_PUBLIC_GROK_*` / `NEXT_PUBLIC_XAI_*`.
 | Call site | Slot |
 |-----------|------|
 | `src/lib/grok.ts` → `extractROFromImages` / `extractDiagnosticsFromImage` | vision |
-| `src/lib/grok.ts` → story / score / review / customer-pay / video report | default |
+| `src/lib/grok.ts` → `generateCustomerVideoReport` (MPI report; also queue `handleMpiReportJob`) | vision |
+| `src/lib/grok.ts` → story / score / review / customer-pay | default |
 | `src/lib/hub/insightAi.ts` | default |
 | `src/lib/voiceAgent/grokClient.ts` | voice |
 | `src/lib/voiceAgent/realtimeSophia.ts` | voice |
@@ -79,9 +80,10 @@ Open **Manager → Control Center → Health** (or authenticated `GET /api/healt
 |---------|----------------------------|
 | RO Process | Green uploads + extract succeeds without “API key rejected” |
 | Xentry photo analysis | Same |
-| Generate warranty story | Completes on a line |
-| Sophia / voice turn | Call or tool path succeeds |
-| Logs | Perf / warn lines may include `keySlot=vision` or `keyEnv=GROK_API_KEY_1` |
+| **Video MPI → Generate report** | Report completes; Worker/perf logs show `keySlot=vision` / `grok.customer_video_report` (uses **GROK_API_KEY_1**) |
+| Generate warranty story | Completes on a line (default key only) |
+| Sophia / voice turn | Call or tool path succeeds (**GROK_API_KEY_2**) |
+| Logs | Perf lines: `keySlot=vision` for RO/Xentry/MPI; no vision keySlot on story generate |
 
 ### 5. Unit tests
 

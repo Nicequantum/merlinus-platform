@@ -99,12 +99,13 @@ describe('grok API key security + multi-slot routing', () => {
     assert.equal(vision.usedFallback, false);
   });
 
-  test('RO extract and diagnostics use vision keySlot in source', async () => {
+  test('RO extract, diagnostics, and MPI report use vision keySlot in source', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const grokSrc = readFileSync(resolve(process.cwd(), 'src/lib/grok.ts'), 'utf8');
     assert.match(grokSrc, /perfLabel:\s*'grok\.ro\.extract'[\s\S]*?keySlot:\s*'vision'/);
     assert.match(grokSrc, /perfLabel:\s*'grok\.diagnostics\.extract'[\s\S]*?keySlot:\s*'vision'/);
+    assert.match(grokSrc, /perfLabel:\s*'grok\.customer_video_report'[\s\S]*?keySlot:\s*'vision'/);
     const voiceSrc = readFileSync(resolve(process.cwd(), 'src/lib/voiceAgent/grokClient.ts'), 'utf8');
     assert.match(voiceSrc, /resolveGrokApiKey\('voice'\)/);
   });
