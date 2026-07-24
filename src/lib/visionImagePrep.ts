@@ -5,16 +5,33 @@ export const VISION_IMAGE_MAX_DIM = 1280;
 /** JPEG quality tuned for RO text legibility vs. upload size. */
 export const VISION_JPEG_QUALITY = 80;
 
+/** Minimal sharp factory surface used for vision prep (avoids fragile default-export typings). */
+type SharpPipeline = {
+  metadata: () => Promise<{ width?: number; height?: number }>;
+  rotate: () => SharpPipeline;
+  resize: (opts: {
+    width: number;
+    height: number;
+    fit: string;
+    withoutEnlargement: boolean;
+  }) => SharpPipeline;
+  jpeg: (opts: { quality: number; mozjpeg: boolean }) => SharpPipeline;
+  toBuffer: () => Promise<Buffer>;
+};
+
+type SharpFactory = (input: Buffer, options?: { failOn?: string }) => SharpPipeline;
+
 /**
  * Dynamic sharp load — never static-import.
  * Cloudflare Workers / OpenNext cannot load sharp's native bindings; a static
  * `import sharp` crashed every route that pulled in `@/lib/blob` (upload, images,
  * extract) into HTML 500 before withAuth could return JSON.
  */
-async function tryLoadSharp(): Promise<typeof import('sharp').default | null> {
+async function tryLoadSharp(): Promise<SharpFactory | null> {
   try {
     const mod = await import('sharp');
-    return mod.default ?? (mod as unknown as typeof import('sharp').default);
+    const factory = (mod as { default?: SharpFactory }).default ?? (mod as unknown as SharpFactory);
+    return typeof factory === 'function' ? factory : null;
   } catch {
     return null;
   }
