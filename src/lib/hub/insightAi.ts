@@ -4,7 +4,7 @@
 
 import 'server-only';
 
-import { getGrokApiKey } from '@/lib/grokApiKey.shared';
+import { getGrokApiKeyForSlot } from '@/lib/grokApiKey.shared';
 import { GROK_CHAT_MODEL } from '@/lib/grokModels';
 import { logger } from '@/lib/logger';
 import { HUB_INSIGHT_PROMPT_VERSION } from '@/lib/hub/constants';
@@ -74,7 +74,8 @@ ${transcript}`;
     const res = await fetch(GROK_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getGrokApiKey()}`,
+        // Hub insights use default slot (GROK_API_KEY), not vision/voice.
+        Authorization: `Bearer ${getGrokApiKeyForSlot('default')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

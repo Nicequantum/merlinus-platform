@@ -1,8 +1,10 @@
 import {
   getGrokApiKey,
+  getGrokApiKeyForSlot,
   getGrokProxyApiKey,
   getGrokProxyBaseUrl,
   isGrokProxyConfigured,
+  type GrokKeySlot,
 } from '@/lib/grokApiKey.shared';
 import { createGrokProxyAccessToken } from '@/lib/grokProxyAuth';
 import { GROK_CHAT_MODEL, GROK_STORY_MODEL, GROK_STORY_REVIEW_MODEL } from '@/lib/grokModels';
@@ -150,6 +152,12 @@ type GrokChatOptions = {
   reasoningEffort?: GrokReasoningEffort;
   /** Request JSON object output from the chat API when supported. */
   responseFormat?: 'json_object';
+  /**
+   * Which Worker secret slot to use for direct xAI calls.
+   * default = GROK_API_KEY, vision = GROK_API_KEY_1, voice = GROK_API_KEY_2.
+   * Proxy transport still uses the Apex proxy auth path (not per-slot).
+   */
+  keySlot?: GrokKeySlot;
 };
 
 type GrokChatMessage = {
@@ -267,12 +275,14 @@ async function grokChatViaApexProxy(
   }
 }
 
-/** Merlinus/Tiverton default — direct xAI chat completions using GROK_API_KEY. */
+/** Direct xAI chat completions — key selected by options.keySlot (default / vision / voice). */
 async function grokChatDirect(
   options: GrokChatOptions,
   requestBody: Record<string, unknown>,
   context: { model: string; reasoningEffort: GrokReasoningEffort; timeoutMs: number; startedAt: number }
 ): Promise<string> {
+  const keySlot: GrokKeySlot = options.keySlot ?? 'default';
+  const apiKey = getGrokApiKeyForSlot(keySlot);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), context.timeoutMs);
 
@@ -280,7 +290,7 @@ async function grokChatDirect(
     const response = await fetch(GROK_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getGrokApiKey()}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -298,6 +308,7 @@ async function grokChatDirect(
       reasoningEffort: context.model.includes('grok-4') ? context.reasoningEffort : 'n/a',
       outcome: 'ok',
       transport: 'direct',
+      keySlot,
     });
     return content;
   } catch (error) {
@@ -306,6 +317,7 @@ async function grokChatDirect(
       outcome: 'error',
       error: error instanceof Error ? error.message : 'unknown',
       transport: 'direct',
+      keySlot,
     });
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Grok API timed out after ${Math.round(context.timeoutMs / 1000)}s`);
@@ -723,7 +735,13 @@ export async function extractDiagnosticsFromImage(imageDataUrl: string): Promise
         ],
       },
     ],
-    { temperature: 0.05, max_tokens: 900, timeoutMs: DIAGNOSTIC_EXTRACT_GROK_MS, perfLabel: 'grok.diagnostics.extract' }
+    {
+      temperature: 0.05,
+      max_tokens: 900,
+      timeoutMs: DIAGNOSTIC_EXTRACT_GROK_MS,
+      perfLabel: 'grok.diagnostics.extract',
+      keySlot: 'vision',
+    }
   );
 
   const parsed = parseDiagnosticExtractionJson(raw);
@@ -748,6 +766,7 @@ export async function extractROFromImages(imageDataUrls: string[]) {
       timeoutMs: RO_EXTRACT_GROK_MS,
       perfLabel: 'grok.ro.extract',
       reasoningEffort: 'none',
+      keySlot: 'vision',
     }
   );
   return parseStructuredROText(extractedText);

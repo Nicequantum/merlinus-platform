@@ -4,7 +4,7 @@
 
 import 'server-only';
 
-import { getGrokApiKey } from '@/lib/grokApiKey.shared';
+import { resolveGrokApiKey } from '@/lib/grokApiKey.shared';
 import { GROK_CHAT_MODEL } from '@/lib/grokModels';
 import { logger } from '@/lib/logger';
 
@@ -44,10 +44,12 @@ export async function grokVoiceChat(input: {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    // GROK_API_KEY_2 (voice slot) — falls back to GROK_API_KEY if unset.
+    const resolved = resolveGrokApiKey('voice');
     const response = await fetch(GROK_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getGrokApiKey()}`,
+        Authorization: `Bearer ${resolved.key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -63,7 +65,12 @@ export async function grokVoiceChat(input: {
 
     if (!response.ok) {
       const errBody = await response.text();
-      logger.warn('voice.grok_error', { status: response.status, bodyLength: errBody.length });
+      logger.warn('voice.grok_error', {
+        status: response.status,
+        bodyLength: errBody.length,
+        keyEnv: resolved.envVar,
+        keyFallback: resolved.usedFallback,
+      });
       throw new Error(`Grok voice API error: ${response.status}`);
     }
 

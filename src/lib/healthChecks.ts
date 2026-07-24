@@ -1,7 +1,12 @@
 import { VOICE_INPUT_SETTINGS } from './constants';
 import { isObjectStorageConfigured, probeObjectStorage } from '@/lib/storage/objectStorage';
 import { isMaintenanceModeEnabled, validateEnvironment } from './env';
-import { getExposedPublicGrokEnvKeys, getGrokApiKey } from './grokApiKey.shared';
+import {
+  describeAllGrokKeySlots,
+  getExposedPublicGrokEnvKeys,
+  getGrokApiKey,
+  getGrokApiKeyForSlot,
+} from './grokApiKey.shared';
 import { encryptPII, decryptPII } from './encryption';
 import 'server-only';
 
@@ -231,29 +236,42 @@ export async function checkBlobStorage(): Promise<DependencyCheck> {
   }
 }
 
-/** Validates Grok API key configuration (no network call). */
+/** Validates Grok API key configuration (no network call). Reports multi-slot routing. */
 export async function checkGrokApi(): Promise<DependencyCheck> {
   const exposedPublicKeys = getExposedPublicGrokEnvKeys();
   if (exposedPublicKeys.length > 0) {
     return {
       status: 'error',
-      detail: 'Frontend xAI env vars detected — use server-only GROK_API_KEY',
+      detail: 'Frontend xAI env vars detected — use server-only GROK_API_KEY / _1 / _2',
     };
   }
 
-  try {
-    getGrokApiKey();
-    return { status: 'ok', detail: 'GROK_API_KEY configured' };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'GROK_API_KEY not configured';
-    if (message.includes('not configured')) {
-      const detail = 'GROK_API_KEY not configured — RO and Xentry photo scanning disabled';
-      return isProductionEnv()
-        ? { status: 'error', detail }
-        : { status: 'warn', detail };
-    }
-    return { status: 'error', detail: 'Grok API key configuration invalid' };
+  const slots = describeAllGrokKeySlots();
+  const defaultOk = slots.find((s) => s.slot === 'default')?.configured;
+  const vision = slots.find((s) => s.slot === 'vision');
+  const voice = slots.find((s) => s.slot === 'voice');
+  const summary = slots
+    .map((s) => {
+      if (!s.configured) return `${s.primaryEnv}=missing`;
+      const fb = s.usedFallback ? ' (fallback)' : '';
+      return `${s.primaryEnv}=…${s.keySuffix}${fb}`;
+    })
+    .join('; ');
+
+  if (!defaultOk) {
+    const detail = 'GROK_API_KEY not configured — stories and vision fallback disabled';
+    return isProductionEnv() ? { status: 'error', detail } : { status: 'warn', detail };
   }
+
+  // Prefer dedicated vision/voice secrets in production; fallback is ok but warn.
+  if (isProductionEnv() && (vision?.usedFallback || voice?.usedFallback)) {
+    return {
+      status: 'warn',
+      detail: `Grok keys present with fallbacks — set dedicated secrets for quota isolation. ${summary}`,
+    };
+  }
+
+  return { status: 'ok', detail: `Grok multi-key: ${summary}` };
 }
 
 /** Live Grok API connectivity via models list (no completion tokens consumed). */
@@ -270,43 +288,57 @@ export async function checkGrokApiConnectivity(): Promise<DependencyCheck> {
     };
   }
 
-  let apiKey: string;
-  try {
-    apiKey = getGrokApiKey();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'GROK_API_KEY not configured';
-    if (message.includes('not configured')) {
-      return { status: 'warn', detail: 'GROK_API_KEY not configured — connectivity probe skipped' };
+  // Probe each configured slot so ops can see which key is rejected.
+  const slotResults: string[] = [];
+  let anyOk = false;
+  let latencyMs: number | undefined;
+
+  for (const slot of ['default', 'vision', 'voice'] as const) {
+    let apiKey: string;
+    try {
+      apiKey = getGrokApiKeyForSlot(slot);
+    } catch {
+      slotResults.push(`${slot}=missing`);
+      continue;
     }
-    return { status: 'error', detail: 'Grok API key configuration invalid' };
+    try {
+      const timedResult = await timed(async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), GROK_CONNECTIVITY_TIMEOUT_MS);
+        try {
+          const response = await fetch(GROK_MODELS_URL, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return true;
+        } finally {
+          clearTimeout(timer);
+        }
+      });
+      anyOk = true;
+      latencyMs = timedResult.latencyMs;
+      slotResults.push(`${slot}=ok`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unreachable';
+      const short = message.toLowerCase().includes('abort') ? 'timeout' : message.slice(0, 40);
+      slotResults.push(`${slot}=${short}`);
+    }
   }
 
-  try {
-    const { latencyMs } = await timed(async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), GROK_CONNECTIVITY_TIMEOUT_MS);
-      try {
-        const response = await fetch(GROK_MODELS_URL, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Grok API returned HTTP ${response.status}`);
-        }
-        return true;
-      } finally {
-        clearTimeout(timer);
-      }
-    });
-    return { status: 'ok', latencyMs, detail: 'Grok API reachable' };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Grok API unreachable';
-    if (message.toLowerCase().includes('abort')) {
-      return { status: 'warn', detail: 'Grok API connectivity probe timed out' };
-    }
-    return { status: 'warn', detail: message };
+  if (anyOk) {
+    return {
+      status: 'ok',
+      latencyMs,
+      detail: `Grok API slots: ${slotResults.join('; ')}`,
+    };
   }
+
+  const detail = `Grok API unreachable: ${slotResults.join('; ')}`;
+  return { status: 'warn', detail };
 }
 
 export async function checkAdvisorIntelligence(): Promise<DependencyCheck> {

@@ -17,6 +17,8 @@ export const RUNTIME_ONLY_SECRET_NAMES = [
   'ENCRYPTION_SALT',
   // AI / media (R2 uses Worker binding APEX_R2; optional S3-compat keys for tooling)
   'GROK_API_KEY',
+  'GROK_API_KEY_1',
+  'GROK_API_KEY_2',
   'XAI_API_KEY',
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',

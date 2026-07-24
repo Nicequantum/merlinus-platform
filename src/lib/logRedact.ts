@@ -3,7 +3,7 @@
  */
 
 const SENSITIVE_KEY =
-  /^(password|passwordHash|passwd|secret|token|apiKey|api_key|authorization|cookie|set-cookie|vin|customerName|warrantyStory|storyText|technicianNotes|displayName|serviceAdvisorName|complaints?|DATABASE_URL|DIRECT_URL|SESSION_SECRET|DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|GROK_API_KEY|KV_REST_API_TOKEN|BLOB_READ_WRITE_TOKEN|CLERK_SECRET_KEY)$/i;
+  /^(password|passwordHash|passwd|secret|token|apiKey|api_key|authorization|cookie|set-cookie|vin|customerName|warrantyStory|storyText|technicianNotes|displayName|serviceAdvisorName|complaints?|DATABASE_URL|DIRECT_URL|SESSION_SECRET|DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|GROK_API_KEY(?:_1|_2)?|XAI_API_KEY|KV_REST_API_TOKEN|BLOB_READ_WRITE_TOKEN|CLERK_SECRET_KEY)$/i;
 
 const BEARER_RE = /Bearer\s+\S+/gi;
 const XAI_KEY_RE = /xai-[a-zA-Z0-9_-]+/gi;
@@ -11,7 +11,7 @@ const BLOB_TOKEN_RE = /vercel_blob_rw_\S+/gi;
 const JWT_RE = /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g;
 const PG_URL_RE = /(postgres(?:ql)?:\/\/)([^:@\s]+):([^@\s]+)@/gi;
 const ENV_NAME_RE =
-  /\b(BLOB_READ_WRITE_TOKEN|GROK_API_KEY|KV_REST_API_(?:URL|TOKEN)|DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|SESSION_SECRET|DATABASE_URL|CLERK_SECRET_KEY)\b/g;
+  /\b(BLOB_READ_WRITE_TOKEN|GROK_API_KEY(?:_1|_2)?|XAI_API_KEY|KV_REST_API_(?:URL|TOKEN)|DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|SESSION_SECRET|DATABASE_URL|CLERK_SECRET_KEY)\b/g;
 
 const MAX_STRING = 800;
 
@@ -71,7 +71,8 @@ export function redactForLog(context: Record<string, unknown> | undefined): Reco
 export function publicSafeMessage(message: string): string {
   return message
     .replace(/\bBLOB_READ_WRITE_TOKEN\b/g, 'photo storage credentials')
-    .replace(/\bGROK_API_KEY\b/g, 'AI credentials')
+    .replace(/\bGROK_API_KEY(?:_1|_2)?\b/g, 'AI credentials')
+    .replace(/\bXAI_API_KEY\b/g, 'AI credentials')
     .replace(/\bKV_REST_API_(?:URL|TOKEN)\b/g, 'rate-limit store credentials')
     .replace(/\bDATA_ENCRYPTION_KEY\b/g, 'encryption credentials')
     .replace(/\bSESSION_SECRET\b/g, 'session credentials');

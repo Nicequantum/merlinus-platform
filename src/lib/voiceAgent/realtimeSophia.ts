@@ -9,10 +9,11 @@
  * npm install ws  (Node sidecar only)
  *
  * Environment:
- *   GROK_API_KEY or XAI_API_KEY
+ *   GROK_API_KEY_2 (preferred voice slot), else GROK_API_KEY, else XAI_API_KEY
  *   Optional: GROK_REALTIME_URL (default wss://api.x.ai/v1/realtime)
  */
 
+import { getGrokVoiceApiKey } from '@/lib/grokApiKey.shared';
 import type { DealershipContext } from '@/lib/voiceAgent/dealershipContext';
 import {
   STAGING_MERCEDES_BENZ_CONTEXT,
@@ -43,14 +44,8 @@ export type RealtimeSophiaSession = {
 };
 
 function resolveApiKey(): string {
-  const key =
-    process.env.GROK_API_KEY?.trim() ||
-    process.env.XAI_API_KEY?.trim() ||
-    '';
-  if (!key) {
-    throw new Error('GROK_API_KEY or XAI_API_KEY is required for Sophia realtime');
-  }
-  return key;
+  // Voice slot: GROK_API_KEY_2 → GROK_API_KEY → XAI_API_KEY
+  return getGrokVoiceApiKey();
 }
 
 function buildInstructions(ctx: DealershipContext): string {
