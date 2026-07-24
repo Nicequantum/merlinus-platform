@@ -186,8 +186,12 @@ export function useROScan({
         toast.success('Repair order created from scan');
         return true;
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Failed to create repair order');
-        return false;
+        // Prefer server message; do not toast here — processScanImages surfaces one clear error.
+        clientLog.error('ro.scan.create_failed', {
+          message: formatScanApiError(e),
+          status: e instanceof ApiError ? e.status : undefined,
+        });
+        throw e instanceof Error ? e : new Error(formatScanApiError(e));
       }
     },
     [openScanResultView, scanInFlightRef]
@@ -279,7 +283,12 @@ export function useROScan({
         setPendingROImages(images);
         roScanPipeline.setProgress(8);
         const scanStartedAt = Date.now();
-        // Warm Tesseract WASM while upload/Grok run — do not start recognize() yet.
+        // Cold-start: warm session isolate + optional OCR WASM before heavy work.
+        // Do not await — Process RO must not stall on warmup.
+        void import('@/lib/clientFetchRetry')
+          .then(({ warmSessionIsolate }) => warmSessionIsolate())
+          .catch(() => undefined);
+        // Warm Tesseract WASM only for OCR fallback path — do not start recognize() yet.
         // Racing cold OCR with Grok caused first-scan hangs (soft timeout + hung terminate).
         void warmupOcrWorker().catch((error) => {
           clientLog.warn('OCR worker warmup failed', error);
@@ -455,19 +464,17 @@ export function useROScan({
         if (!isActiveSession()) return;
         roScanPipeline.setProgress(88);
         roScanPipeline.setStatusMessage('Creating repair order…');
+        // createROFromExtracted throws on failure with server/API detail (no generic blank).
         createdSuccessfully = await createROFromExtracted(extracted, {
           idempotencyKey: scanIdempotencyKey,
           extractionSource: grokExtracted ? 'grok' : 'ocr_fallback',
         });
-        if (!createdSuccessfully) {
-          throw new Error('Failed to create repair order from scan.');
-        }
 
         roScanPipeline.setProgress(100);
         roScanPipeline.setStatusMessage('Opening repair order…');
       } catch (error) {
         if (!isActiveSession()) return;
-        const message = formatScanApiError(error);
+        const message = formatScanApiError(error, 'Failed to create repair order from scan.');
         clientLog.error('ro.scan.failed', {
           message,
           status: error instanceof ApiError ? error.status : undefined,

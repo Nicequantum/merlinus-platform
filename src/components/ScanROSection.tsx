@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect } from 'react';
 import { Camera, FolderOpen, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DiagnosticPhotoGrid } from '@/components/DiagnosticPhotoGrid';
@@ -43,6 +46,14 @@ export function ScanROSection({
   const canProcess = hasPending && !stillUploading;
   const pageCount = pendingROImages.length;
   const resolvedScanLabel = scanButtonLabel ?? t('scanRo');
+
+  // Prefetch isolate while tech captures pages so Process RO is less cold.
+  useEffect(() => {
+    if (!hasPending) return;
+    void import('@/lib/clientFetchRetry')
+      .then(({ warmSessionIsolate }) => warmSessionIsolate())
+      .catch(() => undefined);
+  }, [hasPending]);
 
   return (
     <div className="mb-5">

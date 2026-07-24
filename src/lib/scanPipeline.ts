@@ -255,6 +255,15 @@ export function matchCustomerPayTemplateFromScanText(scanText: string): Customer
   return bestScore >= 8 ? best : null;
 }
 
+export type EnrichCustomerPayOptions = {
+  /**
+   * When false, apply matched Customer Pay templates as static base stories only.
+   * Use on RO scan create so we never stack multi-line Grok calls under the create timeout
+   * (cold Worker + 2–3 × 25s customer-pay dynamic was a common "Failed to create RO" path).
+   */
+  dynamicNarrative?: boolean;
+};
+
 /**
  * Apply Customer Pay narratives to scanned repair lines when scan text matches a defined template.
  * Uses generateDynamicCustomerPayNarrative for light Grok variation tied to the customer complaint.
@@ -263,8 +272,10 @@ export function matchCustomerPayTemplateFromScanText(scanText: string): Customer
 export async function enrichScannedRepairLinesWithCustomerPayTemplates(
   repairLines: RepairLine[],
   complaints: string[],
-  complaintLabels?: string[]
+  complaintLabels?: string[],
+  options?: EnrichCustomerPayOptions
 ): Promise<RepairLine[]> {
+  const dynamicNarrative = options?.dynamicNarrative !== false;
   const { complaints: filteredComplaints } = filterScannedComplaintsForProcessing(
     complaints,
     complaintLabels
@@ -289,11 +300,13 @@ export async function enrichScannedRepairLinesWithCustomerPayTemplates(
       continue;
     }
 
-    const warrantyStory = await generateDynamicCustomerPayNarrative({
-      templateTitle: match.templateTitle,
-      baseTemplate: match.preWrittenStory,
-      customerComplaint: scanText,
-    });
+    const warrantyStory = dynamicNarrative
+      ? await generateDynamicCustomerPayNarrative({
+          templateTitle: match.templateTitle,
+          baseTemplate: match.preWrittenStory,
+          customerComplaint: scanText,
+        })
+      : match.preWrittenStory;
 
     enriched.push({
       ...line,

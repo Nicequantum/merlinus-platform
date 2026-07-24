@@ -552,7 +552,8 @@ export const api = {
     apiFetch<{ repairOrder: RepairOrder; idempotent?: boolean }>('/api/repair-orders', {
       method: 'POST',
       body: JSON.stringify(data),
-      timeoutMs: RO_CRUD_CLIENT_MS,
+      // Scan create may hit cold D1 + advisor capture; keep headroom above default CRUD.
+      timeoutMs: data.fromExtraction ? Math.max(RO_CRUD_CLIENT_MS, 90_000) : RO_CRUD_CLIENT_MS,
       maxRetries: 0,
       headers: options?.idempotencyKey
         ? { 'Idempotency-Key': options.idempotencyKey }

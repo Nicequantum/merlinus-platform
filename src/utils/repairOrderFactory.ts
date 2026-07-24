@@ -84,12 +84,15 @@ export async function createRepairOrderFromScan(params: {
   );
   const labels = filtered.complaintLabels;
   const complaints = filtered.complaints;
+  // Static Customer Pay templates only — never call Grok here.
+  // Dynamic narrative on create stacked timeouts with cold Worker + extract (bay red "Failed to create RO").
   const repairLines = await enrichScannedRepairLinesWithCustomerPayTemplates(
     complaints.length > 0
       ? complaints.map((complaint, i) => defaultRepairLine(complaint, i + 1, labels[i]))
       : [defaultRepairLine()],
     complaints,
-    labels
+    labels,
+    { dynamicNarrative: false }
   );
 
   return {
