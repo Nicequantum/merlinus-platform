@@ -1,9 +1,20 @@
 # Live remediation — RO photo red badge / “Service temporarily unavailable”
 
-**Version:** 4.1.0 · **Updated:** 2026-07-23  
+**Version:** 4.1.0 · **Updated:** 2026-07-24  
 **Symptom:** Main RO scan pages show **red** instead of green; toast  
 `Service temporarily unavailable. Check your connection and try again.`  
 **Blocks:** Process RO → technician repair workflow.
+
+### Root cause (confirmed live 2026-07-24)
+
+`POST https://merlinus-platform.hombre3536.workers.dev/api/upload` returned **HTML 500**
+even unauthenticated (should be JSON 401). Same for `/api/images` and extract.
+
+Cause: `@/lib/blob` **statically imported** `visionImagePrep` → **`sharp`**. Sharp native
+bindings cannot load on Cloudflare Workers / OpenNext, so the whole route module crashed
+before `withAuth` ran. Client mapped HTML → “Service temporarily unavailable”.
+
+Fix: dynamic-import sharp only inside vision prep; blob upload/stream path never loads it.
 
 ---
 

@@ -3,9 +3,12 @@ import 'server-only';
 /**
  * Diagnostic / RO image storage — Cloudflare R2 via objectStorage abstraction.
  * Pathnames remain benz-tech/... for DB compatibility; served via /api/images proxy.
+ *
+ * IMPORTANT: Do not statically import visionImagePrep/sharp here. Sharp's native
+ * bindings are unavailable on Cloudflare Workers; a static import crashed
+ * /api/upload and /api/images into HTML 500 (bay "Service temporarily unavailable").
  */
 
-import { bufferToVisionDataUrl } from './visionImagePrep';
 import { logger } from './logger';
 import { getObject, getObjectBuffer, putObject, type StoredObjectStream } from '@/lib/storage/objectStorage';
 import { buildImageProxyUrl, isAllowedImagePathname } from './imageUrls';
@@ -86,10 +89,12 @@ export async function fetchPrivateBlobAsVisionDataUrl(pathname: string): Promise
     throw new Error('Image not found in object storage');
   }
   const getMs = Date.now() - started;
+  // Lazy-load vision prep so upload/stream routes never evaluate sharp.
+  const { bufferToVisionDataUrl } = await import('./visionImagePrep');
   const dataUrl = await withTimeout(
     bufferToVisionDataUrl(result.buffer, result.contentType || 'image/jpeg'),
     VISION_PREP_TIMEOUT_MS,
-    'vision.prep sharp'
+    'vision.prep'
   );
   logger.info('storage.vision_fetch_ok', {
     pathname,

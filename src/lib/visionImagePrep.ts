@@ -1,15 +1,32 @@
 import 'server-only';
 
-import sharp from 'sharp';
-
 /** Max edge length sent to Grok vision — smaller payloads = faster API turnaround. */
 export const VISION_IMAGE_MAX_DIM = 1280;
 /** JPEG quality tuned for RO text legibility vs. upload size. */
 export const VISION_JPEG_QUALITY = 80;
 
 /**
+ * Dynamic sharp load — never static-import.
+ * Cloudflare Workers / OpenNext cannot load sharp's native bindings; a static
+ * `import sharp` crashed every route that pulled in `@/lib/blob` (upload, images,
+ * extract) into HTML 500 before withAuth could return JSON.
+ */
+async function tryLoadSharp(): Promise<typeof import('sharp').default | null> {
+  try {
+    const mod = await import('sharp');
+    return mod.default ?? (mod as unknown as typeof import('sharp').default);
+  } catch {
+    return null;
+  }
+}
+
+function asDataUrl(bytes: Buffer, contentType: string): string {
+  return `data:${contentType};base64,${bytes.toString('base64')}`;
+}
+
+/**
  * Downscale and re-encode blob bytes for Grok vision input.
- * Skips work when the source is already small enough.
+ * Falls back to raw base64 when sharp is unavailable (Workers) or fails.
  */
 export async function bufferToVisionDataUrl(
   bytes: Buffer,
@@ -17,8 +34,12 @@ export async function bufferToVisionDataUrl(
 ): Promise<string> {
   const normalizedType = (contentType || 'image/jpeg').toLowerCase();
   if (!normalizedType.startsWith('image/')) {
-    const base64 = bytes.toString('base64');
-    return `data:${normalizedType};base64,${base64}`;
+    return asDataUrl(bytes, normalizedType);
+  }
+
+  const sharp = await tryLoadSharp();
+  if (!sharp) {
+    return asDataUrl(bytes, normalizedType);
   }
 
   try {
@@ -42,7 +63,6 @@ export async function bufferToVisionDataUrl(
 
     return `data:image/jpeg;base64,${output.toString('base64')}`;
   } catch {
-    const base64 = bytes.toString('base64');
-    return `data:${normalizedType};base64,${base64}`;
+    return asDataUrl(bytes, normalizedType);
   }
 }
