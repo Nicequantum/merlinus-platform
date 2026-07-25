@@ -292,9 +292,11 @@ function describeConnectorError(error: unknown): Record<string, unknown> {
 }
 
 /**
- * Last audit entryHash for this rooftop — uses **base** Prisma/D1 client (no RLS extension).
- * Explicit dealershipId filter keeps tenant isolation without extension rewrite bugs
- * that produced Invalid `prisma.auditLog.findMany()` on live Process RO.
+ * Last audit entryHash for this rooftop — **base** Prisma/D1 client only (no RLS extension).
+ * Explicit dealershipId keeps tenant isolation without extension rewrite.
+ *
+ * Live: RLS-extended findMany/queryRaw both threw ConnectorError on Process RO.
+ * Prefer $queryRawUnsafe first (stable D1 path), then base findMany, then GENESIS.
  */
 export async function readLastAuditEntryHashForDealership(
   dealershipId: string
@@ -303,22 +305,30 @@ export async function readLastAuditEntryHashForDealership(
   if (!id) return AUDIT_GENESIS_HASH;
 
   const base = await getDb();
-  let rawError: unknown;
+  const failures: Array<{ label: string; error: unknown }> = [];
+
   try {
-    // Quoted identifiers match Prisma/SQLite camelCase columns on D1.
+    const rows = await base.$queryRawUnsafe<Array<{ entryHash: string }>>(
+      `SELECT "entryHash" AS entryHash FROM "AuditLog" WHERE "dealershipId" = ? ORDER BY "createdAt" DESC LIMIT 1`,
+      id
+    );
+    return rows[0]?.entryHash?.trim() || AUDIT_GENESIS_HASH;
+  } catch (err) {
+    failures.push({ label: 'queryRawUnsafe_quoted', error: err });
+  }
+
+  try {
     const rows = await base.$queryRaw<Array<{ entryHash: string }>>`
       SELECT "entryHash" AS entryHash FROM "AuditLog"
       WHERE "dealershipId" = ${id}
       ORDER BY "createdAt" DESC
       LIMIT 1
     `;
-    const hash = rows[0]?.entryHash?.trim();
-    return hash || AUDIT_GENESIS_HASH;
+    return rows[0]?.entryHash?.trim() || AUDIT_GENESIS_HASH;
   } catch (err) {
-    rawError = err;
+    failures.push({ label: 'queryRaw_tagged', error: err });
   }
 
-  let findManyError: unknown;
   try {
     const recent = await base.auditLog.findMany({
       where: { dealershipId: id },
@@ -326,54 +336,41 @@ export async function readLastAuditEntryHashForDealership(
       take: 1,
       select: { entryHash: true },
     });
-    const hash = recent[0]?.entryHash?.trim();
-    if (hash) {
-      logger.warn('audit.chain_read_raw_failed_findMany_ok', {
-        dealershipId: id,
-        rawError: describeConnectorError(rawError),
-      });
-      return hash;
-    }
-    return AUDIT_GENESIS_HASH;
+    return recent[0]?.entryHash?.trim() || AUDIT_GENESIS_HASH;
   } catch (err) {
-    findManyError = err;
+    failures.push({ label: 'base_findMany', error: err });
   }
 
   logger.error('audit.chain_read_failed', {
     dealershipId: id,
-    rawError: describeConnectorError(rawError),
-    findManyError: describeConnectorError(findManyError),
-    // Full messages — no truncation (shop-floor classification)
-    rawErrorMessage: rawError instanceof Error ? rawError.message : String(rawError),
-    findManyErrorMessage:
-      findManyError instanceof Error ? findManyError.message : String(findManyError),
+    failures: failures.map((f) => ({
+      label: f.label,
+      ...describeConnectorError(f.error),
+      errorMessage: f.error instanceof Error ? f.error.message : String(f.error),
+    })),
+    residualRisk:
+      'Using GENESIS previousHash — one-row chain discontinuity; create still writes full audit row',
   });
-
-  throw findManyError instanceof Error
-    ? findManyError
-    : rawError instanceof Error
-      ? rawError
-      : new Error(`Audit chain read failed for dealership ${id}`);
+  // Residual: keep Process RO unblocked. Subsequent entries link to this new hash.
+  return AUDIT_GENESIS_HASH;
 }
 
 /**
- * M2: Append audit inside an existing transaction (e.g. Customer Pay template apply).
- * M13: Metadata is sanitized before persistence.
- *
- * previousHash is read on the **base** D1 client (see readLastAuditEntryHashForDealership);
- * the insert still uses the ambient `tx` (RLS-bound) for the durable row.
+ * M2: Append audit. On D1, both chain read and insert use **base** getDb() client.
+ * Ambient `tx` is accepted for API compatibility but AuditLog I/O avoids RLS-extended
+ * client (live bay: Invalid prisma.auditLog.findMany ConnectorError).
+ * Tenant isolation: explicit dealershipId on every read/write.
  */
 export async function appendAuditLogInTransaction(
-  tx: Prisma.TransactionClient,
+  _tx: Prisma.TransactionClient,
   input: AuditLogInput,
   createdAt = new Date()
 ): Promise<string> {
+  void _tx;
   const promptVersion = resolvePromptVersion(input);
   assertPromptVersionValid(input.action, promptVersion);
   const metadata = JSON.stringify(sanitizeAuditMetadata(input.metadata, input.action));
 
-  // H5: Postgres advisory locks unavailable on D1/SQLite.
-  // Last-hash read must NOT use the RLS-extended client (live bay: Invalid findMany).
   const previousHash = await readLastAuditEntryHashForDealership(input.dealershipId);
 
   const id = randomUUID();
@@ -391,39 +388,73 @@ export async function appendAuditLogInTransaction(
     promptVersion,
   });
 
+  const base = await getDb();
+  const data = {
+    id,
+    action: input.action,
+    dealershipId: input.dealershipId,
+    ...(input.dealerId?.trim() ? { dealerId: input.dealerId.trim() } : {}),
+    technicianId: input.technicianId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    metadata,
+    ipAddress: input.ipAddress,
+    authSource: input.authSource?.trim() || null,
+    scopeMode: input.scopeMode?.trim() || null,
+    promptVersion,
+    previousHash,
+    entryHash,
+    createdAt,
+  };
+
   try {
-    await tx.auditLog.create({
-      data: {
+    await base.auditLog.create({ data });
+    return id;
+  } catch (createError) {
+    try {
+      await base.$executeRawUnsafe(
+        `INSERT INTO "AuditLog" (
+          "id", "action", "entityType", "entityId", "technicianId", "dealer_id", "dealershipId",
+          "metadata", "ipAddress", "promptVersion", "previousHash", "entryHash", "auth_source", "scope_mode", "createdAt"
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id,
-        action: input.action,
-        dealershipId: input.dealershipId,
-        ...(input.dealerId?.trim() ? { dealerId: input.dealerId.trim() } : {}),
-        technicianId: input.technicianId,
-        entityType: input.entityType,
-        entityId: input.entityId,
+        input.action,
+        input.entityType ?? null,
+        input.entityId ?? null,
+        input.technicianId ?? null,
+        input.dealerId?.trim() || null,
+        input.dealershipId,
         metadata,
-        ipAddress: input.ipAddress,
-        authSource: input.authSource?.trim() || null,
-        scopeMode: input.scopeMode?.trim() || null,
+        input.ipAddress ?? null,
         promptVersion,
         previousHash,
         entryHash,
-        createdAt,
-      },
-    });
-  } catch (createError) {
-    logger.error('audit.chain_create_failed', {
-      dealershipId: input.dealershipId,
-      action: input.action,
-      // Note: rlsTransaction is not Prisma $transaction — RO may already exist if createStep was after repairOrder.create
-      createError: describeConnectorError(createError),
-      createErrorMessage:
-        createError instanceof Error ? createError.message : String(createError),
-    });
-    throw createError;
+        input.authSource?.trim() || null,
+        input.scopeMode?.trim() || null,
+        createdAt.toISOString()
+      );
+      logger.warn('audit.chain_create_raw_insert_ok', {
+        dealershipId: input.dealershipId,
+        action: input.action,
+        prismaCreateError: describeConnectorError(createError),
+      });
+      return id;
+    } catch (rawInsertError) {
+      logger.error('audit.chain_create_failed', {
+        dealershipId: input.dealershipId,
+        action: input.action,
+        createError: describeConnectorError(createError),
+        createErrorMessage:
+          createError instanceof Error ? createError.message : String(createError),
+        rawInsertError: describeConnectorError(rawInsertError),
+        rawInsertErrorMessage:
+          rawInsertError instanceof Error ? rawInsertError.message : String(rawInsertError),
+      });
+      throw createError instanceof Error
+        ? createError
+        : new Error(`Audit create failed for action "${input.action}"`);
+    }
   }
-
-  return id;
 }
 
 export async function writeAuditLog(input: AuditLogInput): Promise<string | void> {

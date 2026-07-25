@@ -7,20 +7,20 @@ import { isRetryableDbTransientError } from '@/lib/dbRetry';
 import { mapRouteError } from '@/lib/routeErrorMapper';
 
 describe('audit chain + D1-safe create path', () => {
-  it('reads last hash on base client via $queryRaw first (not RLS-extended findMany)', () => {
+  it('reads last hash and inserts audit on base client (not RLS-extended tx)', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/lib/audit.ts'), 'utf8');
     assert.match(src, /readLastAuditEntryHashForDealership/);
     assert.match(src, /getDb\(\)/);
+    assert.match(src, /\$queryRawUnsafe/);
     assert.match(src, /SELECT\s+"entryHash"/);
     assert.match(src, /FROM\s+"AuditLog"/);
-    // Must not use ambient tx for chain read first
+    assert.match(src, /AUDIT_GENESIS_HASH/);
+    // append must not call RLS-extended tx.auditLog for chain I/O
     const appendStart = src.indexOf('export async function appendAuditLogInTransaction');
-    const appendBody = src.slice(appendStart, appendStart + 2500);
+    const appendBody = src.slice(appendStart, appendStart + 3500);
     assert.match(appendBody, /readLastAuditEntryHashForDealership\(input\.dealershipId\)/);
-    assert.doesNotMatch(
-      appendBody.slice(0, 800),
-      /tx\.auditLog\.findMany|tx\.\$queryRaw/
-    );
+    assert.match(appendBody, /base\.auditLog\.create|\$executeRawUnsafe/);
+    assert.doesNotMatch(appendBody, /tx\.auditLog\.(findMany|create|findFirst)/);
   });
 
   it('RLS pins flat dealershipId for findMany-style where (no AND double dealershipId)', () => {

@@ -4,7 +4,6 @@ import type { Prisma } from '@prisma/client';
 import {
   getRlsTransaction,
   setRlsContext,
-  isRlsEnabled,
   withRlsBypass,
   type RlsContext,
 } from '@/lib/apex/rlsContext';
@@ -48,17 +47,12 @@ export async function writeAuditedAccess(
   input: AuditLogInput,
   options: WriteAuditedAccessOptions = {}
 ): Promise<string> {
+  // AuditLog I/O runs on base D1 client inside appendAuditLogInTransaction.
+  // Do NOT setRlsContext mid-flight when options.tx is provided — that rebinds ALS
+  // and was unnecessary for tenant-safe base-client audit writes.
   const run = async (tx: Prisma.TransactionClient): Promise<string> => {
-    if (options.rls) {
+    if (options.rls && !options.tx) {
       await setRlsContext(tx, options.rls);
-    } else if (isRlsEnabled() || getRlsTransaction()) {
-      await setRlsContext(tx, {
-        technicianId: input.technicianId?.trim() || '',
-        activeDealershipId: input.dealershipId?.trim() || null,
-        dealerId: input.dealerId?.trim() || null,
-        scopeMode: input.scopeMode === 'dealership' ? 'dealership' : 'national',
-        enforced: true,
-      });
     }
 
     const id = await appendAuditLogInTransaction(tx, input);
@@ -76,7 +70,6 @@ export async function writeAuditedAccess(
     if (ambient) {
       return await run(ambient);
     }
-    // Phase 7.1 H1 — no bare prisma; control-plane bypass when no ambient RLS tx
     return await withRlsBypass(async (tx) => run(tx));
   } catch (error) {
     logger.error('audit.audited_access_failed', {
@@ -84,6 +77,7 @@ export async function writeAuditedAccess(
       dealershipId: input.dealershipId,
       technicianId: input.technicianId,
       error: error instanceof Error ? error.message : 'unknown',
+      errorFull: error instanceof Error ? error.message : String(error),
     });
     if (error instanceof AuditedAccessError) throw error;
     if (error instanceof Error && error.message.startsWith('Audit log rejected:')) {

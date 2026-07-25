@@ -196,16 +196,22 @@ export function useROScan({
           api.createRepairOrder(payload as never, { idempotencyKey });
 
         const isRetriableCreate = (err: unknown): boolean => {
+          const msg = err instanceof Error ? err.message : '';
+          // Deterministic query failures — retries only burn time.
+          if (/query failed|Invalid\s+`?prisma\.|Contact your manager if this continues/i.test(msg)) {
+            return false;
+          }
           const status = err instanceof ApiError ? err.status : 0;
           return (
             status === 0 ||
             status === 408 ||
             status === 429 ||
-            status === 500 ||
             status === 502 ||
             status === 503 ||
             status === 504 ||
-            (err instanceof Error && /timed out|unavailable|try again|database/i.test(err.message))
+            // Bare 500 only when message looks transient
+            (status === 500 && /timed out|unavailable|try again|busy|locked/i.test(msg)) ||
+            /timed out|unavailable|try again|busy|locked/i.test(msg)
           );
         };
 
