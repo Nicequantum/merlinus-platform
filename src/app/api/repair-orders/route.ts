@@ -271,12 +271,10 @@ export async function POST(request: Request) {
         });
       }
 
-      let createStep:
-        | 'idempotency'
-        | 'repairOrder.create'
-        | 'audit.write'
-        | 'reload'
-        | 'unknown' = 'unknown';
+      // Mutable box so nested async assigns are visible to TS and catch logging.
+      const createStep: {
+        value: 'idempotency' | 'repairOrder.create' | 'audit.write' | 'reload' | 'unknown';
+      } = { value: 'unknown' };
 
       let created;
       try {
@@ -285,7 +283,7 @@ export async function POST(request: Request) {
         const result = await withRequestDbRetry(
           async () =>
             rlsTransaction(async (tx) => {
-              createStep = 'idempotency';
+              createStep.value = 'idempotency';
               if (idempotencyKey) {
                 const prior = await findIdempotentRepairOrderCreate(tx, {
                   dealershipId: session.dealershipId,
@@ -297,7 +295,7 @@ export async function POST(request: Request) {
                 }
               }
 
-              createStep = 'repairOrder.create';
+              createStep.value = 'repairOrder.create';
               const ro = await tx.repairOrder.create({
                 data: {
                   ...repairOrderToDbFields(input),
@@ -317,7 +315,7 @@ export async function POST(request: Request) {
                 },
               });
 
-              createStep = 'audit.write';
+              createStep.value = 'audit.write';
               await writeAuditedAccess(
                 {
                   action: 'ro.create',
@@ -335,7 +333,7 @@ export async function POST(request: Request) {
                 { tx }
               );
 
-              createStep = 'reload';
+              createStep.value = 'reload';
               const createdRo = await tx.repairOrder.findUniqueOrThrow({
                 where: { id: ro.id },
                 include: {
@@ -359,6 +357,7 @@ export async function POST(request: Request) {
           error instanceof Error && error.stack
             ? error.stack.split('\n').slice(0, 8).join('\n')
             : undefined;
+        const step = createStep.value;
         logger.error('ros.create.transaction_failed', {
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
@@ -368,10 +367,10 @@ export async function POST(request: Request) {
           fromExtraction: Boolean(data.fromExtraction),
           hasIdempotencyKey: Boolean(idempotencyKey),
           rlsActive: hasActiveRlsClient(),
-          createStep,
+          createStep: step,
           // rlsTransaction is not Prisma $transaction — if createStep is past repairOrder.create,
           // a RepairOrder row may already exist without a completed ro.create audit.
-          possibleOrphanRo: createStep === 'audit.write' || createStep === 'reload',
+          possibleOrphanRo: step === 'audit.write' || step === 'reload',
           errorName: described.name,
           errorCode: described.code,
           // Full raw message — do not truncate (needed to classify Invalid prisma vs busy).
