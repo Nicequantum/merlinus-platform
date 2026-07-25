@@ -1,3 +1,5 @@
+import { findingsForPrompt, type CustomerFindingInput } from '@/lib/videoInspection/priorityFindings';
+
 export type CustomerVideoReportInput = {
   transcript: string;
   transcriptLanguage?: string | null;
@@ -5,6 +7,7 @@ export type CustomerVideoReportInput = {
   dealershipName?: string | null;
   title?: string | null;
   frameCount: number;
+  findings?: ReadonlyArray<CustomerFindingInput> | null;
 };
 
 export function buildCustomerVideoReportUserMessage(input: CustomerVideoReportInput): string {
@@ -15,7 +18,9 @@ export function buildCustomerVideoReportUserMessage(input: CustomerVideoReportIn
       ? `Technician narration language: ${lang}. Translate meaning into professional English for the customer report.`
       : 'Technician narration language: English.';
 
-  return `Write a customer-facing video inspection report from the technician narration and inspection still frames attached to this message.
+  const checklist = findingsForPrompt(input.findings);
+
+  return `Write a customer-facing video inspection report from the technician narration, multipoint checklist findings, and inspection still frames attached to this message.
 
 Dealership: ${input.dealershipName?.trim() || 'Service department'}
 Inspection title: ${input.title?.trim() || 'Video inspection'}
@@ -23,11 +28,17 @@ Vehicle: ${input.vehicleLabel?.trim() || 'Not specified'}
 Still frames attached: ${input.frameCount}
 ${languageNote}
 
+===MULTIPOINT_CHECKLIST_FINDINGS===
+(severity: urgent | recommend | ok — use these for ## Priority findings)
+${checklist}
+===END_MULTIPOINT_CHECKLIST_FINDINGS===
+
 ===TECHNICIAN_NARRATION===
 ${transcript.slice(0, 12_000)}
 ===END_TECHNICIAN_NARRATION===
 
 Analyze the still frames for visible wear, damage, leaks, tire condition, and other customer-relevant issues.
-Combine what you see with the narration. Do not invent findings.
+Combine what you see with the narration and checklist. Do not invent findings.
+When checklist findings are present, include ## Priority findings with ### Needs attention now (urgent), ### Recommended soon (recommend), and ### Checked OK (ok) — omit empty severity groups only.
 Output the report in English using the required section headings.`;
 }

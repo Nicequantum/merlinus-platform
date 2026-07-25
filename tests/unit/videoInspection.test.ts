@@ -11,6 +11,10 @@ import {
   verifyPasscodeHash,
 } from '../../src/lib/videoInspection/shareTokens';
 import { buildFallbackCustomerVideoReport } from '../../src/lib/videoInspection/fallbackCustomerReport';
+import {
+  ensurePriorityFindingsInReport,
+  formatPriorityFindingsMarkdown,
+} from '../../src/lib/videoInspection/priorityFindings';
 import { buildVideoInspectionSmsBody } from '../../src/lib/videoInspection/smsBody';
 import { CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT } from '../../src/prompts/customerVideoReport/systemPrompt';
 import { buildCustomerVideoReportUserMessage } from '../../src/prompts/customerVideoReport/buildUserMessage';
@@ -85,6 +89,8 @@ describe('customer video report prompts (isolated from warranty)', () => {
     assert.match(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT, /vehicle OWNER/i);
     assert.match(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT, /professional English/i);
     assert.match(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT, /What We Found/i);
+    assert.match(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT, /Priority findings/i);
+    assert.match(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT, /Needs attention now/i);
     assert.equal(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT.includes('warranty 3C'), true);
     assert.equal(CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT.includes('MI audit'), true);
   });
@@ -99,6 +105,20 @@ describe('customer video report prompts (isolated from warranty)', () => {
     assert.match(msg, /Spanish|es/i);
     assert.match(msg, /Neumáticos/);
     assert.match(msg, /English/i);
+  });
+
+  it('includes multipoint checklist findings in user message', () => {
+    const msg = buildCustomerVideoReportUserMessage({
+      transcript: 'Brakes are low.',
+      frameCount: 1,
+      findings: [
+        { category: 'brakes', severity: 'urgent', note: 'Pads low' },
+        { category: 'tires_wheels', severity: 'ok', note: 'Even wear' },
+      ],
+    });
+    assert.match(msg, /MULTIPOINT_CHECKLIST_FINDINGS/);
+    assert.match(msg, /\[urgent\].*Brakes/i);
+    assert.match(msg, /Priority findings/i);
   });
 });
 
@@ -157,12 +177,76 @@ describe('fallback customer video report', () => {
     assert.match(report, /## Recommended Next Steps/);
   });
 
+  it('embeds priority findings groups from checklist', () => {
+    const report = buildFallbackCustomerVideoReport({
+      dealershipName: 'Premier Motors',
+      vehicleLabel: '2021 E350',
+      findings: [
+        { category: 'brakes', severity: 'urgent', note: 'Pads thin' },
+        { category: 'fluids_leaks', severity: 'recommend', note: 'Oil seepage' },
+        { category: 'tires_wheels', severity: 'ok' },
+      ],
+    });
+    assert.match(report, /## Priority findings/);
+    assert.match(report, /Needs attention now \(urgent\)/);
+    assert.match(report, /Recommended soon \(recommend\)/);
+    assert.match(report, /Checked OK \(ok\)/);
+    assert.match(report, /Brakes/);
+    assert.match(report, /Pads thin/);
+  });
+
   it('handles missing transcript and frames gracefully', () => {
     const report = buildFallbackCustomerVideoReport({
       dealershipName: 'Service Team',
     });
     assert.match(report, /## Summary/);
     assert.match(report, /limited/i);
+  });
+});
+
+describe('priority findings helpers', () => {
+  it('formats and injects priority section when missing', () => {
+    const section = formatPriorityFindingsMarkdown([
+      { category: 'brakes', severity: 'urgent', note: 'Soft pedal' },
+    ]);
+    assert.match(section, /## Priority findings/);
+    assert.match(section, /Needs attention now/);
+    const merged = ensurePriorityFindingsInReport(
+      '## Summary\nAll good overall.\n\n## What We Found\n- Check video\n',
+      [{ category: 'brakes', severity: 'urgent', note: 'Soft pedal' }]
+    );
+    assert.match(merged, /## Priority findings/);
+    assert.match(merged, /## Summary/);
+    // Idempotent when already present
+    const again = ensurePriorityFindingsInReport(merged, [
+      { category: 'brakes', severity: 'urgent', note: 'Soft pedal' },
+    ]);
+    assert.equal(again.match(/## Priority findings/g)?.length, 1);
+  });
+});
+
+describe('SMS bay UX + Twilio path', () => {
+  it('send-sms returns smsSent false when disabled; UI requires smsSent true for success', () => {
+    const route = readSrc('src/app/api/video-inspections/[id]/send-sms/route.ts');
+    assert.match(route, /smsSent:\s*false/);
+    assert.match(route, /isSmsEnabled/);
+    const view = readSrc('src/components/videoInspection/VideoInspectionView.tsx');
+    assert.match(view, /smsSent === true/);
+    assert.match(view, /toast\.warning/);
+    assert.match(view, /toast\.success/);
+    const twilio = readSrc('src/lib/sms/twilio.ts');
+    assert.match(twilio, /sms\.twilio_send_failed/);
+    assert.match(twilio, /SMS_ENABLED/);
+  });
+
+  it('public video payload and viewer include findings GYR', () => {
+    const pub = readSrc('src/app/api/public/video/[token]/route.ts');
+    assert.match(pub, /findings/);
+    assert.match(pub, /mapFindingDto/);
+    const viewer = readSrc('src/components/videoInspection/VideoCustomerViewer.tsx');
+    assert.match(viewer, /Priority findings/);
+    assert.match(viewer, /Needs attention now/);
+    assert.match(viewer, /bg-red-500|bg-emerald-500/);
   });
 });
 

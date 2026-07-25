@@ -1,16 +1,52 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  isMpiSeverity,
+  mpiCategoryLabel,
+  type MpiSeverity,
+} from '@/lib/videoInspection/mpiCategories';
+
+type CustomerFinding = {
+  category: string;
+  severity: string;
+  note?: string;
+};
 
 type ViewerPayload = {
   title: string;
   vehicleLabel: string | null;
   dealershipName: string | null;
   report: string;
+  findings?: CustomerFinding[];
   mediaUrl: string;
   hasVideo?: boolean;
   contentType?: string;
   createdAt: string;
+};
+
+const PRIORITY_META: Record<
+  MpiSeverity,
+  { label: string; bar: string; badge: string; ring: string }
+> = {
+  urgent: {
+    label: 'Needs attention now',
+    bar: 'bg-red-500',
+    badge: 'bg-red-100 text-red-800 border-red-200',
+    ring: 'border-red-200 bg-red-50/80',
+  },
+  recommend: {
+    label: 'Recommended soon',
+    bar: 'bg-amber-400',
+    badge: 'bg-amber-100 text-amber-900 border-amber-200',
+    ring: 'border-amber-200 bg-amber-50/80',
+  },
+  ok: {
+    label: 'Checked OK',
+    bar: 'bg-emerald-500',
+    badge: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+    ring: 'border-emerald-200 bg-emerald-50/70',
+  },
 };
 
 function formatInspectionDate(iso: string): string {
@@ -128,6 +164,22 @@ export function VideoCustomerViewer({ token }: { token: string }) {
     () => (data?.report ? parseReportSections(data.report) : []),
     [data?.report]
   );
+
+  const priorityGroups = useMemo(() => {
+    const findings = data?.findings ?? [];
+    const buckets: Record<MpiSeverity, CustomerFinding[]> = {
+      urgent: [],
+      recommend: [],
+      ok: [],
+    };
+    for (const f of findings) {
+      const sev = isMpiSeverity(f.severity) ? f.severity : 'recommend';
+      buckets[sev].push(f);
+    }
+    return (['urgent', 'recommend', 'ok'] as MpiSeverity[])
+      .map((sev) => ({ sev, items: buckets[sev] }))
+      .filter((g) => g.items.length > 0);
+  }, [data?.findings]);
 
   if (loading) {
     return (
@@ -277,6 +329,46 @@ export function VideoCustomerViewer({ token }: { token: string }) {
             <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
               What your technician found
             </h2>
+
+            {priorityGroups.length > 0 ? (
+              <div className="mt-5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Priority findings
+                </p>
+                {priorityGroups.map(({ sev, items }) => {
+                  const meta = PRIORITY_META[sev];
+                  return (
+                    <div
+                      key={sev}
+                      className={`overflow-hidden rounded-xl border ${meta.ring}`}
+                    >
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${meta.bar}`} />
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.badge}`}
+                        >
+                          {meta.label}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {items.length} item{items.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5 border-t border-black/5 px-3 py-2.5 text-sm text-slate-800">
+                        {items.map((f, i) => (
+                          <li key={`${sev}-${i}`} className="leading-snug">
+                            <span className="font-medium">{mpiCategoryLabel(f.category)}</span>
+                            {f.note?.trim() ? (
+                              <span className="text-slate-600"> — {f.note.trim()}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
             <div className="mt-6 space-y-6">
               {sections.length > 0 ? (
                 sections.map((sec) => (

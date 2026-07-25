@@ -33,6 +33,7 @@ export async function handleMpiReportJob(
     '@/lib/videoInspection/fallbackCustomerReport'
   );
   const { parseFramePathnames } = await import('@/lib/videoInspection/mappers');
+  const { mapFindingDto } = await import('@/lib/videoInspection/findingsServer');
   const { CUSTOMER_VIDEO_REPORT_PROMPT_VERSION } = await import(
     '@/prompts/customerVideoReport/version'
   );
@@ -40,7 +41,10 @@ export async function handleMpiReportJob(
   const inspection = await withRlsBypass(async () =>
     getRlsDb().videoInspection.findFirst({
       where: { id: inspectionId, dealershipId: msg.dealershipId },
-      include: { dealership: { select: { name: true } } },
+      include: {
+        dealership: { select: { name: true } },
+        findings: { orderBy: { sortOrder: 'asc' as const } },
+      },
     })
   );
 
@@ -67,6 +71,10 @@ export async function handleMpiReportJob(
       ? '(Technician recorded video; limited spoken notes.)'
       : '(Video inspection on file; limited spoken notes.)');
 
+  const findings = (inspection.findings ?? [])
+    .map(mapFindingDto)
+    .map((f) => ({ category: f.category, severity: String(f.severity), note: f.note }));
+
   let report = '';
   let reportSource: 'grok' | 'fallback' = 'grok';
   try {
@@ -77,6 +85,7 @@ export async function handleMpiReportJob(
       dealershipName,
       title: inspection.title,
       frameDataUrls: [], // frames optional for async path (reduces payload size)
+      findings,
     });
     if (!report?.trim()) throw new Error('empty report');
   } catch (error) {
@@ -90,6 +99,7 @@ export async function handleMpiReportJob(
       dealershipName,
       title: inspection.title,
       frameCount: framePaths.length,
+      findings,
     });
     reportSource = 'fallback';
   }

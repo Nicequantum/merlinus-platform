@@ -19,6 +19,7 @@ import {
   resolveVideoDealershipId,
 } from '@/lib/videoInspection/access';
 import { buildFallbackCustomerVideoReport } from '@/lib/videoInspection/fallbackCustomerReport';
+import { mapFindingDto } from '@/lib/videoInspection/findingsServer';
 import { fetchPrivateVideoAsBuffer } from '@/lib/videoBlob';
 import { CUSTOMER_VIDEO_REPORT_PROMPT_VERSION } from '@/prompts/customerVideoReport/version';
 import { parseRouteParams } from '@/lib/validation';
@@ -89,6 +90,12 @@ async function runVideoReportGeneration(
       : '(Video inspection on file; limited spoken notes.)');
 
   const dealershipName = existing.dealership?.name ?? session.dealershipName;
+  const findings = (existing.findings ?? [])
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(mapFindingDto)
+    .map((f) => ({ category: f.category, severity: String(f.severity), note: f.note }));
+
   let report = '';
   let reportSource: 'grok' | 'fallback' = 'grok';
   let grokError: string | undefined;
@@ -101,6 +108,7 @@ async function runVideoReportGeneration(
       dealershipName,
       title: existing.title,
       frameDataUrls,
+      findings,
     });
     if (!report?.trim()) {
       throw new Error('AI returned an empty customer report');
@@ -113,6 +121,7 @@ async function runVideoReportGeneration(
       error: grokError,
       frameCount: frameDataUrls.length,
       hasTranscript: Boolean(transcript.trim()),
+      findingCount: findings.length,
     });
     report = buildFallbackCustomerVideoReport({
       transcript: effectiveTranscript,
@@ -120,6 +129,7 @@ async function runVideoReportGeneration(
       dealershipName,
       title: existing.title,
       frameCount: frameDataUrls.length,
+      findings,
     });
     reportSource = 'fallback';
   }

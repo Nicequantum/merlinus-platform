@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/apiRoute';
 import { encryptSensitiveText, decryptSensitiveText } from '@/lib/encryption';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 import { isSmsEnabled, normalizeE164, sendSms } from '@/lib/sms/twilio';
 import { findInspectionForSession } from '@/lib/videoInspection/access';
 import {
@@ -66,14 +67,19 @@ export async function POST(
       });
 
       if (!isSmsEnabled()) {
-        // Still return production share link so staff can copy/send manually
+        // Still return production share link so staff can copy/send manually.
+        // HTTP 200 + smsSent:false — client must NOT toast success.
+        logger.info('video.sms_not_configured', {
+          inspectionId: existing.id,
+          dealershipId: session.dealershipId,
+        });
         return {
           ok: false,
           smsSent: false,
           shareUrl,
           phoneLast4: phone.slice(-4),
           error:
-            'SMS is not configured on this server (set SMS_ENABLED=true and Twilio credentials). Customer link is ready to copy.',
+            'SMS is not configured (set SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER). Link ready to copy.',
         };
       }
 
@@ -124,7 +130,18 @@ export async function POST(
 
         return { ok: true, smsSent: true, shareUrl, phoneLast4: phone.slice(-4) };
       } catch (error) {
-        return apiError(error instanceof Error ? error.message : 'SMS send failed', 502);
+        // Twilio body already logged in sendSms; surface clear 502 for bay toast.error
+        logger.error('video.sms_send_failed', {
+          inspectionId: existing.id,
+          dealershipId: session.dealershipId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return apiError(
+          error instanceof Error
+            ? `${error.message} — Link may still be ready if you copy from Share.`
+            : 'SMS send failed',
+          502
+        );
       }
     },
     {

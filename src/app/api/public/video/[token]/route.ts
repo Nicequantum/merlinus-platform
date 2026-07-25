@@ -3,6 +3,7 @@ import { withPublicRoute } from '@/lib/apiRoute';
 import { decryptSensitiveText } from '@/lib/encryption';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
+import { mapFindingDto } from '@/lib/videoInspection/findingsServer';
 import {
   hashShareToken,
   isValidRawShareToken,
@@ -31,7 +32,10 @@ export async function GET(
           where: { tokenHash },
           include: {
             videoInspection: {
-              include: { dealership: { select: { name: true } } },
+              include: {
+                dealership: { select: { name: true } },
+                findings: { orderBy: { sortOrder: 'asc' as const } },
+              },
             },
           },
         })
@@ -73,11 +77,22 @@ export async function GET(
       const mediaPath = `/api/public/video/${encodeURIComponent(raw!)}/media`;
       const mediaUrl = host ? `${proto}://${host}${mediaPath}` : mediaPath;
 
+      // Decrypted finding notes for customer G/Y/R summary (no internal IDs required).
+      const findings = (inspection.findings ?? []).map((row) => {
+        const dto = mapFindingDto(row);
+        return {
+          category: dto.category,
+          severity: String(dto.severity),
+          note: dto.note || '',
+        };
+      });
+
       return Response.json({
         title: inspection.title,
         vehicleLabel: inspection.vehicleLabel,
         dealershipName: inspection.dealership?.name ?? null,
         report: decryptSensitiveText(inspection.reportEncrypted || ''),
+        findings,
         mediaUrl,
         hasVideo: Boolean(inspection.videoPathname?.trim()),
         contentType: inspection.contentType || 'video/webm',

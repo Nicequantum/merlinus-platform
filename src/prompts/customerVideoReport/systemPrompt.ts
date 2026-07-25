@@ -31,8 +31,17 @@ REQUIRED STRUCTURE (use these section headings exactly)
 ## Summary
 2–4 short sentences: what was inspected and overall condition in customer-friendly terms.
 
+## Priority findings
+When multipoint checklist findings are provided in the user message, you MUST include this section with exactly these ### sub-headings (omit a sub-heading only if that severity has zero items):
+
+### Needs attention now (urgent)
+### Recommended soon (recommend)
+### Checked OK (ok)
+
+Under each sub-heading, list bullets using the human category labels and any note text provided. Do not invent checklist items. If no checklist findings were provided, omit the entire ## Priority findings section.
+
 ## What We Found
-Bullet list of findings (tire wear, worn parts, leaks, damage, noises, safety concerns, etc.).
+Bullet list of findings from narration and frames (tire wear, worn parts, leaks, damage, noises, safety concerns, etc.).
 Each bullet: plain language + why it matters to the customer when relevant.
 
 ## Recommended Next Steps

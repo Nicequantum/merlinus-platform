@@ -1,7 +1,16 @@
 /**
  * Outbound SMS for video inspection customer links.
- * Disabled unless SMS_ENABLED=true and Twilio credentials are set.
+ *
+ * Required env (all must be set for real delivery — no fake SMS path):
+ * - SMS_ENABLED=true (or 1 / yes)
+ * - TWILIO_ACCOUNT_SID
+ * - TWILIO_AUTH_TOKEN
+ * - TWILIO_FROM_NUMBER (E.164 Twilio From / Messaging Service compatible number)
+ *
+ * Disabled unless SMS_ENABLED is explicitly true AND all three Twilio vars are present.
  */
+
+import { logger } from '@/lib/logger';
 
 export function isSmsEnabled(): boolean {
   const flag = process.env.SMS_ENABLED?.trim().toLowerCase();
@@ -29,7 +38,9 @@ export function normalizeE164(phone: string): string | null {
 
 export async function sendSms(to: string, body: string): Promise<{ sid: string }> {
   if (!isSmsEnabled()) {
-    throw new Error('SMS is not configured. Set SMS_ENABLED=true and Twilio credentials.');
+    throw new Error(
+      'SMS is not configured. Set SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER.'
+    );
   }
   const sid = process.env.TWILIO_ACCOUNT_SID!.trim();
   const token = process.env.TWILIO_AUTH_TOKEN!.trim();
@@ -45,9 +56,25 @@ export async function sendSms(to: string, body: string): Promise<{ sid: string }
     body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
   });
 
-  const data = (await res.json().catch(() => ({}))) as { sid?: string; message?: string };
+  const data = (await res.json().catch(() => ({}))) as {
+    sid?: string;
+    message?: string;
+    code?: number | string;
+    more_info?: string;
+    status?: string;
+    error_message?: string;
+  };
   if (!res.ok || !data.sid) {
-    throw new Error(data.message || `SMS send failed (${res.status})`);
+    logger.error('sms.twilio_send_failed', {
+      status: res.status,
+      twilioCode: data.code ?? null,
+      twilioMessage: data.message || data.error_message || null,
+      moreInfo: data.more_info ?? null,
+      toLast4: to.slice(-4),
+      fromLast4: from.slice(-4),
+    });
+    const detail = data.message || data.error_message || `SMS send failed (${res.status})`;
+    throw new Error(detail);
   }
   return { sid: data.sid };
 }

@@ -612,21 +612,25 @@ export function VideoInspectionView({
     try {
       const result = await api.sendVideoInspectionSms(selected.id, phone.trim());
       if (result.shareUrl) setShareUrl(result.shareUrl);
-      if (result.ok === false || result.smsSent === false) {
-        toast.message(
+
+      // Strict: only toast.success when Twilio accepted the message (smsSent === true).
+      // ok:false / smsSent:false means share link was minted but no SMS was delivered.
+      if (result.smsSent === true) {
+        toast.success(`Text sent (…${result.phoneLast4})`);
+      } else {
+        const detail =
           result.error ||
-            'SMS is not configured on this server — customer link is ready to copy below.'
-        );
+          'SMS was not sent. Customer link is ready to copy below.';
+        toast.warning(`${detail}${result.shareUrl ? ' Link ready to copy.' : ''}`.trim());
         try {
           if (result.shareUrl) await navigator.clipboard.writeText(result.shareUrl);
         } catch {
-          // ignore
+          // ignore clipboard failures — shareUrl still shown in UI
         }
-      } else {
-        toast.success(`Text sent (…${result.phoneLast4})`);
       }
       void refreshList();
     } catch (e: unknown) {
+      // 502 Twilio failures etc. — never imply success
       toast.error(e instanceof Error ? e.message : t('smsDisabled'));
     } finally {
       setBusy(false);

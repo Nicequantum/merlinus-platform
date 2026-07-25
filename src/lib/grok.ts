@@ -675,6 +675,8 @@ export async function generateCustomerVideoReport(input: {
   title?: string | null;
   /** Vision data URLs (JPEG/PNG) — client keyframes. Max ~8 used. */
   frameDataUrls?: string[];
+  /** Multipoint checklist findings for Priority findings section. */
+  findings?: Array<{ category: string; severity: string; note?: string | null }>;
 }): Promise<string> {
   assertGrokServerRuntime('generateCustomerVideoReport');
   const { CUSTOMER_VIDEO_REPORT_SYSTEM_PROMPT } = await import(
@@ -682,6 +684,9 @@ export async function generateCustomerVideoReport(input: {
   );
   const { buildCustomerVideoReportUserMessage } = await import(
     '@/prompts/customerVideoReport/buildUserMessage'
+  );
+  const { ensurePriorityFindingsInReport } = await import(
+    '@/lib/videoInspection/priorityFindings'
   );
   const { CUSTOMER_VIDEO_REPORT_GROK_MS } = await import('@/lib/timeouts');
 
@@ -693,6 +698,7 @@ export async function generateCustomerVideoReport(input: {
     dealershipName: input.dealershipName,
     title: input.title,
     frameCount: frames.length,
+    findings: input.findings,
   });
 
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
@@ -723,7 +729,8 @@ export async function generateCustomerVideoReport(input: {
   if (!trimmed) {
     throw new Error('AI did not return a customer inspection report. Try again.');
   }
-  return trimmed;
+  // Guarantee Priority findings section when checklist data exists (Grok may omit).
+  return ensurePriorityFindingsInReport(trimmed, input.findings);
 }
 
 export async function extractDiagnosticsFromImage(imageDataUrl: string): Promise<ExtractedData> {
