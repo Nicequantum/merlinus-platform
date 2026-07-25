@@ -115,6 +115,8 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(client.includes('fetchJsonWithTimeout') || client.includes('AbortController'));
     assert.ok(client.includes('Uploading chunk'));
     assert.ok(client.includes('VIDEO_UPLOAD_CHUNK_TIMEOUT_MS') || client.includes('timeout'));
+    // CSRF double-submit on all mutating video upload fetches
+    assert.ok(client.includes('withCsrfHeaders'));
   });
 
   test('upload routes accept repairOrderId and normalize content types', () => {
@@ -123,6 +125,7 @@ describe('PR-M1b video capture / chunked upload', () => {
       'utf8'
     );
     assert.ok(upload.includes('resolveRepairOrderLink'));
+    assert.ok(upload.includes('mergeVideoFieldsWithRoPrefill'));
     assert.ok(upload.includes('repairOrderId'));
     assert.ok(upload.includes('split'));
 
@@ -131,6 +134,7 @@ describe('PR-M1b video capture / chunked upload', () => {
       'utf8'
     );
     assert.ok(complete.includes('resolveRepairOrderLink'));
+    assert.ok(complete.includes('mergeVideoFieldsWithRoPrefill'));
     assert.ok(complete.includes('deleteVideoChunksBestEffort'));
 
     const chunk = readFileSync(

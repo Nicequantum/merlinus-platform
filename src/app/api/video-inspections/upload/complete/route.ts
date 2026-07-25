@@ -9,6 +9,7 @@ import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
 import {
   inspectionInclude,
+  mergeVideoFieldsWithRoPrefill,
   resolveRepairOrderLink,
   resolveVideoDealershipId,
 } from '@/lib/videoInspection/access';
@@ -221,10 +222,6 @@ export async function POST(request: Request) {
       }
 
       const title = (meta.title || 'Video inspection').slice(0, 200);
-      const vehicleLabel = (meta.vehicleLabel || '').slice(0, 200) || null;
-      const customerName = (meta.customerName || '').slice(0, 200);
-      const customerPhone = (meta.customerPhone || '').slice(0, 40);
-      const vin = (meta.vin || '').trim().toUpperCase().slice(0, 32);
       const transcript = (meta.transcript || '').slice(0, 20_000);
       const transcriptLanguage = normalizePreferredLanguage(
         meta.transcriptLanguage || session.preferredLanguage || 'en'
@@ -234,7 +231,7 @@ export async function POST(request: Request) {
           ? meta.recordingMode
           : 'standard';
 
-      let link: { repairOrderId: string | null; repairLineId: string | null };
+      let link;
       try {
         link = await resolveRepairOrderLink(
           session,
@@ -244,6 +241,20 @@ export async function POST(request: Request) {
       } catch (error) {
         return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
       }
+
+      const prefilled = mergeVideoFieldsWithRoPrefill(
+        {
+          vehicleLabel: meta.vehicleLabel,
+          customerName: meta.customerName,
+          customerPhone: meta.customerPhone,
+          vin: meta.vin,
+        },
+        link
+      );
+      const vehicleLabel = prefilled.vehicleLabel?.slice(0, 200) || null;
+      const customerName = prefilled.customerName.slice(0, 200);
+      const customerPhone = prefilled.customerPhone.slice(0, 40);
+      const vin = prefilled.vin.slice(0, 32);
 
       const row = await db.videoInspection.create({
         data: {

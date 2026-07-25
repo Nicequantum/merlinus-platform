@@ -47,7 +47,14 @@ export function ScanROSection({
   const pageCount = pendingROImages.length;
   const resolvedScanLabel = scanButtonLabel ?? t('scanRo');
 
-  // Prefetch isolate while tech captures pages so Process RO is less cold.
+  // Warm session + R2 + audit path on scan mount and while pages are pending so
+  // the first capture after cold open/idle is less likely to miss green check.
+  useEffect(() => {
+    void import('@/lib/clientFetchRetry')
+      .then(({ warmSessionIsolate }) => warmSessionIsolate())
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     if (!hasPending) return;
     void import('@/lib/clientFetchRetry')

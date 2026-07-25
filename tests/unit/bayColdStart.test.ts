@@ -110,15 +110,20 @@ describe('Bay cold-start + offline polish', () => {
     assert.equal(listAiStoryJobIntents().length, 0);
   });
 
-  it('session warmup warms RO path', () => {
+  it('session warmup warms RO path + R2 + audit', () => {
     const src = readSrc('src/app/api/session/warmup/route.ts');
     assert.match(src, /repairOrder\.findFirst/);
     assert.match(src, /bayColdStartProbe/);
+    assert.match(src, /probeObjectStorage/);
+    assert.match(src, /AuditLog/);
+    assert.match(src, /r2Warmed/);
+    assert.match(src, /auditPathWarmed/);
   });
 
   it('bay warmup + keep-alive + visibility hooks exist', () => {
     assert.match(readSrc('src/lib/bayWarmup.ts'), /runAggressiveBayWarmup/);
     assert.match(readSrc('src/lib/bayWarmup.ts'), /startVisibilityBayWarmup/);
+    assert.match(readSrc('src/lib/bayWarmup.ts'), /uploadPathWarmed/);
     assert.match(readSrc('src/lib/clientFetchRetry.ts'), /aggressive/);
     assert.match(readSrc('src/lib/clientFetchRetry.ts'), /visibilitychange/);
     assert.match(readSrc('src/hooks/useBayPrefetch.ts'), /startBaySessionKeepAlive/);

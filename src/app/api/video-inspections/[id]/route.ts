@@ -5,6 +5,7 @@ import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import {
   findInspectionForSession,
   inspectionInclude,
+  mergeVideoFieldsWithRoPrefill,
   resolveRepairOrderLink,
 } from '@/lib/videoInspection/access';
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
@@ -122,6 +123,34 @@ export async function PATCH(
           } else {
             data.repairOrderId = link.repairOrderId;
             data.repairLineId = link.repairLineId;
+            // When linking an RO, fill blank vehicle/customer/VIN from that RO
+            // (client-provided PATCH fields still win when present).
+            const prefilled = mergeVideoFieldsWithRoPrefill(
+              {
+                vehicleLabel:
+                  parsed.data.vehicleLabel !== undefined
+                    ? parsed.data.vehicleLabel
+                    : existing.vehicleLabel,
+                customerName: parsed.data.customerName,
+                customerPhone: parsed.data.customerPhone,
+                vin: parsed.data.vin,
+              },
+              link
+            );
+            if (parsed.data.vehicleLabel === undefined && prefilled.vehicleLabel) {
+              data.vehicleLabel = prefilled.vehicleLabel;
+            }
+            if (parsed.data.customerName === undefined && prefilled.customerName) {
+              data.customerNameEncrypted = encryptSensitiveText(prefilled.customerName);
+            }
+            if (parsed.data.customerPhone === undefined && prefilled.customerPhone) {
+              data.customerPhoneEncrypted = encryptSensitiveText(prefilled.customerPhone);
+              data.customerPhoneLast4 = phoneLast4(prefilled.customerPhone);
+            }
+            if (parsed.data.vin === undefined && prefilled.vin) {
+              data.vinEncrypted = encryptSensitiveText(prefilled.vin);
+              data.vinLast8 = last8OfVin(prefilled.vin);
+            }
           }
         } catch (error) {
           return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);

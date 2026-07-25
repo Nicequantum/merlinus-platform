@@ -41,15 +41,38 @@ function isRetriableUploadError(error: unknown): boolean {
   return isNetworkFailure(error);
 }
 
+export type UploadAttachmentOptions = {
+  /** Called before each network attempt (0-based). Use for bay status text. */
+  onAttempt?: (attempt: number, maxAttempts: number) => void;
+  /** Warm session/R2/audit path before the first put (default true). */
+  warmBeforeUpload?: boolean;
+};
+
 export async function uploadFileAsAttachment(
   file: File,
   idPrefix: string,
-  compress: (file: File) => Promise<File> = compressImageForUpload
+  compress: (file: File) => Promise<File> = compressImageForUpload,
+  options?: UploadAttachmentOptions
 ): Promise<ImageAttachment> {
   let lastError: unknown;
+  const warmBefore = options?.warmBeforeUpload !== false;
+
+  if (warmBefore && typeof window !== 'undefined') {
+    // Fire-and-forget isolate warm; do not block capture UX longer than a short race.
+    try {
+      const { warmSessionIsolate } = await import('@/lib/clientFetchRetry');
+      await Promise.race([
+        warmSessionIsolate(),
+        sleep(2_500),
+      ]);
+    } catch {
+      // ignore warmup failure — upload still attempts
+    }
+  }
 
   for (let attempt = 0; attempt < UPLOAD_PER_FILE_ATTEMPTS; attempt++) {
     try {
+      options?.onAttempt?.(attempt, UPLOAD_PER_FILE_ATTEMPTS);
       const compressed = await compress(file);
       const { pathname, url, name } = await api.uploadImage(compressed);
       return {

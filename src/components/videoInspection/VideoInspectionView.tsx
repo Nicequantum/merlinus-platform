@@ -113,10 +113,38 @@ export function VideoInspectionView({
   const [repairOrderId, setRepairOrderId] = useState(initialRepairOrderId || '');
   const [roOptions, setRoOptions] = useState<RepairOrderSummary[]>([]);
   const [roOptionsLoading, setRoOptionsLoading] = useState(false);
+  const [roPrefillLoading, setRoPrefillLoading] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recorderActive, setRecorderActive] = useState(false);
 
   const flushingRef = useRef(false);
+  const prefilledRoIdRef = useRef<string | null>(null);
+
+  /** Load VIN / customer / vehicle from linked RO (same dealership via API). */
+  const applyPrefillFromRo = useCallback(async (roId: string, force = false) => {
+    const id = roId.trim();
+    if (!id) return;
+    if (!force && prefilledRoIdRef.current === id) return;
+    setRoPrefillLoading(true);
+    try {
+      const { repairOrder } = await api.getRepairOrder(id);
+      const v = repairOrder.vehicle;
+      const label = [v?.year, v?.make, v?.model].filter(Boolean).join(' ').trim();
+      if (label) setVehicleLabel(label);
+      if (repairOrder.customer?.name?.trim()) {
+        setCustomerName(repairOrder.customer.name.trim());
+      }
+      if (v?.vin?.trim()) {
+        setVin(v.vin.trim().toUpperCase());
+      }
+      // RepairOrder has no customer phone field — leave phone for tech entry if needed.
+      prefilledRoIdRef.current = id;
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not load repair order details');
+    } finally {
+      setRoPrefillLoading(false);
+    }
+  }, []);
 
   const speechLang = localeToSpeechLang(session.preferredLanguage);
 
@@ -194,6 +222,15 @@ export function VideoInspectionView({
       cancelled = true;
     };
   }, [mode]);
+
+  // Opened from RO detail — jump to create with vehicle/customer/VIN prefilled.
+  useEffect(() => {
+    const id = (initialRepairOrderId || '').trim();
+    if (!id) return;
+    setRepairOrderId(id);
+    setMode('create');
+    void applyPrefillFromRo(id);
+  }, [initialRepairOrderId, applyPrefillFromRo]);
 
   const buildMeta = useCallback(
     (recordingMode: 'fullscreen' | 'standard' | 'upload', durationSec?: number) => ({
@@ -617,14 +654,24 @@ export function VideoInspectionView({
       </div>
     ) : null;
 
+  const linkedToRo = Boolean(repairOrderId.trim());
+  const fieldsFromRo = linkedToRo && Boolean(customerName || vin || vehicleLabel);
+
   const roSelect = (
     <div className="mb-4">
       <label className="benz-label">{t('attachRepairOrder')}</label>
       <select
         className="benz-input"
         value={repairOrderId}
-        onChange={(e) => setRepairOrderId(e.target.value)}
-        disabled={recorderActive || busy || roOptionsLoading}
+        onChange={(e) => {
+          const id = e.target.value;
+          setRepairOrderId(id);
+          prefilledRoIdRef.current = null;
+          if (id) {
+            void applyPrefillFromRo(id, true);
+          }
+        }}
+        disabled={recorderActive || busy || roOptionsLoading || roPrefillLoading}
       >
         <option value="">{t('noRepairOrder')}</option>
         {roOptions.map((ro) => (
@@ -636,7 +683,13 @@ export function VideoInspectionView({
           </option>
         ))}
       </select>
-      <p className="benz-hint text-xs mt-1">{t('attachRepairOrderHint')}</p>
+      <p className="benz-hint text-xs mt-1">
+        {roPrefillLoading
+          ? 'Loading vehicle & customer from RO…'
+          : fieldsFromRo
+            ? 'VIN, customer, and vehicle filled from the linked repair order.'
+            : t('attachRepairOrderHint')}
+      </p>
     </div>
   );
 
@@ -650,7 +703,8 @@ export function VideoInspectionView({
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
           placeholder={t('customerNamePlaceholder')}
-          disabled={recorderActive || busy}
+          disabled={recorderActive || busy || roPrefillLoading}
+          required={linkedToRo}
         />
       </div>
       <div>
@@ -660,7 +714,7 @@ export function VideoInspectionView({
           value={customerPhone}
           onChange={(e) => setCustomerPhone(e.target.value)}
           placeholder={t('phonePlaceholder')}
-          disabled={recorderActive || busy}
+          disabled={recorderActive || busy || roPrefillLoading}
         />
       </div>
       <div>
@@ -670,7 +724,8 @@ export function VideoInspectionView({
           value={vehicleLabel}
           onChange={(e) => setVehicleLabel(e.target.value)}
           placeholder={t('vehiclePlaceholder')}
-          disabled={recorderActive || busy}
+          disabled={recorderActive || busy || roPrefillLoading}
+          required={linkedToRo}
         />
       </div>
       <div>
@@ -681,7 +736,8 @@ export function VideoInspectionView({
           onChange={(e) => setVin(e.target.value.toUpperCase())}
           placeholder={t('vinPlaceholder')}
           maxLength={17}
-          disabled={recorderActive || busy}
+          disabled={recorderActive || busy || roPrefillLoading}
+          required={linkedToRo}
         />
       </div>
     </div>

@@ -5,6 +5,7 @@
  * Every fetch has a hard timeout so stalls never hang forever at ~2%.
  */
 
+import { withCsrfHeaders } from '@/lib/csrfClient';
 import {
   VIDEO_CHUNK_CLIENT_RETRIES,
   VIDEO_UPLOAD_CHUNK_BYTES,
@@ -77,9 +78,12 @@ async function fetchJsonWithTimeout<T>(
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
   const signal = mergeSignals(outerSignal, timeoutController.signal);
   try {
+    // Double-submit CSRF: cookie merlin_csrf + X-Merlin-CSRF on all mutating uploads.
+    // credentials:include must stay so the CSRF cookie is sent with the session.
     const res = await fetch(path, {
       ...init,
       credentials: 'include',
+      headers: withCsrfHeaders(init.headers),
       signal,
     });
     const body = (await res.json().catch(() => ({}))) as T & { error?: string };

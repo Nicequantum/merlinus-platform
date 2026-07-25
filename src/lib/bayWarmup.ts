@@ -10,12 +10,14 @@ export interface BayWarmupResult {
   sessionWarm: boolean;
   roListPrefetched: boolean;
   statusPing: boolean;
+  /** Session warmup includes R2 probe + AuditLog base path when dealership present */
+  uploadPathWarmed: boolean;
   durationMs: number;
 }
 
 /**
- * After login or shell mount: warm D1/auth, prefetch today's RO list, ping status.
- * Parallel where safe so first open-RO click hits a hot isolate.
+ * After login or shell mount: warm D1/auth/R2/audit, prefetch today's RO list, ping status.
+ * Parallel where safe so first RO capture + Process RO hit a hot isolate.
  */
 export async function runAggressiveBayWarmup(options?: {
   /** Prefetch today's RO list into sessionStorage for instant paint */
@@ -26,8 +28,10 @@ export async function runAggressiveBayWarmup(options?: {
   const started = Date.now();
   const prefetchRoList = options?.prefetchRoList !== false;
 
-  const [sessionWarm, statusPing, roPrefetch] = await Promise.all([
-    warmSessionIsolate(),
+  // Session warm first (R2 + audit + D1), then status/list in parallel with a second warm
+  // so cold open still has two shots at isolate/R2 readiness before first capture.
+  const sessionWarm = await warmSessionIsolate();
+  const [statusPing, roPrefetch, secondWarm] = await Promise.all([
     keepAlivePublicStatus(),
     prefetchRoList
       ? prefetchTodayRoList({
@@ -35,12 +39,15 @@ export async function runAggressiveBayWarmup(options?: {
           dealershipId: options?.dealershipId,
         })
       : Promise.resolve(false),
+    // Second warm shortly after first — covers isolate still booting on first hit
+    warmSessionIsolate(),
   ]);
 
   return {
-    sessionWarm,
+    sessionWarm: sessionWarm || secondWarm,
     roListPrefetched: roPrefetch,
     statusPing,
+    uploadPathWarmed: sessionWarm || secondWarm,
     durationMs: Date.now() - started,
   };
 }

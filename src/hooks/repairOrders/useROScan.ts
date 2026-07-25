@@ -109,7 +109,16 @@ export function useROScan({
   const uploadAndSavePendingPage = useCallback(
     async (pendingId: string, file: File) => {
       try {
-        const attachment = await uploadFileAsAttachment(file, 'roimg', compressImageForRoScan);
+        // Keep status on 'uploading' during internal retries; surface attempt so bay is not blank.
+        const attachment = await uploadFileAsAttachment(file, 'roimg', compressImageForRoScan, {
+          warmBeforeUpload: true,
+          onAttempt: (attempt, maxAttempts) => {
+            if (attempt === 0) return;
+            toast.message(`Retrying page save (${attempt + 1}/${maxAttempts})…`, {
+              id: `ro-upload-retry-${pendingId}`,
+            });
+          },
+        });
         if (discardedPendingIdsRef.current.has(pendingId)) {
           discardedPendingIdsRef.current.delete(pendingId);
           return;

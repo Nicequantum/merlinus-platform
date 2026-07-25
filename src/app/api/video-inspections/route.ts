@@ -2,18 +2,24 @@ import { resolveDealerIdForWrite } from '@/lib/apex/dealerContext';
 import { getRlsDb } from '@/lib/apex/rlsContext';
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
+import { encryptSensitiveText } from '@/lib/encryption';
 import {
   canListAllInspections,
+  mergeVideoFieldsWithRoPrefill,
   resolveRepairOrderLink,
   resolveVideoDealershipId,
 } from '@/lib/videoInspection/access';
 import { mapVideoInspectionListItem } from '@/lib/videoInspection/mappers';
+import { last8OfVin, phoneLast4 } from '@/lib/videoInspection/mpiCategories';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody } from '@/lib/validation';
 import { z } from 'zod';
 
 const createSchema = z.object({
   title: z.string().trim().max(200).optional(),
   vehicleLabel: z.string().trim().max(200).optional(),
+  customerName: z.string().trim().max(200).optional(),
+  customerPhone: z.string().trim().max(40).optional(),
+  vin: z.string().trim().max(32).optional(),
   repairOrderId: z.string().trim().max(64).optional(),
   repairLineId: z.string().trim().max(64).optional(),
 });
@@ -71,7 +77,7 @@ export async function POST(request: Request) {
       const parsed = await parseRequestBody(request, createSchema, AUTH_JSON_BODY_LIMIT_BYTES);
       if ('error' in parsed) return parsed.error;
 
-      let link: { repairOrderId: string | null; repairLineId: string | null };
+      let link;
       try {
         link = await resolveRepairOrderLink(
           session,
@@ -82,6 +88,16 @@ export async function POST(request: Request) {
         return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
       }
 
+      const prefilled = mergeVideoFieldsWithRoPrefill(
+        {
+          vehicleLabel: parsed.data.vehicleLabel,
+          customerName: parsed.data.customerName,
+          customerPhone: parsed.data.customerPhone,
+          vin: parsed.data.vin,
+        },
+        link
+      );
+
       const dealerId = resolveDealerIdForWrite({ session });
       const dealershipId = resolveVideoDealershipId(session);
       const row = await getRlsDb().videoInspection.create({
@@ -90,7 +106,12 @@ export async function POST(request: Request) {
           dealerId: dealerId ?? null,
           technicianId: session.technicianId,
           title: parsed.data.title?.trim() || 'Video inspection',
-          vehicleLabel: parsed.data.vehicleLabel?.trim() || null,
+          vehicleLabel: prefilled.vehicleLabel,
+          customerNameEncrypted: encryptSensitiveText(prefilled.customerName),
+          customerPhoneEncrypted: encryptSensitiveText(prefilled.customerPhone),
+          customerPhoneLast4: phoneLast4(prefilled.customerPhone),
+          vinEncrypted: encryptSensitiveText(prefilled.vin),
+          vinLast8: last8OfVin(prefilled.vin),
           repairOrderId: link.repairOrderId,
           repairLineId: link.repairLineId,
           status: 'draft',

@@ -10,6 +10,7 @@ import { getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { mapBlobRouteError } from '@/lib/scanRouteErrors';
 import {
   inspectionInclude,
+  mergeVideoFieldsWithRoPrefill,
   resolveRepairOrderLink,
   resolveVideoDealershipId,
 } from '@/lib/videoInspection/access';
@@ -106,18 +107,11 @@ export async function POST(request: Request) {
       }
 
       const title = String(form.get('title') || 'Video inspection').slice(0, 200);
-      const vehicleLabel = String(form.get('vehicleLabel') || '').slice(0, 200) || null;
       const recordingModeRaw = String(form.get('recordingMode') || 'standard').trim();
       const recordingMode =
         recordingModeRaw === 'fullscreen' || recordingModeRaw === 'upload'
           ? recordingModeRaw
           : 'standard';
-      const customerName = String(form.get('customerName') || '').slice(0, 200);
-      const customerPhone = String(form.get('customerPhone') || '').slice(0, 40);
-      const vin = String(form.get('vin') || '')
-        .trim()
-        .toUpperCase()
-        .slice(0, 32);
       const transcript = String(form.get('transcript') || '').slice(0, MAX_TRANSCRIPT_CHARS);
       const transcriptLanguage = normalizePreferredLanguage(
         form.get('transcriptLanguage') || session.preferredLanguage || 'en'
@@ -129,7 +123,7 @@ export async function POST(request: Request) {
         return apiError(`Video exceeds max duration (${maxDurationSec}s).`, 400);
       }
 
-      let link: { repairOrderId: string | null; repairLineId: string | null };
+      let link;
       try {
         link = await resolveRepairOrderLink(
           session,
@@ -139,6 +133,20 @@ export async function POST(request: Request) {
       } catch (error) {
         return apiError(error instanceof Error ? error.message : 'Invalid repair order', 400);
       }
+
+      const prefilled = mergeVideoFieldsWithRoPrefill(
+        {
+          vehicleLabel: String(form.get('vehicleLabel') || ''),
+          customerName: String(form.get('customerName') || ''),
+          customerPhone: String(form.get('customerPhone') || ''),
+          vin: String(form.get('vin') || ''),
+        },
+        link
+      );
+      const vehicleLabel = prefilled.vehicleLabel?.slice(0, 200) || null;
+      const customerName = prefilled.customerName.slice(0, 200);
+      const customerPhone = prefilled.customerPhone.slice(0, 40);
+      const vin = prefilled.vin.slice(0, 32);
 
       const dealershipId = resolveVideoDealershipId(session);
       const buffer = Buffer.from(await file.arrayBuffer());
