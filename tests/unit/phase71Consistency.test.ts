@@ -142,6 +142,9 @@ describe('Phase 7.1 — consistency & scale', () => {
   });
 
   test('H1 — tenant routes avoid bare prisma import', () => {
+    // Intentionally excludes src/lib/audit.ts — see companion assertion below.
+    // AuditLog chain read/create uses base getDb() with explicit dealershipId
+    // because RLS-extended findMany threw ConnectorError on live D1.
     const paths = [
       'src/app/api/consent/route.ts',
       'src/app/api/legal-disclaimer/route.ts',
@@ -151,12 +154,25 @@ describe('Phase 7.1 — consistency & scale', () => {
       'src/lib/imageAccess.ts',
       'src/lib/advisorMetrics.ts',
       'src/lib/auditedAccess.ts',
-      'src/lib/audit.ts',
     ];
     for (const p of paths) {
       const src = readSrc(p);
       assert.doesNotMatch(src, /from ['"]@\/lib\/db['"]/, p);
       assert.doesNotMatch(src, /from ['"]\.\/db['"]/, p);
     }
+  });
+
+  test('H1 — audit.ts base getDb path stays tenant-scoped (D1-safe exception)', () => {
+    // Exception to bare-db ban: Process RO / image.upload CRITICAL_AUDIT require
+    // base Prisma D1 client (getDb), not RLS-extended client, for AuditLog I/O.
+    // Tenant isolation remains via explicit dealershipId on every SQL read/write.
+    const src = readSrc('src/lib/audit.ts');
+    assert.match(src, /import\s*\{[^}]*\bgetDb\b[^}]*\}\s*from\s*['"]@\/lib\/db['"]/);
+    assert.match(src, /getDb\(\)/);
+    assert.match(src, /dealershipId/);
+    assert.match(src, /\$queryRawUnsafe/);
+    // Must not import a bare prisma singleton for AuditLog work
+    assert.doesNotMatch(src, /import\s*\{\s*prisma\s*\}/);
+    assert.doesNotMatch(src, /import\s+prisma\s+from/);
   });
 });
