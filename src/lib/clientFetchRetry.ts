@@ -201,7 +201,8 @@ export function startBaySessionKeepAlive(options?: {
   aggressive?: boolean;
 }): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  const intervalMs = options?.intervalMs ?? 75_000;
+  // 45s keeps the Worker warmer on bay tablets that sleep between RO scans (was 75s).
+  const intervalMs = options?.intervalMs ?? 45_000;
   let ticks = 0;
   let stopped = false;
 

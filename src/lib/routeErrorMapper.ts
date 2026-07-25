@@ -141,7 +141,11 @@ function mapPrismaRouteError(error: unknown, logDetail: string): RouteErrorMappi
 function mapDatabaseConnectionError(raw: string, logDetail: string): RouteErrorMapping | null {
   if (
     !/can't reach database|connection refused|connection timed out|database server/i.test(raw) &&
-    !/ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(raw)
+    !/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|ECONNRESET/i.test(raw) &&
+    // D1 / workerd cold-start and transient storage errors
+    !/D1_|NETWORK_ERROR|internal error|storage exception|too many requests|overloaded|SQLITE_|database is locked/i.test(
+      raw
+    )
   ) {
     return null;
   }

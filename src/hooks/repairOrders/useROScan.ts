@@ -163,23 +163,58 @@ export function useROScan({
         const complaints = finalized.complaints;
         const complaintLabels = finalized.labels;
         const source = options?.extractionSource ?? 'grok';
-        const { repairOrder } = await api.createRepairOrder(
-          {
-            fromExtraction: true,
-            roNumber: extracted.roNumber || `R-${Date.now().toString().slice(-6)}`,
-            vehicle: sanitizeVehicle(extracted.vehicle),
-            customerName: extracted.customerName,
-            serviceAdvisorName: extracted.serviceAdvisorName,
-            advisorExtractionSource: source,
-            complaints,
-            complaintLabels,
-          } as never,
-          {
-            idempotencyKey: (
-              options?.idempotencyKey || `scan-${source}-${Date.now()}`
-            ).slice(0, 128),
-          }
-        );
+        const idempotencyKey = (
+          options?.idempotencyKey || `scan-${source}-${Date.now()}`
+        ).slice(0, 128);
+        const payload = {
+          fromExtraction: true as const,
+          roNumber: extracted.roNumber || `R-${Date.now().toString().slice(-6)}`,
+          vehicle: sanitizeVehicle(extracted.vehicle),
+          customerName: extracted.customerName,
+          serviceAdvisorName: extracted.serviceAdvisorName,
+          advisorExtractionSource: source,
+          complaints,
+          complaintLabels,
+        };
+
+        // Brief warm before first create after extract (cold Worker + D1).
+        try {
+          const { warmSessionIsolate } = await import('@/lib/clientFetchRetry');
+          await Promise.race([
+            warmSessionIsolate(),
+            new Promise<boolean>((r) => setTimeout(() => r(false), 4_000)),
+          ]);
+        } catch {
+          // ignore warmup failure
+        }
+
+        const createOnce = () =>
+          api.createRepairOrder(payload as never, { idempotencyKey });
+
+        let repairOrder;
+        try {
+          ({ repairOrder } = await createOnce());
+        } catch (firstError) {
+          const status = firstError instanceof ApiError ? firstError.status : 0;
+          const retriable =
+            status === 0 ||
+            status === 408 ||
+            status === 429 ||
+            status === 500 ||
+            status === 502 ||
+            status === 503 ||
+            status === 504 ||
+            (firstError instanceof Error && /timed out|unavailable|try again/i.test(firstError.message));
+          if (!retriable) throw firstError;
+          clientLog.warn('ro.scan.create_retry', {
+            message: formatScanApiError(firstError),
+            status: status || undefined,
+          });
+          await new Promise((r) => setTimeout(r, 800));
+          // Same Idempotency-Key — safe replay if first attempt partially committed.
+          ({ repairOrder } = await createOnce());
+        }
+
         const normalized = ensureComplaintIds(repairOrder);
         openScanResultView(normalized);
         scanInFlightRef.current = false;

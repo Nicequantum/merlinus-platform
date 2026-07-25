@@ -242,7 +242,9 @@ export async function POST(request: Request) {
 
       let created;
       try {
-        // Phase 6.2 — join ambient withSessionRls transaction (no nested non-RLS connection)
+        // Keep the create transaction lean: RO rows + mandatory ro.create audit only.
+        // Advisor intelligence used to run inside this tx and could roll back a successful
+        // create on cold-start recompute failures (bay toast: "Repair order creation failed").
         const result = await rlsTransaction(async (tx) => {
           if (idempotencyKey) {
             const prior = await findIdempotentRepairOrderCreate(tx, {
@@ -251,7 +253,7 @@ export async function POST(request: Request) {
               idempotencyKey,
             });
             if (prior) {
-              return { created: null as null, advisorCapture: null, replay: prior };
+              return { created: null as null, replay: prior };
             }
           }
 
@@ -270,46 +272,6 @@ export async function POST(request: Request) {
             },
             include: { repairLines: true, serviceAdvisor: { select: { id: true, displayNameEncrypted: true } } },
           });
-
-          const capture = data.serviceAdvisorName
-            ? await captureAdvisorIntelligence(
-                {
-                  dealershipId: session.dealershipId,
-                  dealerId,
-                  repairOrderId: ro.id,
-                  serviceAdvisorName: data.serviceAdvisorName,
-                  complaints: input.complaints,
-                  complaintLabels: input.complaintLabels,
-                  vehicle: {
-                    make: input.vehicle.make,
-                    model: input.vehicle.model,
-                  },
-                  extractionSource,
-                },
-                tx
-              )
-            : null;
-
-          if (capture?.serviceAdvisor) {
-            await writeAuditedAccess(
-              {
-                action: 'advisor.capture',
-                dealershipId: session.dealershipId,
-                dealerId: auditDealerIdFromSession(session),
-                technicianId: session.technicianId,
-                entityType: 'serviceAdvisor',
-                entityId: capture.serviceAdvisor.id,
-                metadata: {
-                  repairOrderId: ro.id,
-                  roNumber: readRoNumberFromDb(ro),
-                  observationCount: input.complaints.length,
-                  isNewAdvisor: capture.serviceAdvisor.isNew,
-                },
-                ipAddress: getRequestIp(request),
-              },
-              { tx }
-            );
-          }
 
           await writeAuditedAccess(
             {
@@ -333,7 +295,7 @@ export async function POST(request: Request) {
             include: { repairLines: true, serviceAdvisor: { select: { id: true, displayNameEncrypted: true } } },
           });
 
-          return { created: createdRo, advisorCapture: capture, replay: null as null };
+          return { created: createdRo, replay: null as null };
         });
 
         if (result.replay) {
@@ -348,6 +310,61 @@ export async function POST(request: Request) {
           error: error instanceof Error ? error.message : 'unknown',
         });
         return handleRouteError(error, 'ros.create');
+      }
+
+      // Best-effort advisor capture after commit — never undo a created RO.
+      if (data.serviceAdvisorName?.trim()) {
+        try {
+          const capture = await captureAdvisorIntelligence(
+            {
+              dealershipId: session.dealershipId,
+              dealerId,
+              repairOrderId: created.id,
+              serviceAdvisorName: data.serviceAdvisorName,
+              complaints: input.complaints,
+              complaintLabels: input.complaintLabels,
+              vehicle: {
+                make: input.vehicle.make,
+                model: input.vehicle.model,
+              },
+              extractionSource,
+            },
+            getRlsDb()
+          );
+          if (capture?.serviceAdvisor) {
+            await writeAuditedAccess({
+              action: 'advisor.capture',
+              dealershipId: session.dealershipId,
+              dealerId: auditDealerIdFromSession(session),
+              technicianId: session.technicianId,
+              entityType: 'serviceAdvisor',
+              entityId: capture.serviceAdvisor.id,
+              metadata: {
+                repairOrderId: created.id,
+                roNumber: readRoNumberFromDb(created),
+                observationCount: input.complaints.length,
+                isNewAdvisor: capture.serviceAdvisor.isNew,
+              },
+              ipAddress: getRequestIp(request),
+            });
+            // Reload so response includes linked advisor when capture succeeded.
+            const refreshed = await getRlsDb().repairOrder.findUnique({
+              where: { id: created.id },
+              include: {
+                repairLines: true,
+                serviceAdvisor: { select: { id: true, displayNameEncrypted: true } },
+              },
+            });
+            if (refreshed) created = refreshed;
+          }
+        } catch (advisorError) {
+          logger.warn('ros.create.advisor_capture_deferred_failed', {
+            technicianId: session.technicianId,
+            dealershipId: session.dealershipId,
+            repairOrderId: created.id,
+            error: advisorError instanceof Error ? advisorError.message : 'unknown',
+          });
+        }
       }
 
       return { repairOrder: dbToRepairOrder(created) };

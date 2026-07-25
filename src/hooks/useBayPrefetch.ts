@@ -18,7 +18,7 @@ export function useBayPrefetch(session: TechnicianSession | null): void {
     if (!session?.technicianId || !session.dealershipId) return;
 
     const stopKeepAlive = startBaySessionKeepAlive({
-      intervalMs: 75_000,
+      intervalMs: 45_000,
       technicianId: session.technicianId,
       dealershipId: session.dealershipId,
       aggressive: true,
