@@ -271,14 +271,46 @@ export async function appendAuditLogInTransaction(
   // H5: Postgres advisory locks are unavailable on D1/SQLite.
   // Hash-chain integrity still relies on sequential writes + previousHash; concurrent
   // forks are rare under single-primary D1 write semantics.
-
-  const last = await tx.auditLog.findFirst({
-    where: { dealershipId: input.dealershipId },
-    orderBy: { createdAt: 'desc' },
-    select: { entryHash: true },
-  });
-
-  const previousHash = last?.entryHash || AUDIT_GENESIS_HASH;
+  //
+  // D1-safe last-hash read: avoid findFirst + orderBy + select under RLS AND-wrap
+  // (live bay: Invalid `prisma.auditLog.findMany()` during ro.create audit chain).
+  // Prefer findMany take 1 with a flat dealershipId where; fall back to genesis.
+  let previousHash = AUDIT_GENESIS_HASH;
+  try {
+    const recent = await tx.auditLog.findMany({
+      where: { dealershipId: input.dealershipId },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      select: { entryHash: true },
+    });
+    if (recent[0]?.entryHash?.trim()) {
+      previousHash = recent[0].entryHash;
+    }
+  } catch (chainReadError) {
+    // Second chance: raw SQL (bypasses some extension rewrite edge cases on D1).
+    try {
+      const rows = await tx.$queryRaw<Array<{ entryHash: string }>>`
+        SELECT entryHash FROM AuditLog
+        WHERE dealershipId = ${input.dealershipId}
+        ORDER BY createdAt DESC
+        LIMIT 1
+      `;
+      if (rows[0]?.entryHash?.trim()) {
+        previousHash = rows[0].entryHash;
+      }
+    } catch (rawError) {
+      logger.error('audit.chain_read_failed', {
+        dealershipId: input.dealershipId,
+        action: input.action,
+        findManyError:
+          chainReadError instanceof Error ? chainReadError.message : String(chainReadError),
+        rawError: rawError instanceof Error ? rawError.message : String(rawError),
+      });
+      throw chainReadError instanceof Error
+        ? chainReadError
+        : new Error(`Audit chain read failed for dealership ${input.dealershipId}`);
+    }
+  }
   const id = randomUUID();
   const entryHash = computeAuditEntryHash({
     id,

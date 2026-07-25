@@ -6,10 +6,10 @@ export const DB_HEALTH_RETRY_ATTEMPTS = 4;
 export const DB_HEALTH_RETRY_BASE_MS = 50;
 export const DB_HEALTH_RETRY_MAX_MS = 400;
 
-/** Request-path create/write: fewer attempts, slightly longer backoff (D1 cold / SQLITE_BUSY). */
-export const DB_REQUEST_RETRY_ATTEMPTS = 3;
-export const DB_REQUEST_RETRY_BASE_MS = 120;
-export const DB_REQUEST_RETRY_MAX_MS = 900;
+/** Request-path create/write: true SQLITE_BUSY / D1 blips only (invalid query = fail fast). */
+export const DB_REQUEST_RETRY_ATTEMPTS = 5;
+export const DB_REQUEST_RETRY_BASE_MS = 200;
+export const DB_REQUEST_RETRY_MAX_MS = 2500;
 
 const RETRYABLE_PRISMA_CODES = new Set([
   'P1001',
@@ -84,11 +84,18 @@ export function isRetryableDbConnectionError(error: unknown): boolean {
  * (RO create, etc.) — broader than pure connection errors.
  */
 export function isRetryableDbTransientError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message;
+    // Deterministic Prisma/D1 invalid query — never retry.
+    if (/Invalid\s+`?prisma\./i.test(message) || /invalid.*prisma\.\w+\./i.test(message)) {
+      return false;
+    }
+  }
   if (isRetryableDbConnectionError(error)) return true;
   if (error instanceof Error) {
     const message = error.message;
     if (
-      /D1_|NETWORK_ERROR|storage exception|overloaded|SQLITE_BUSY|SQLITE_LOCKED|database is locked|internal error|too many requests|connection reset|ECONNRESET/i.test(
+      /D1_ERROR|NETWORK_ERROR|storage exception|overloaded|SQLITE_BUSY|SQLITE_LOCKED|database is locked|connection reset|ECONNRESET|too many requests/i.test(
         message
       )
     ) {

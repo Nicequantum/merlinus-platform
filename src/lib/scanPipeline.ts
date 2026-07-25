@@ -18,8 +18,9 @@ export function formatScanApiError(error: unknown, fallback?: string): string {
         ? `${fallback} (HTTP ${error.status})`
         : `Scan request failed (HTTP ${error.status}).`;
     }
-    if (error.requestId && !base.includes(error.requestId)) {
-      return `${base} [ref ${error.requestId.slice(0, 8)}]`;
+    const shortRef = error.requestId?.slice(0, 8);
+    if (shortRef && !base.includes(shortRef) && !/\[ref\s/i.test(base)) {
+      return `${base} [ref ${shortRef}]`;
     }
     return base;
   }

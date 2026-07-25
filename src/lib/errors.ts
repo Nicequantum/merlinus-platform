@@ -112,9 +112,15 @@ export function handleRouteError(error: unknown, context: string): NextResponse 
     requestId: requestId ?? undefined,
   });
 
-  // Append short request id to technician toast for shop-floor / wrangler tail correlation.
-  if (requestId && mapped.status >= 500 && !mapped.message.includes(requestId.slice(0, 8))) {
-    mapped.message = `${mapped.message} [ref ${requestId.slice(0, 8)}]`;
+  // Append short request id once for shop-floor / wrangler tail correlation.
+  const shortRef = requestId?.slice(0, 8);
+  if (
+    shortRef &&
+    mapped.status >= 500 &&
+    !mapped.message.includes(shortRef) &&
+    !/\[ref\s/i.test(mapped.message)
+  ) {
+    mapped.message = `${mapped.message} [ref ${shortRef}]`;
   }
 
   // Phase 7.2 H9 — do not flood Sentry with expected 4xx domain errors

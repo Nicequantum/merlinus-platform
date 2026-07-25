@@ -256,13 +256,36 @@ export async function POST(request: Request) {
         );
       }
 
+      // Prime the same RLS client this request will use (not only /api/session/warmup).
+      try {
+        await getRlsDb().repairOrder.findFirst({
+          where: { dealershipId: session.dealershipId },
+          select: { id: true },
+          orderBy: { updatedAt: 'desc' },
+        });
+      } catch (pingError) {
+        logger.warn('ros.create.pre_ping_failed', {
+          requestId: getRequestId(),
+          dealershipId: session.dealershipId,
+          error: pingError instanceof Error ? pingError.message : String(pingError),
+        });
+      }
+
+      let createStep:
+        | 'idempotency'
+        | 'repairOrder.create'
+        | 'audit.write'
+        | 'reload'
+        | 'unknown' = 'unknown';
+
       let created;
       try {
         // Keep the create path lean: RO rows + mandatory ro.create audit only.
-        // Server-side retry for D1/SQLite transient blips (client also retries with same Idempotency-Key).
+        // Retry only true SQLITE_BUSY / D1 blips — invalid Prisma invocations fail fast.
         const result = await withRequestDbRetry(
           async () =>
             rlsTransaction(async (tx) => {
+              createStep = 'idempotency';
               if (idempotencyKey) {
                 const prior = await findIdempotentRepairOrderCreate(tx, {
                   dealershipId: session.dealershipId,
@@ -274,6 +297,7 @@ export async function POST(request: Request) {
                 }
               }
 
+              createStep = 'repairOrder.create';
               const ro = await tx.repairOrder.create({
                 data: {
                   ...repairOrderToDbFields(input),
@@ -293,6 +317,7 @@ export async function POST(request: Request) {
                 },
               });
 
+              createStep = 'audit.write';
               await writeAuditedAccess(
                 {
                   action: 'ro.create',
@@ -310,6 +335,7 @@ export async function POST(request: Request) {
                 { tx }
               );
 
+              createStep = 'reload';
               const createdRo = await tx.repairOrder.findUniqueOrThrow({
                 where: { id: ro.id },
                 include: {
@@ -329,18 +355,26 @@ export async function POST(request: Request) {
         created = result.created!;
       } catch (error) {
         const described = describeDbError(error);
+        const stack =
+          error instanceof Error && error.stack
+            ? error.stack.split('\n').slice(0, 8).join('\n')
+            : undefined;
         logger.error('ros.create.transaction_failed', {
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
+          activeDealershipId: getActiveRlsContext()?.activeDealershipId ?? null,
           roNumber: input.roNumber,
           requestId: getRequestId(),
           fromExtraction: Boolean(data.fromExtraction),
           hasIdempotencyKey: Boolean(idempotencyKey),
           rlsActive: hasActiveRlsClient(),
+          createStep,
           errorName: described.name,
           errorCode: described.code,
+          // Full raw message — do not truncate (needed to classify Invalid prisma vs busy).
           errorMessage: described.message,
-          errorMeta: described.meta ? JSON.stringify(described.meta).slice(0, 400) : undefined,
+          errorMeta: described.meta ? JSON.stringify(described.meta).slice(0, 800) : undefined,
+          errorStack: stack,
         });
         return handleRouteError(error, 'ros.create');
       }

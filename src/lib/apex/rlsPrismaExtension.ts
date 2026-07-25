@@ -277,6 +277,21 @@ export function createRlsEnforcedClient(
             } else if (operation === 'update' || operation === 'delete') {
               // Prisma update/delete require WhereUniqueInput — cannot AND-wrap.
               // Handled below via updateMany/deleteMany + re-fetch.
+            } else if (
+              operation === 'findFirst' ||
+              operation === 'findFirstOrThrow' ||
+              operation === 'findMany' ||
+              operation === 'count' ||
+              operation === 'aggregate' ||
+              operation === 'groupBy'
+            ) {
+              // D1 rejects some AND[dealershipId, dealershipId] shapes as invalid findMany
+              // invocations (toast showed findMany even when code called findFirst).
+              // Prefer flat pin when tenant filter is simple dealershipId.
+              nextArgs.where = buildFindFirstTenantWhere(
+                nextArgs.where as Record<string, unknown> | undefined,
+                tenantWhere
+              );
             } else {
               nextArgs.where = mergeWhere(
                 nextArgs.where as Record<string, unknown> | undefined,

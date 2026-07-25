@@ -139,11 +139,25 @@ function mapPrismaRouteError(error: unknown, logDetail: string): RouteErrorMappi
 }
 
 function mapDatabaseConnectionError(raw: string, logDetail: string): RouteErrorMapping | null {
+  // Deterministic Prisma validation / invalid invocation — not a connection outage.
+  // Retrying is hopeless; surface as 500 with a clear audit/query hint.
+  if (/Invalid\s+`?prisma\./i.test(raw) || /invalid.*prisma\.\w+\.(findMany|findFirst|create)/i.test(raw)) {
+    const hint = sanitizeScanErrorDetail(raw, 100);
+    return {
+      message: hint
+        ? `Database query failed (${hint}). Contact your manager if this continues.`
+        : 'Database query failed. Contact your manager if this continues.',
+      status: 500,
+      logDetail,
+    };
+  }
+
+  // True transient availability only — do not treat "internal error" alone as outage
+  // when nested inside Invalid prisma (handled above).
   if (
     !/can't reach database|connection refused|connection timed out|database server/i.test(raw) &&
     !/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|ECONNRESET/i.test(raw) &&
-    // D1 / workerd cold-start and transient storage errors
-    !/D1_|NETWORK_ERROR|internal error|storage exception|too many requests|overloaded|SQLITE_|database is locked/i.test(
+    !/D1_ERROR|NETWORK_ERROR|storage exception|too many requests|overloaded|SQLITE_BUSY|SQLITE_LOCKED|database is locked/i.test(
       raw
     )
   ) {
