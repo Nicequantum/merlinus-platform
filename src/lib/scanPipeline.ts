@@ -7,15 +7,21 @@ import type { RepairLine, StructuredROExtraction } from '@/types';
 export function formatScanApiError(error: unknown, fallback?: string): string {
   if (error instanceof ApiError) {
     const msg = error.message?.trim();
+    let base: string;
     if (msg) {
-      if (msg === GENERIC_ERROR) {
-        return `Scan failed (HTTP ${error.status}): ${msg}`;
-      }
-      return msg;
+      base =
+        msg === GENERIC_ERROR
+          ? `Scan failed (HTTP ${error.status}): ${msg}`
+          : msg;
+    } else {
+      base = fallback
+        ? `${fallback} (HTTP ${error.status})`
+        : `Scan request failed (HTTP ${error.status}).`;
     }
-    return fallback
-      ? `${fallback} (HTTP ${error.status})`
-      : `Scan request failed (HTTP ${error.status}).`;
+    if (error.requestId && !base.includes(error.requestId)) {
+      return `${base} [ref ${error.requestId.slice(0, 8)}]`;
+    }
+    return base;
   }
 
   if (error instanceof Error && error.message.trim()) {

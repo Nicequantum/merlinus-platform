@@ -1,5 +1,5 @@
 import { resolveDealerIdForWrite } from '@/lib/apex/dealerContext';
-import { getRlsDb, rlsTransaction } from '@/lib/apex/rlsContext';
+import { getActiveRlsContext, getRlsDb, hasActiveRlsClient, rlsTransaction } from '@/lib/apex/rlsContext';
 import { auditDealerIdFromSession } from '@/lib/audit';
 import { writeAuditedAccess } from '@/lib/auditedAccess';
 import { withAuth } from '@/lib/apiRoute';
@@ -18,7 +18,9 @@ import {
 import { readRoNumberFromDb } from '@/lib/piiFieldRead';
 import { collectRepairOrderImagePathnames, findForbiddenImagePathname } from '@/lib/imageAccess';
 import { apiError, FORBIDDEN_ERROR, handleRouteError } from '@/lib/errors';
+import { describeDbError, withRequestDbRetry } from '@/lib/dbRetry';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/requestContext';
 import { getRequestIp } from '@/lib/rate-limit';
 import { LARGE_JSON_BODY_LIMIT_BYTES } from '@/lib/requestBody';
 import { createRepairOrderSchema, parseRequestBody } from '@/lib/validation';
@@ -240,74 +242,105 @@ export async function POST(request: Request) {
       // APEX NATIONAL PLATFORM — stamp dealerId on writes from authenticated session only.
       const dealerId = resolveDealerIdForWrite({ session });
 
+      // Fail closed: create must run under withSessionRls (requireAuditedAccess → useRls).
+      if (!hasActiveRlsClient()) {
+        logger.error('ros.create.missing_rls_context', {
+          technicianId: session.technicianId,
+          dealershipId: session.dealershipId,
+          requestId: getRequestId(),
+          rlsCtx: getActiveRlsContext() ? 'ctx_without_client' : 'none',
+        });
+        return apiError(
+          'Repair order creation failed — session database context not ready. Wait a moment and try again.',
+          503
+        );
+      }
+
       let created;
       try {
-        // Keep the create transaction lean: RO rows + mandatory ro.create audit only.
-        // Advisor intelligence used to run inside this tx and could roll back a successful
-        // create on cold-start recompute failures (bay toast: "Repair order creation failed").
-        const result = await rlsTransaction(async (tx) => {
-          if (idempotencyKey) {
-            const prior = await findIdempotentRepairOrderCreate(tx, {
-              dealershipId: session.dealershipId,
-              technicianId: session.technicianId,
-              idempotencyKey,
-            });
-            if (prior) {
-              return { created: null as null, replay: prior };
-            }
-          }
+        // Keep the create path lean: RO rows + mandatory ro.create audit only.
+        // Server-side retry for D1/SQLite transient blips (client also retries with same Idempotency-Key).
+        const result = await withRequestDbRetry(
+          async () =>
+            rlsTransaction(async (tx) => {
+              if (idempotencyKey) {
+                const prior = await findIdempotentRepairOrderCreate(tx, {
+                  dealershipId: session.dealershipId,
+                  technicianId: session.technicianId,
+                  idempotencyKey,
+                });
+                if (prior) {
+                  return { created: null as null, replay: prior };
+                }
+              }
 
-          const ro = await tx.repairOrder.create({
-            data: {
-              ...repairOrderToDbFields(input),
-              technicianId: session.technicianId,
-              dealershipId: session.dealershipId,
-              ...(dealerId ? { dealerId } : {}),
-              repairLines: {
-                create: input.repairLines.map((line) => ({
-                  ...repairLineToDbFields(line),
+              const ro = await tx.repairOrder.create({
+                data: {
+                  ...repairOrderToDbFields(input),
+                  technicianId: session.technicianId,
+                  dealershipId: session.dealershipId,
                   ...(dealerId ? { dealerId } : {}),
-                })),
-              },
-            },
-            include: { repairLines: true, serviceAdvisor: { select: { id: true, displayNameEncrypted: true } } },
-          });
+                  repairLines: {
+                    create: input.repairLines.map((line) => ({
+                      ...repairLineToDbFields(line),
+                      ...(dealerId ? { dealerId } : {}),
+                    })),
+                  },
+                },
+                include: {
+                  repairLines: true,
+                  serviceAdvisor: { select: { id: true, displayNameEncrypted: true } },
+                },
+              });
 
-          await writeAuditedAccess(
-            {
-              action: 'ro.create',
-              dealershipId: session.dealershipId,
-              dealerId: auditDealerIdFromSession(session),
-              technicianId: session.technicianId,
-              entityType: 'repairOrder',
-              entityId: ro.id,
-              metadata: {
-                roNumber: readRoNumberFromDb(ro),
-                ...(idempotencyKey ? idempotencyMetadata(idempotencyKey) : {}),
-              },
-              ipAddress: getRequestIp(request),
-            },
-            { tx }
-          );
+              await writeAuditedAccess(
+                {
+                  action: 'ro.create',
+                  dealershipId: session.dealershipId,
+                  dealerId: auditDealerIdFromSession(session),
+                  technicianId: session.technicianId,
+                  entityType: 'repairOrder',
+                  entityId: ro.id,
+                  metadata: {
+                    roNumber: readRoNumberFromDb(ro),
+                    ...(idempotencyKey ? idempotencyMetadata(idempotencyKey) : {}),
+                  },
+                  ipAddress: getRequestIp(request),
+                },
+                { tx }
+              );
 
-          const createdRo = await tx.repairOrder.findUniqueOrThrow({
-            where: { id: ro.id },
-            include: { repairLines: true, serviceAdvisor: { select: { id: true, displayNameEncrypted: true } } },
-          });
+              const createdRo = await tx.repairOrder.findUniqueOrThrow({
+                where: { id: ro.id },
+                include: {
+                  repairLines: true,
+                  serviceAdvisor: { select: { id: true, displayNameEncrypted: true } },
+                },
+              });
 
-          return { created: createdRo, replay: null as null };
-        });
+              return { created: createdRo, replay: null as null };
+            }),
+          { context: 'ros.create' }
+        );
 
         if (result.replay) {
           return { repairOrder: result.replay, idempotent: true };
         }
         created = result.created!;
       } catch (error) {
+        const described = describeDbError(error);
         logger.error('ros.create.transaction_failed', {
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
           roNumber: input.roNumber,
-          error: error instanceof Error ? error.message : 'unknown',
+          requestId: getRequestId(),
+          fromExtraction: Boolean(data.fromExtraction),
+          hasIdempotencyKey: Boolean(idempotencyKey),
+          rlsActive: hasActiveRlsClient(),
+          errorName: described.name,
+          errorCode: described.code,
+          errorMessage: described.message,
+          errorMeta: described.meta ? JSON.stringify(described.meta).slice(0, 400) : undefined,
         });
         return handleRouteError(error, 'ros.create');
       }

@@ -67,10 +67,12 @@ export interface ClerkLinkStatus {
 
 export class ApiError extends Error {
   status: number;
+  requestId?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, requestId?: string) {
     super(message);
     this.status = status;
+    this.requestId = requestId;
   }
 }
 
@@ -158,9 +160,18 @@ async function apiFetch<T>(
     maxRetries
   );
 
+  if (!res.ok) {
+    const err = await parseApiErrorResponse(res);
+    throw new ApiError(err.message, res.status, err.requestId);
+  }
+
   const parsed = await readJsonBodySafe<T>(res);
   if (!parsed.ok) {
-    throw new ApiError(parsed.error.message, res.status);
+    throw new ApiError(
+      parsed.error.message,
+      res.status || 502,
+      parsed.error.requestId
+    );
   }
   return parsed.data;
 }

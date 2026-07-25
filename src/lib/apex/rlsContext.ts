@@ -112,7 +112,13 @@ export function getRlsDb(): RlsDbClient {
   const store = rlsStore.getStore();
   if (store?.client) return store.client;
   // Prefer already-warmed global from getDb() — do not construct a new library client.
+  // Callers that require tenant isolation must run under withSessionRls (see hasActiveRlsClient).
   return prisma;
+}
+
+/** True when ALS holds a bound RLS client (create path must be true under withAuth useRls). */
+export function hasActiveRlsClient(): boolean {
+  return Boolean(rlsStore.getStore()?.client);
 }
 
 /** Active RLS store client, if any (for joining audits into the same unit of work). */

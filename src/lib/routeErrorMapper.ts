@@ -150,8 +150,12 @@ function mapDatabaseConnectionError(raw: string, logDetail: string): RouteErrorM
     return null;
   }
 
+  // Include a short technical hint (sanitized) so bay logs / toast are not opaque.
+  const hint = sanitizeScanErrorDetail(raw, 80);
   return {
-    message: 'Database is temporarily unavailable. Wait a moment and try again.',
+    message: hint
+      ? `Database is temporarily unavailable (${hint}). Wait a moment and try again.`
+      : 'Database is temporarily unavailable. Wait a moment and try again.',
     status: 503,
     logDetail,
   };

@@ -102,13 +102,20 @@ export function handleRouteError(error: unknown, context: string): NextResponse 
 
   const err = error instanceof Error ? error : new Error('unknown route error');
   const mapped = mapRouteError(error, context);
+  const requestId = getRequestId();
 
   logger.error(mapped.status >= 500 ? 'route.error' : 'route.client_error', {
     context,
     error: redactString(err.message),
     logDetail: mapped.logDetail,
     status: mapped.status,
+    requestId: requestId ?? undefined,
   });
+
+  // Append short request id to technician toast for shop-floor / wrangler tail correlation.
+  if (requestId && mapped.status >= 500 && !mapped.message.includes(requestId.slice(0, 8))) {
+    mapped.message = `${mapped.message} [ref ${requestId.slice(0, 8)}]`;
+  }
 
   // Phase 7.2 H9 — do not flood Sentry with expected 4xx domain errors
   if (shouldCaptureRouteError(mapped.status)) {

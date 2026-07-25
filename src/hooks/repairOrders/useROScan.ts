@@ -177,26 +177,27 @@ export function useROScan({
           complaintLabels,
         };
 
-        // Brief warm before first create after extract (cold Worker + D1).
-        try {
-          const { warmSessionIsolate } = await import('@/lib/clientFetchRetry');
-          await Promise.race([
-            warmSessionIsolate(),
-            new Promise<boolean>((r) => setTimeout(() => r(false), 4_000)),
-          ]);
-        } catch {
-          // ignore warmup failure
-        }
+        // Warm RLS/D1 create path (session.warmup now uses useRls + rlsTransaction).
+        // First Process RO after idle: allow up to ~8s so D1 is actually ready.
+        const warmCreatePath = async (maxMs: number) => {
+          try {
+            const { warmSessionIsolate } = await import('@/lib/clientFetchRetry');
+            await Promise.race([
+              warmSessionIsolate(),
+              new Promise<boolean>((r) => setTimeout(() => r(false), maxMs)),
+            ]);
+          } catch {
+            // ignore warmup failure
+          }
+        };
+        await warmCreatePath(8_000);
 
         const createOnce = () =>
           api.createRepairOrder(payload as never, { idempotencyKey });
 
-        let repairOrder;
-        try {
-          ({ repairOrder } = await createOnce());
-        } catch (firstError) {
-          const status = firstError instanceof ApiError ? firstError.status : 0;
-          const retriable =
+        const isRetriableCreate = (err: unknown): boolean => {
+          const status = err instanceof ApiError ? err.status : 0;
+          return (
             status === 0 ||
             status === 408 ||
             status === 429 ||
@@ -204,15 +205,41 @@ export function useROScan({
             status === 502 ||
             status === 503 ||
             status === 504 ||
-            (firstError instanceof Error && /timed out|unavailable|try again/i.test(firstError.message));
-          if (!retriable) throw firstError;
-          clientLog.warn('ro.scan.create_retry', {
-            message: formatScanApiError(firstError),
-            status: status || undefined,
-          });
-          await new Promise((r) => setTimeout(r, 800));
-          // Same Idempotency-Key — safe replay if first attempt partially committed.
-          ({ repairOrder } = await createOnce());
+            (err instanceof Error && /timed out|unavailable|try again|database/i.test(err.message))
+          );
+        };
+
+        // Up to 3 attempts total; same Idempotency-Key (server replays if first committed).
+        const backoffMs = [800, 2000];
+        let repairOrder;
+        let lastError: unknown;
+        for (let attempt = 0; attempt < 1 + backoffMs.length; attempt++) {
+          try {
+            if (attempt > 0) {
+              clientLog.warn('ro.scan.create_retry', {
+                attempt,
+                message: formatScanApiError(lastError),
+                status: lastError instanceof ApiError ? lastError.status : undefined,
+                requestId:
+                  lastError instanceof ApiError ? lastError.requestId : undefined,
+              });
+              await warmCreatePath(6_000);
+              await new Promise((r) => setTimeout(r, backoffMs[attempt - 1]!));
+            }
+            ({ repairOrder } = await createOnce());
+            lastError = undefined;
+            break;
+          } catch (err) {
+            lastError = err;
+            if (!isRetriableCreate(err) || attempt >= backoffMs.length) {
+              throw err;
+            }
+          }
+        }
+        if (!repairOrder) {
+          throw lastError instanceof Error
+            ? lastError
+            : new Error(formatScanApiError(lastError, 'Failed to create repair order from scan.'));
         }
 
         const normalized = ensureComplaintIds(repairOrder);
