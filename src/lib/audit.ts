@@ -4,6 +4,7 @@ import { resolveDealerIdForWrite, type DealerAwareSession } from '@/lib/apex/dea
 import { dealerIdWriteFields } from '@/lib/apex/dealerScope';
 import { PROMPT_VERSION } from '@/prompts/version';
 import { withRlsBypass } from '@/lib/apex/rlsContext';
+import { getDb } from '@/lib/db';
 import { sanitizeAuditMetadata } from './auditMetadataSanitize';
 import {
   AUDIT_CUSTOMER_PAY_SENTINEL,
@@ -255,9 +256,112 @@ export async function writeCustomerPayTemplateAudit(input: CustomerPayTemplateAu
   });
 }
 
+/** Extract nested ConnectorError / cause fields for wrangler tail (never throws). */
+function describeConnectorError(error: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!(error instanceof Error)) {
+    out.message = String(error);
+    return out;
+  }
+  out.name = error.name;
+  out.message = error.message;
+  if (error.stack) {
+    out.stack = error.stack.split('\n').slice(0, 12).join('\n');
+  }
+  const anyErr = error as Error & {
+    code?: unknown;
+    meta?: unknown;
+    clientVersion?: unknown;
+    cause?: unknown;
+  };
+  if (anyErr.code !== undefined) out.code = anyErr.code;
+  if (anyErr.meta !== undefined) out.meta = anyErr.meta;
+  if (anyErr.clientVersion !== undefined) out.clientVersion = anyErr.clientVersion;
+  if (anyErr.cause !== undefined) {
+    if (anyErr.cause instanceof Error) {
+      out.causeName = anyErr.cause.name;
+      out.causeMessage = anyErr.cause.message;
+      const c = anyErr.cause as Error & { kind?: unknown; code?: unknown };
+      if (c.kind !== undefined) out.causeKind = c.kind;
+      if (c.code !== undefined) out.causeCode = c.code;
+    } else {
+      out.cause = String(anyErr.cause);
+    }
+  }
+  return out;
+}
+
+/**
+ * Last audit entryHash for this rooftop — uses **base** Prisma/D1 client (no RLS extension).
+ * Explicit dealershipId filter keeps tenant isolation without extension rewrite bugs
+ * that produced Invalid `prisma.auditLog.findMany()` on live Process RO.
+ */
+export async function readLastAuditEntryHashForDealership(
+  dealershipId: string
+): Promise<string> {
+  const id = dealershipId.trim();
+  if (!id) return AUDIT_GENESIS_HASH;
+
+  const base = await getDb();
+  let rawError: unknown;
+  try {
+    // Quoted identifiers match Prisma/SQLite camelCase columns on D1.
+    const rows = await base.$queryRaw<Array<{ entryHash: string }>>`
+      SELECT "entryHash" AS entryHash FROM "AuditLog"
+      WHERE "dealershipId" = ${id}
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+    const hash = rows[0]?.entryHash?.trim();
+    return hash || AUDIT_GENESIS_HASH;
+  } catch (err) {
+    rawError = err;
+  }
+
+  let findManyError: unknown;
+  try {
+    const recent = await base.auditLog.findMany({
+      where: { dealershipId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      select: { entryHash: true },
+    });
+    const hash = recent[0]?.entryHash?.trim();
+    if (hash) {
+      logger.warn('audit.chain_read_raw_failed_findMany_ok', {
+        dealershipId: id,
+        rawError: describeConnectorError(rawError),
+      });
+      return hash;
+    }
+    return AUDIT_GENESIS_HASH;
+  } catch (err) {
+    findManyError = err;
+  }
+
+  logger.error('audit.chain_read_failed', {
+    dealershipId: id,
+    rawError: describeConnectorError(rawError),
+    findManyError: describeConnectorError(findManyError),
+    // Full messages — no truncation (shop-floor classification)
+    rawErrorMessage: rawError instanceof Error ? rawError.message : String(rawError),
+    findManyErrorMessage:
+      findManyError instanceof Error ? findManyError.message : String(findManyError),
+  });
+
+  throw findManyError instanceof Error
+    ? findManyError
+    : rawError instanceof Error
+      ? rawError
+      : new Error(`Audit chain read failed for dealership ${id}`);
+}
+
 /**
  * M2: Append audit inside an existing transaction (e.g. Customer Pay template apply).
  * M13: Metadata is sanitized before persistence.
+ *
+ * previousHash is read on the **base** D1 client (see readLastAuditEntryHashForDealership);
+ * the insert still uses the ambient `tx` (RLS-bound) for the durable row.
  */
 export async function appendAuditLogInTransaction(
   tx: Prisma.TransactionClient,
@@ -268,49 +372,10 @@ export async function appendAuditLogInTransaction(
   assertPromptVersionValid(input.action, promptVersion);
   const metadata = JSON.stringify(sanitizeAuditMetadata(input.metadata, input.action));
 
-  // H5: Postgres advisory locks are unavailable on D1/SQLite.
-  // Hash-chain integrity still relies on sequential writes + previousHash; concurrent
-  // forks are rare under single-primary D1 write semantics.
-  //
-  // D1-safe last-hash read: avoid findFirst + orderBy + select under RLS AND-wrap
-  // (live bay: Invalid `prisma.auditLog.findMany()` during ro.create audit chain).
-  // Prefer findMany take 1 with a flat dealershipId where; fall back to genesis.
-  let previousHash = AUDIT_GENESIS_HASH;
-  try {
-    const recent = await tx.auditLog.findMany({
-      where: { dealershipId: input.dealershipId },
-      orderBy: { createdAt: 'desc' },
-      take: 1,
-      select: { entryHash: true },
-    });
-    if (recent[0]?.entryHash?.trim()) {
-      previousHash = recent[0].entryHash;
-    }
-  } catch (chainReadError) {
-    // Second chance: raw SQL (bypasses some extension rewrite edge cases on D1).
-    try {
-      const rows = await tx.$queryRaw<Array<{ entryHash: string }>>`
-        SELECT entryHash FROM AuditLog
-        WHERE dealershipId = ${input.dealershipId}
-        ORDER BY createdAt DESC
-        LIMIT 1
-      `;
-      if (rows[0]?.entryHash?.trim()) {
-        previousHash = rows[0].entryHash;
-      }
-    } catch (rawError) {
-      logger.error('audit.chain_read_failed', {
-        dealershipId: input.dealershipId,
-        action: input.action,
-        findManyError:
-          chainReadError instanceof Error ? chainReadError.message : String(chainReadError),
-        rawError: rawError instanceof Error ? rawError.message : String(rawError),
-      });
-      throw chainReadError instanceof Error
-        ? chainReadError
-        : new Error(`Audit chain read failed for dealership ${input.dealershipId}`);
-    }
-  }
+  // H5: Postgres advisory locks unavailable on D1/SQLite.
+  // Last-hash read must NOT use the RLS-extended client (live bay: Invalid findMany).
+  const previousHash = await readLastAuditEntryHashForDealership(input.dealershipId);
+
   const id = randomUUID();
   const entryHash = computeAuditEntryHash({
     id,
@@ -326,25 +391,37 @@ export async function appendAuditLogInTransaction(
     promptVersion,
   });
 
-  await tx.auditLog.create({
-    data: {
-      id,
-      action: input.action,
+  try {
+    await tx.auditLog.create({
+      data: {
+        id,
+        action: input.action,
+        dealershipId: input.dealershipId,
+        ...(input.dealerId?.trim() ? { dealerId: input.dealerId.trim() } : {}),
+        technicianId: input.technicianId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        metadata,
+        ipAddress: input.ipAddress,
+        authSource: input.authSource?.trim() || null,
+        scopeMode: input.scopeMode?.trim() || null,
+        promptVersion,
+        previousHash,
+        entryHash,
+        createdAt,
+      },
+    });
+  } catch (createError) {
+    logger.error('audit.chain_create_failed', {
       dealershipId: input.dealershipId,
-      ...(input.dealerId?.trim() ? { dealerId: input.dealerId.trim() } : {}),
-      technicianId: input.technicianId,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      metadata,
-      ipAddress: input.ipAddress,
-      authSource: input.authSource?.trim() || null,
-      scopeMode: input.scopeMode?.trim() || null,
-      promptVersion,
-      previousHash,
-      entryHash,
-      createdAt,
-    },
-  });
+      action: input.action,
+      // Note: rlsTransaction is not Prisma $transaction — RO may already exist if createStep was after repairOrder.create
+      createError: describeConnectorError(createError),
+      createErrorMessage:
+        createError instanceof Error ? createError.message : String(createError),
+    });
+    throw createError;
+  }
 
   return id;
 }

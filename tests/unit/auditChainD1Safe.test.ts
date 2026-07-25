@@ -7,11 +7,20 @@ import { isRetryableDbTransientError } from '@/lib/dbRetry';
 import { mapRouteError } from '@/lib/routeErrorMapper';
 
 describe('audit chain + D1-safe create path', () => {
-  it('appendAuditLogInTransaction uses findMany take 1 (not findFirst alone)', () => {
+  it('reads last hash on base client via $queryRaw first (not RLS-extended findMany)', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/lib/audit.ts'), 'utf8');
-    assert.match(src, /auditLog\.findMany/);
-    assert.match(src, /take:\s*1/);
-    assert.match(src, /\$queryRaw/);
+    assert.match(src, /readLastAuditEntryHashForDealership/);
+    assert.match(src, /getDb\(\)/);
+    assert.match(src, /SELECT\s+"entryHash"/);
+    assert.match(src, /FROM\s+"AuditLog"/);
+    // Must not use ambient tx for chain read first
+    const appendStart = src.indexOf('export async function appendAuditLogInTransaction');
+    const appendBody = src.slice(appendStart, appendStart + 2500);
+    assert.match(appendBody, /readLastAuditEntryHashForDealership\(input\.dealershipId\)/);
+    assert.doesNotMatch(
+      appendBody.slice(0, 800),
+      /tx\.auditLog\.findMany|tx\.\$queryRaw/
+    );
   });
 
   it('RLS pins flat dealershipId for findMany-style where (no AND double dealershipId)', () => {

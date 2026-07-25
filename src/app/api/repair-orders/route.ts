@@ -369,6 +369,9 @@ export async function POST(request: Request) {
           hasIdempotencyKey: Boolean(idempotencyKey),
           rlsActive: hasActiveRlsClient(),
           createStep,
+          // rlsTransaction is not Prisma $transaction — if createStep is past repairOrder.create,
+          // a RepairOrder row may already exist without a completed ro.create audit.
+          possibleOrphanRo: createStep === 'audit.write' || createStep === 'reload',
           errorName: described.name,
           errorCode: described.code,
           // Full raw message — do not truncate (needed to classify Invalid prisma vs busy).
