@@ -16,7 +16,7 @@ const SECURITY_CATEGORIES: Array<{ title: string; items: string[] }> = [
   {
     title: 'Access Control',
     items: [
-      'Session-based authentication with 8-hour expiry',
+      'Session-based authentication (stays signed in until logout or password change — no idle timeout)',
       'Diagnostic images protected with strict authorization checks on upload and update',
       'Images stored in Vercel Blob with session-based private access',
       'Optimistic concurrency control to prevent data corruption',

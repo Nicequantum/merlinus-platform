@@ -1,4 +1,6 @@
 import { api, ApiError } from '@/lib/api';
+import { ensureUploadPathReady, withUploadSlot } from '@/lib/bayUploadReady';
+import { clientLog } from '@/lib/clientLog';
 import {
   isNetworkFailure,
   isRetriableHttpStatus,
@@ -10,7 +12,10 @@ import { compressImageForRoScan, compressImageForUpload } from '@/utils/imageCom
 
 const UPLOAD_CONCURRENCY = 3;
 const RO_SCAN_UPLOAD_CONCURRENCY = 6;
-const UPLOAD_PER_FILE_ATTEMPTS = 3;
+/** More attempts on cold bay Wi‑Fi / cold Worker first put. */
+const UPLOAD_PER_FILE_ATTEMPTS = 4;
+/** Hard ceiling so a single photo never spins "Saving…" forever. */
+const UPLOAD_HARD_TIMEOUT_MS = 75_000;
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -36,9 +41,31 @@ async function mapWithConcurrency<T, R>(
 function isRetriableUploadError(error: unknown): boolean {
   if (error instanceof ApiError) {
     // Include bare 500 — Workers cold-start / first R2 put often surfaces as 500 HTML or JSON.
-    return isRetriableHttpStatus(error.status, { includeServerError: true });
+    // 401 after idle: silent session refresh may have failed once — retry once more.
+    return (
+      error.status === 401 ||
+      isRetriableHttpStatus(error.status, { includeServerError: true })
+    );
   }
   return isNetworkFailure(error);
+}
+
+function withHardTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s — check bay Wi‑Fi and retry.`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
 export type UploadAttachmentOptions = {
@@ -46,35 +73,43 @@ export type UploadAttachmentOptions = {
   onAttempt?: (attempt: number, maxAttempts: number) => void;
   /** Warm session/R2/audit path before the first put (default true). */
   warmBeforeUpload?: boolean;
+  /** Bypass shared upload slot (default false — always share the bay pool). */
+  skipUploadSlot?: boolean;
 };
 
-export async function uploadFileAsAttachment(
+async function uploadFileAsAttachmentInner(
   file: File,
   idPrefix: string,
-  compress: (file: File) => Promise<File> = compressImageForUpload,
+  compress: (file: File) => Promise<File>,
   options?: UploadAttachmentOptions
 ): Promise<ImageAttachment> {
   let lastError: unknown;
   const warmBefore = options?.warmBeforeUpload !== false;
 
   if (warmBefore && typeof window !== 'undefined') {
-    // Fire-and-forget isolate warm; do not block capture UX longer than a short race.
+    // Block briefly for a real warm — first capture after login must not race cold R2.
     try {
-      const { warmSessionIsolate } = await import('@/lib/clientFetchRetry');
-      await Promise.race([
-        warmSessionIsolate(),
-        sleep(2_500),
-      ]);
+      const detail = await ensureUploadPathReady({ maxWaitMs: 8_000 });
+      if (!detail.ok || !detail.r2) {
+        clientLog.warn('upload.warm_incomplete', detail);
+      }
     } catch {
-      // ignore warmup failure — upload still attempts
+      // ignore warmup failure — upload still attempts with retries
     }
   }
 
   for (let attempt = 0; attempt < UPLOAD_PER_FILE_ATTEMPTS; attempt++) {
     try {
       options?.onAttempt?.(attempt, UPLOAD_PER_FILE_ATTEMPTS);
+      // Re-compress each attempt so FormData body is always fresh (never retry drained body).
       const compressed = await compress(file);
+      if (!compressed || compressed.size === 0) {
+        throw new Error('Photo was empty after capture — take the picture again.');
+      }
       const { pathname, url, name } = await api.uploadImage(compressed);
+      if (!pathname) {
+        throw new Error('Upload succeeded but storage path was missing — retry the photo.');
+      }
       return {
         id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         pathname,
@@ -83,14 +118,45 @@ export async function uploadFileAsAttachment(
       };
     } catch (error) {
       lastError = error;
+      clientLog.warn('upload.attempt_failed', {
+        attempt,
+        name: file.name,
+        size: file.size,
+        status: error instanceof ApiError ? error.status : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      });
       if (!isRetriableUploadError(error) || attempt === UPLOAD_PER_FILE_ATTEMPTS - 1) {
         throw error;
       }
-      await sleep(networkRetryDelayMs(attempt));
+      // Re-warm between retries — cold R2 often succeeds on second put.
+      if (typeof window !== 'undefined') {
+        void ensureUploadPathReady({ force: true, maxWaitMs: 5_000 }).catch(() => undefined);
+      }
+      await sleep(networkRetryDelayMs(attempt) + (attempt === 0 ? 600 : 0));
     }
   }
 
   throw lastError;
+}
+
+export async function uploadFileAsAttachment(
+  file: File,
+  idPrefix: string,
+  compress: (file: File) => Promise<File> = compressImageForUpload,
+  options?: UploadAttachmentOptions
+): Promise<ImageAttachment> {
+  const run = () =>
+    withHardTimeout(
+      uploadFileAsAttachmentInner(file, idPrefix, compress, options),
+      UPLOAD_HARD_TIMEOUT_MS,
+      'Photo upload'
+    );
+
+  if (options?.skipUploadSlot) {
+    return run();
+  }
+  // Shared slot pool — prevents first-login thrash of parallel cold R2 puts.
+  return withUploadSlot(run);
 }
 
 export async function uploadFilesAsAttachments(files: File[], idPrefix: string): Promise<ImageAttachment[]> {
@@ -101,6 +167,7 @@ export async function uploadFilesAsAttachments(files: File[], idPrefix: string):
 
 /** Higher concurrency + vision-tuned compression for RO document scans. */
 export async function uploadRoScanAttachments(files: File[]): Promise<ImageAttachment[]> {
+  // Outer map concurrency is higher, but each file still takes a shared upload slot (cap 2).
   return mapWithConcurrency(files, RO_SCAN_UPLOAD_CONCURRENCY, (file) =>
     uploadFileAsAttachment(file, 'roimg', compressImageForRoScan)
   );

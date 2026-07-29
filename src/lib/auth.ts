@@ -22,16 +22,27 @@ import { logger } from './logger';
  * SSO (SAML/OIDC) is roadmap (Clerk dual-mode available); TOTP MFA is shipped for manager/owner.
  *
  * Compensating controls:
- * - bcrypt password hashing (cost 12), sessionVersion revocation, short-lived Apex access tokens
+ * - bcrypt password hashing (cost 12), sessionVersion revocation, long-lived bay sessions (no idle timeout)
  * - Manager-provisioned accounts and password reset via Settings
  * - Rate-limited login + MFA endpoints; audit for mfa_challenge / mfa_success / mfa_failure
+ * - Session ends on explicit logout, password change, or sessionVersion revoke — not idle time
  *
  * See also: src/lib/mfa/*, src/lib/encryption.ts (dual-key rotation), docs/Security-Fortress.md.
  */
 
 export const SESSION_COOKIE = 'benz_tech_session';
-/** M9: shorter session lifetime reduces exposure from stolen cookies. */
-const SESSION_MAX_AGE = 60 * 60 * 8; // 8 hours
+/** Default: 365 days. No idle sign-out; only logout / credential revoke ends the session. */
+const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+/**
+ * Absolute JWT + cookie lifetime for the Merlinus session cookie.
+ * Override with SESSION_MAX_AGE_SECONDS. Sliding re-issue on /api/auth/me extends the window.
+ */
+export function getSessionMaxAgeSeconds(): number {
+  const raw = Number(process.env.SESSION_MAX_AGE_SECONDS);
+  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  return DEFAULT_SESSION_MAX_AGE_SECONDS;
+}
 export const JWT_ISSUER = 'merlin';
 export const JWT_AUDIENCE = 'benz-tech-session';
 
@@ -170,13 +181,14 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export async function createSessionToken(payload: SessionPayload): Promise<string> {
+  const maxAge = getSessionMaxAgeSeconds();
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(JWT_ISSUER)
     .setAudience(JWT_AUDIENCE)
     .setJti(randomUUID())
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
+    .setExpirationTime(`${maxAge}s`)
     .sign(getSecret());
 }
 
@@ -207,12 +219,12 @@ function sessionCookieOptions(maxAge: number) {
 
 /** Attach session cookie to a Route Handler response (required — cookies().set() alone is dropped). */
 export function applySessionCookieToResponse(response: NextResponse, token: string): void {
-  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(SESSION_MAX_AGE));
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(getSessionMaxAgeSeconds()));
 }
 
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(SESSION_MAX_AGE));
+  cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(getSessionMaxAgeSeconds()));
 }
 
 export async function clearSessionCookie(): Promise<void> {

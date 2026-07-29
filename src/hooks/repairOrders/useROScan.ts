@@ -360,13 +360,14 @@ export function useROScan({
         setPendingROImages(images);
         roScanPipeline.setProgress(8);
         const scanStartedAt = Date.now();
-        // Cold-start: warm session isolate + optional OCR WASM before heavy work.
-        // Do not await — Process RO must not stall on warmup.
-        void import('@/lib/clientFetchRetry')
-          .then(({ warmSessionIsolate }) => warmSessionIsolate())
-          .catch(() => undefined);
+        // Cold-start: await upload path warm briefly so Process RO extract does not race cold R2.
+        try {
+          const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
+          await ensureUploadPathReady({ maxWaitMs: 6_000 });
+        } catch {
+          // ignore
+        }
         // Warm Tesseract WASM only for OCR fallback path — do not start recognize() yet.
-        // Racing cold OCR with Grok caused first-scan hangs (soft timeout + hung terminate).
         void warmupOcrWorker().catch((error) => {
           clientLog.warn('OCR worker warmup failed', error);
         });
@@ -594,6 +595,14 @@ export function useROScan({
       if (rawFiles.length === 0) return;
 
       try {
+        // Critical cold-start gate: first RO scan after login must hit a warm R2/upload path.
+        try {
+          const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
+          await ensureUploadPathReady({ maxWaitMs: 8_000 });
+        } catch {
+          // continue — upload retries still apply
+        }
+
         const normalizedFiles = await normalizeScanFiles(rawFiles);
         if (normalizedFiles.length === 0) {
           toast.error('No supported images or PDFs were selected.');
@@ -605,7 +614,7 @@ export function useROScan({
         setPendingROImages((prev) => {
           const baseIndex = prev.length;
           newImages = normalizedFiles.map((file, i) => ({
-            id: 'roimg-' + Date.now() + '-' + i,
+            id: 'roimg-' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 6),
             previewUrl: URL.createObjectURL(file),
             name: file.name || `page-${baseIndex + i + 1}.jpg`,
             file,
@@ -618,8 +627,13 @@ export function useROScan({
           `Saving ${newImages.length} page${newImages.length === 1 ? '' : 's'} (${total} total)…`
         );
 
-        for (const img of newImages) {
+        // Stagger starts so cold isolate is not hit by a burst of parallel puts.
+        for (let i = 0; i < newImages.length; i++) {
+          const img = newImages[i]!;
           if (img.file) {
+            if (i > 0) {
+              await new Promise((r) => setTimeout(r, 100));
+            }
             void uploadAndSavePendingPage(img.id, img.file);
           }
         }

@@ -33,8 +33,8 @@ describe('apexSession helpers (Phase 5.4)', () => {
     const savedRefresh = process.env.REFRESH_TOKEN_TTL_SECONDS;
     delete process.env.ACCESS_TOKEN_TTL_SECONDS;
     delete process.env.REFRESH_TOKEN_TTL_SECONDS;
-    assert.equal(getAccessTokenTtlSeconds(), 15 * 60);
-    assert.equal(getRefreshTokenTtlSeconds(), 7 * 24 * 60 * 60);
+    assert.equal(getAccessTokenTtlSeconds(), 7 * 24 * 60 * 60);
+    assert.equal(getRefreshTokenTtlSeconds(), 365 * 24 * 60 * 60);
     process.env.ACCESS_TOKEN_TTL_SECONDS = savedAccess;
     process.env.REFRESH_TOKEN_TTL_SECONDS = savedRefresh;
   });

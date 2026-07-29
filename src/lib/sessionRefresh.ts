@@ -87,15 +87,15 @@ async function applyRefreshedSessionCookie(
   applySessionCookieToResponse(response, token);
 }
 
-/** Re-issue the session cookie when JWT compliance claims lag the authoritative DB session. */
+/** Re-issue the session cookie (sliding window). Always refresh so idle-return stays signed in. */
 export async function attachRefreshedSessionCookie(
   response: NextResponse,
   session: SessionPayload,
   jwtPayload: SessionPayload | ApexAccessClaims | null
 ): Promise<NextResponse> {
-  if (!jwtPayload || complianceFieldsDiffer(jwtPayload, session)) {
-    await applyRefreshedSessionCookie(response, session, jwtPayload);
-  }
+  // Always re-issue: extends cookie Max-Age + JWT exp on every successful session response.
+  // Previously only re-issued when compliance claims lagged — that left absolute 8h cutoffs.
+  await applyRefreshedSessionCookie(response, session, jwtPayload);
   return response;
 }
 

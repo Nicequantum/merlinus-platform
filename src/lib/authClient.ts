@@ -14,6 +14,7 @@ export {
   loginWithCredentials,
   logoutSession,
   probeCurrentSession,
+  silentRefreshSession,
   verifyMfaLogin,
   type ClerkLinkStatus,
   type MerlinLoginResult,

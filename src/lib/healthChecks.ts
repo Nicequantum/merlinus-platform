@@ -756,7 +756,7 @@ export function checkVoiceDepartmentHealth(): DependencyCheck {
  * Client keep-alive + session warmup routes are the runtime signal; this is config posture.
  */
 export function checkBayMobileHealth(): DependencyCheck {
-  const accessTtl = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60;
+  const accessTtl = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 7 * 24 * 60 * 60;
   const shortSession = accessTtl > 0 && accessTtl <= 60 * 60;
   return {
     status: 'ok',

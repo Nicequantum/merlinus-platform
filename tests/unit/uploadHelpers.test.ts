@@ -13,5 +13,16 @@ describe('upload helpers', () => {
     assert.ok(src.includes('isRetriableUploadError'));
     assert.ok(src.includes('mapWithConcurrency'));
     assert.ok(src.includes('api.uploadImage'));
+    assert.ok(src.includes('ensureUploadPathReady'));
+    assert.ok(src.includes('withUploadSlot'));
+    assert.ok(src.includes('UPLOAD_HARD_TIMEOUT_MS'));
+  });
+
+  it('bay upload readiness gate serializes cold-start puts', () => {
+    const src = readFileSync(resolve(root, 'src/lib/bayUploadReady.ts'), 'utf8');
+    assert.ok(src.includes('ensureUploadPathReady'));
+    assert.ok(src.includes('withUploadSlot'));
+    assert.ok(src.includes('UPLOAD_SLOT_CONCURRENCY'));
+    assert.ok(src.includes('markUploadPathReady'));
   });
 });

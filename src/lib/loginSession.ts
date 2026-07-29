@@ -13,9 +13,57 @@ export type SessionProbeResult =
   | { status: 'timeout' }
   | { status: 'error'; message: string };
 
+/** Deduplicate concurrent silent refresh attempts (visibility + 401 race). */
+let silentRefreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Rotate Apex refresh cookie → new access cookie.
+ * No-op / false when not in Apex mode or refresh is missing/expired.
+ * Safe to call from any client path that got a 401 after idle.
+ */
+export async function silentRefreshSession(): Promise<boolean> {
+  if (silentRefreshInFlight) return silentRefreshInFlight;
+
+  silentRefreshInFlight = (async () => {
+    try {
+      const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
+      const csrf = readCsrfTokenFromDocument();
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+        },
+      });
+      // 404 = Merlinus (non-apex) path — not an error for that mode.
+      if (res.status === 404) return false;
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      silentRefreshInFlight = null;
+    }
+  })();
+
+  return silentRefreshInFlight;
+}
+
+async function readSessionFromMeResponse(res: Response): Promise<SessionProbeResult> {
+  if (res.status === 401) return { status: 'unauthorized' };
+  if (!res.ok) {
+    return { status: 'error', message: `Session check failed (${res.status})` };
+  }
+  const data = (await res.json()) as { session?: TechnicianSession | null };
+  if (!data.session) return { status: 'unauthorized' };
+  return { status: 'ok', session: data.session };
+}
+
 /**
  * Fetch the current session from /api/auth/me with structured status.
  * Timeout is NOT the same as logged-out — callers must not demote to anonymous on timeout.
+ * On 401, attempts one silent Apex refresh then retries /me (idle-return path).
  */
 export async function probeCurrentSession(options?: {
   timeoutMs?: number;
@@ -33,13 +81,21 @@ export async function probeCurrentSession(options?: {
       timeoutMs,
       maxRetries: 2,
     });
-    if (res.status === 401) return { status: 'unauthorized' };
-    if (!res.ok) {
-      return { status: 'error', message: `Session check failed (${res.status})` };
-    }
-    const data = (await res.json()) as { session?: TechnicianSession | null };
-    if (!data.session) return { status: 'unauthorized' };
-    return { status: 'ok', session: data.session };
+    const first = await readSessionFromMeResponse(res);
+    if (first.status !== 'unauthorized') return first;
+
+    // Access cookie may have expired after idle; refresh cookie often still valid.
+    const refreshed = await silentRefreshSession();
+    if (!refreshed) return { status: 'unauthorized' };
+
+    const retry = await fetchWithClientRetry('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      timeoutMs,
+      maxRetries: 1,
+    });
+    return readSessionFromMeResponse(retry);
   } catch (error: unknown) {
     if (
       (error instanceof DOMException && error.name === 'AbortError') ||

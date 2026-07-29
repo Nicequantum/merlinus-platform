@@ -145,20 +145,38 @@ async function apiFetch<T>(
   options?: RequestInit & { timeoutMs?: number; signal?: AbortSignal; maxRetries?: number }
 ): Promise<T> {
   const { timeoutMs, signal, maxRetries, ...fetchOptions } = options || {};
-  const res = await fetchWithNetworkRetry(
-    path,
-    {
-      ...fetchOptions,
-      headers: withCsrfHeaders({
-        'Content-Type': 'application/json',
-        ...fetchOptions.headers,
-      }),
-      credentials: 'include',
-    },
-    timeoutMs,
-    signal,
-    maxRetries
-  );
+  const doFetch = () =>
+    fetchWithNetworkRetry(
+      path,
+      {
+        ...fetchOptions,
+        headers: withCsrfHeaders({
+          'Content-Type': 'application/json',
+          ...fetchOptions.headers,
+        }),
+        credentials: 'include',
+      },
+      timeoutMs,
+      signal,
+      maxRetries
+    );
+
+  let res = await doFetch();
+
+  // After idle, access JWT may be expired while refresh cookie is still valid.
+  // One silent refresh + retry — never loop on auth routes themselves.
+  if (
+    res.status === 401 &&
+    !path.startsWith('/api/auth/') &&
+    path !== '/api/consent' &&
+    path !== '/api/legal-disclaimer'
+  ) {
+    const { silentRefreshSession } = await import('@/lib/loginSession');
+    const refreshed = await silentRefreshSession();
+    if (refreshed) {
+      res = await doFetch();
+    }
+  }
 
   if (!res.ok) {
     const err = await parseApiErrorResponse(res);
@@ -179,18 +197,31 @@ async function apiFetch<T>(
 async function apiUpload<T>(path: string, formData: FormData, timeoutMs?: number): Promise<T> {
   // maxRetries=0: FormData bodies cannot be safely re-sent after a failed attempt.
   // uploadHelpers retries with a freshly compressed File / new FormData instead.
-  const res = await fetchWithNetworkRetry(
-    path,
-    {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-      headers: withCsrfHeaders(),
-    },
-    timeoutMs,
-    undefined,
-    0
-  );
+  const doFetch = (body: FormData) =>
+    fetchWithNetworkRetry(
+      path,
+      {
+        method: 'POST',
+        body,
+        credentials: 'include',
+        headers: withCsrfHeaders(),
+      },
+      timeoutMs,
+      undefined,
+      0
+    );
+
+  let res = await doFetch(formData);
+
+  // Idle session: access cookie may be expired — refresh once, then caller rebuilds FormData.
+  if (res.status === 401 && !path.startsWith('/api/auth/')) {
+    const { silentRefreshSession } = await import('@/lib/loginSession');
+    const refreshed = await silentRefreshSession();
+    if (refreshed) {
+      // Cannot re-use drained FormData — throw a retriable 401 so uploadHelpers rebuilds body.
+      throw new ApiError('Session refreshed — retrying upload…', 401);
+    }
+  }
 
   if (!res.ok) {
     const err = await parseApiErrorResponse(res, 'Upload failed. Please try again.');

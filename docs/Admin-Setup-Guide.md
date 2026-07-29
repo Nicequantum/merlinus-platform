@@ -34,7 +34,9 @@ Production health treats lingering owner seed **passwords** as a **critical** fa
 |-----|---------|---------|
 | `MERLIN_MFA_ENFORCE` | When `true`/`1`, elevated roles must enroll TOTP before PII routes | off (pilot) |
 | `MERLIN_MFA_REQUIRED_ROLES` | Comma list: `manager,owner,admin` | those three |
-| `ACCESS_TOKEN_TTL_SECONDS` | Apex access cookie TTL | `900` (15 min) |
+| `ACCESS_TOKEN_TTL_SECONDS` | Apex access cookie TTL | `604800` (7 days) |
+| `REFRESH_TOKEN_TTL_SECONDS` | Apex refresh cookie TTL | `31536000` (365 days) |
+| `SESSION_MAX_AGE_SECONDS` | Merlinus session JWT/cookie TTL | `31536000` (365 days; no idle timeout) |
 | `MFA_CHALLENGE_TTL_SECONDS` | Password→MFA pending token TTL | `300` (5 min) |
 
 **Rollout**

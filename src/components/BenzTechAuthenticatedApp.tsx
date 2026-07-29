@@ -150,7 +150,8 @@ export function BenzTechAuthenticatedApp({
     void import('@/lib/clientFetchRetry')
       .then(({ startBaySessionKeepAlive }) => {
         stopKeepAlive = startBaySessionKeepAlive({
-          intervalMs: 75_000,
+          // 40s — bay tablets sleep between ROs; keep isolate + R2 hotter than 75s.
+          intervalMs: 40_000,
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
           aggressive: true,
@@ -158,12 +159,23 @@ export function BenzTechAuthenticatedApp({
       })
       .catch(() => undefined);
     void import('@/lib/bayWarmup')
-      .then(({ startVisibilityBayWarmup }) => {
+      .then(({ startVisibilityBayWarmup, runAggressiveBayWarmup }) => {
         stopVis = startVisibilityBayWarmup({
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
         });
+        // Immediate double warm on rooftop enter (first login cold-start class).
+        return runAggressiveBayWarmup({
+          prefetchRoList: true,
+          technicianId: session.technicianId,
+          dealershipId: session.dealershipId,
+        });
       })
+      .catch(() => undefined);
+    void import('@/lib/bayUploadReady')
+      .then(({ ensureUploadPathReady }) =>
+        ensureUploadPathReady({ force: true, maxWaitMs: 12_000 })
+      )
       .catch(() => undefined);
     return () => {
       stopKeepAlive();

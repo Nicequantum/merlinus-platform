@@ -143,20 +143,40 @@ export function useROXentryScan({
     async (target: XentryTarget, pendingId: string, file: File) => {
       const key = targetKey(target);
       try {
-        const attachment = await uploadFileAsAttachment(file, 'ximg');
+        // Stay on 'uploading' until R2 put AND RO persist both succeed.
+        // Marking saved early left "populating" ghosts when persist raced/failed.
+        const attachment = await uploadFileAsAttachment(file, 'ximg', undefined, {
+          warmBeforeUpload: true,
+          onAttempt: (attempt, maxAttempts) => {
+            if (attempt === 0) return;
+            toast.message(`Retrying photo save (${attempt + 1}/${maxAttempts})…`, {
+              id: `xentry-upload-retry-${pendingId}`,
+            });
+          },
+        });
         if (discardedPendingIdsRef.current.has(pendingId)) {
           discardedPendingIdsRef.current.delete(pendingId);
           return;
         }
+        // Attach result but keep uploading until RO write completes.
         setPendingByKey((prev) => ({
           ...prev,
           [key]: (prev[key] ?? []).map((img) =>
-            img.id === pendingId
-              ? { ...img, attachment, uploadStatus: 'saved' as const, file: undefined }
-              : img
+            img.id === pendingId ? { ...img, attachment, file: undefined } : img
           ),
         }));
         await enqueuePersistAutoSavedImage(target, attachment, file, pendingId);
+        // Persist success removes pending; if still present, mark saved as safety net.
+        setPendingByKey((prev) => {
+          const list = prev[key] ?? [];
+          if (!list.some((img) => img.id === pendingId)) return prev;
+          return {
+            ...prev,
+            [key]: list.map((img) =>
+              img.id === pendingId ? { ...img, uploadStatus: 'saved' as const } : img
+            ),
+          };
+        });
       } catch (error) {
         if (discardedPendingIdsRef.current.has(pendingId)) {
           discardedPendingIdsRef.current.delete(pendingId);
@@ -194,6 +214,11 @@ export function useROXentryScan({
       }
 
       try {
+        // Warm R2/upload path before first diagnostic capture after cold open.
+        void import('@/lib/bayUploadReady')
+          .then(({ ensureUploadPathReady }) => ensureUploadPathReady({ maxWaitMs: 6_000 }))
+          .catch(() => undefined);
+
         const normalizedFiles = await normalizeScanFiles(rawFiles);
         if (normalizedFiles.length === 0) {
           toast.error('No supported images were selected.');
@@ -205,7 +230,7 @@ export function useROXentryScan({
         setPendingByKey((prev) => {
           const baseIndex = prev[key]?.length ?? 0;
           newImages = normalizedFiles.map((file, i) => ({
-            id: `ximg-pending-${Date.now()}-${baseIndex + i}`,
+            id: `ximg-pending-${Date.now()}-${baseIndex + i}-${Math.random().toString(36).slice(2, 6)}`,
             previewUrl: URL.createObjectURL(file),
             name: file.name || `diagnostic-${baseIndex + i + 1}.jpg`,
             file,
@@ -221,8 +246,13 @@ export function useROXentryScan({
           `Saving ${newImages.length} diagnostic photo${newImages.length === 1 ? '' : 's'}…`
         );
 
-        for (const img of newImages) {
+        // Sequential start with small stagger — shared upload slot pool still caps parallel R2 puts.
+        for (let i = 0; i < newImages.length; i++) {
+          const img = newImages[i]!;
           if (img.file) {
+            if (i > 0) {
+              await new Promise((r) => setTimeout(r, 120));
+            }
             void uploadAndSavePending(target, img.id, img.file);
           }
         }

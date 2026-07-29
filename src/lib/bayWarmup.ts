@@ -43,6 +43,12 @@ export async function runAggressiveBayWarmup(options?: {
     warmSessionIsolate(),
   ]);
 
+  if (sessionWarm || secondWarm) {
+    void import('@/lib/bayUploadReady')
+      .then(({ markUploadPathReady }) => markUploadPathReady())
+      .catch(() => undefined);
+  }
+
   return {
     sessionWarm: sessionWarm || secondWarm,
     roListPrefetched: roPrefetch,

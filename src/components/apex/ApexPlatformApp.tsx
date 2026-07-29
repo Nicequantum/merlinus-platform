@@ -222,6 +222,21 @@ export function ApexPlatformApp() {
       const next = await selectDealershipSession(pendingToken, dealershipId, rememberAsDefault);
       applySession(next);
       void refreshSession({ clearOnMissing: false });
+      // Rooftop enter is the #1 cold-start moment — warm R2/upload before first Scan RO.
+      void import('@/lib/bayWarmup')
+        .then(({ runAggressiveBayWarmup }) =>
+          runAggressiveBayWarmup({
+            prefetchRoList: true,
+            technicianId: next.technicianId,
+            dealershipId: next.dealershipId,
+          })
+        )
+        .catch(() => undefined);
+      void import('@/lib/bayUploadReady')
+        .then(({ ensureUploadPathReady }) =>
+          ensureUploadPathReady({ force: true, maxWaitMs: 12_000 })
+        )
+        .catch(() => undefined);
     },
     [applySession, refreshSession]
   );
@@ -232,6 +247,23 @@ export function ApexPlatformApp() {
     setSession(null);
     setSessionPhase('anonymous');
   }, [merlinLogout]);
+
+  // When the tablet/phone returns from background, revalidate session (silent refresh if needed).
+  useEffect(() => {
+    if (sessionPhase !== 'authenticated') return;
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshSession({ clearOnMissing: false });
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [sessionPhase, refreshSession]);
 
   if (sessionPhase === 'checking') {
     return (

@@ -32,8 +32,10 @@ export const APEX_JWT_ISSUER = 'apex';
 export const APEX_JWT_AUDIENCE_ACCESS = 'benz-tech-apex-access';
 export const APEX_JWT_AUDIENCE_PENDING = 'benz-tech-apex-pending';
 
-const DEFAULT_ACCESS_TTL_SECONDS = 15 * 60;
-const DEFAULT_REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
+/** Access JWT default: 7 days — bay tablets survive overnight/weekend idle without forced re-login. */
+const DEFAULT_ACCESS_TTL_SECONDS = 7 * 24 * 60 * 60;
+/** Refresh cookie default: 365 days — stay signed in until explicit logout / revoke. */
+const DEFAULT_REFRESH_TTL_SECONDS = 365 * 24 * 60 * 60;
 const DEFAULT_PENDING_TTL_SECONDS = 5 * 60;
 
 export type ApexAuthSource = 'legacy' | 'clerk' | 'refresh';

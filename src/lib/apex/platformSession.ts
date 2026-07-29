@@ -16,8 +16,8 @@ function requestHasApexAccessCookie(request?: Request): boolean {
 
 /**
  * Platform-aware JWT session resolution.
- * MERLINUS: benz_tech_session (8h legacy JWT).
- * APEX: apex_access short-lived JWT (+ apex_refresh for renewal).
+ * MERLINUS: benz_tech_session (long-lived JWT; default 365d, no idle timeout).
+ * APEX: apex_access (default 7d) + apex_refresh (default 365d) for silent renewal.
  *
  * Prefer apex cookies when PLATFORM_MODE=apex OR when the request already carries
  * apex_access (survives brief PLATFORM_MODE misconfiguration after password login).

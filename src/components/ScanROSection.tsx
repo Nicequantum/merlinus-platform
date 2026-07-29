@@ -50,15 +50,18 @@ export function ScanROSection({
   // Warm session + R2 + audit path on scan mount and while pages are pending so
   // the first capture after cold open/idle is less likely to miss green check.
   useEffect(() => {
-    void import('@/lib/clientFetchRetry')
-      .then(({ warmSessionIsolate }) => warmSessionIsolate())
+    void import('@/lib/bayUploadReady')
+      .then(({ kickBayUploadWarm, ensureUploadPathReady }) => {
+        kickBayUploadWarm();
+        return ensureUploadPathReady({ maxWaitMs: 10_000 });
+      })
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!hasPending) return;
-    void import('@/lib/clientFetchRetry')
-      .then(({ warmSessionIsolate }) => warmSessionIsolate())
+    void import('@/lib/bayUploadReady')
+      .then(({ ensureUploadPathReady }) => ensureUploadPathReady({ maxWaitMs: 6_000 }))
       .catch(() => undefined);
   }, [hasPending]);
 

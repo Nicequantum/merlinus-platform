@@ -9,7 +9,7 @@
 
 | Mode | Env | Login | Session |
 |------|-----|-------|---------|
-| **Merlinus** (default) | unset or `merlinus` | D7 + password | `benz_tech_session` (8h JWT) |
+| **Merlinus** (default) | unset or `merlinus` | D7 + password | `benz_tech_session` (long-lived JWT; default 365d, no idle timeout) |
 | **Apex** | `PLATFORM_MODE=apex` | Email / D7 / apex username | `apex_access` + `apex_refresh` |
 
 Set client mirror for UI branching:

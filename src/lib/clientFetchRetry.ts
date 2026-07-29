@@ -158,6 +158,7 @@ export async function warmOwnerIsolate(): Promise<boolean> {
 /**
  * P1-2 — Warm auth + D1 path for any signed-in user (technician, manager, owner).
  * Prefer this after login and on bay session keep-alive.
+ * Returns true only when the warm endpoint reports success (prefers R2 ready).
  */
 export async function warmSessionIsolate(): Promise<boolean> {
   try {
@@ -166,7 +167,19 @@ export async function warmSessionIsolate(): Promise<boolean> {
       timeoutMs: 12_000,
       maxRetries: 2,
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const body = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      paths?: { r2?: boolean; db?: boolean };
+    };
+    const ok = body.ok !== false;
+    // Notify bay upload gate when R2 path is hot so first capture skips cold thrash.
+    if (ok && body.paths?.r2 && typeof window !== 'undefined') {
+      void import('@/lib/bayUploadReady')
+        .then(({ markUploadPathReady }) => markUploadPathReady())
+        .catch(() => undefined);
+    }
+    return ok;
   } catch {
     return false;
   }

@@ -50,7 +50,9 @@ export function XentryDiagnosticSection({
   const resolvedHint = hint ?? t('diagnosticHint');
   const hasPending = pendingImages.length > 0;
   const hasSaved = savedImages.length > 0;
-  const canProcess = imagesNeedingAnalysisCount > 0 && !pendingImages.some((img) => img.uploadStatus === 'uploading');
+  const stillUploading = pendingImages.some((img) => img.uploadStatus === 'uploading');
+  const canProcess =
+    imagesNeedingAnalysisCount > 0 && !stillUploading;
 
   return (
     <div className="benz-card benz-diagnostic-card p-5 min-w-0 w-full">
@@ -128,7 +130,9 @@ export function XentryDiagnosticSection({
           <div className="benz-section-title mb-3 text-sm">
             {isProcessing
               ? t('processingPhotos')
-              : t('savingPhotos', { count: pendingImages.length })}
+              : stillUploading
+                ? t('savingPhotos', { count: pendingImages.length })
+                : t('savingPhotos', { count: pendingImages.length })}
           </div>
           <DiagnosticPhotoGrid
             images={pendingImages}

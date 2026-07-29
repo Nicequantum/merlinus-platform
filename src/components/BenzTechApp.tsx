@@ -130,6 +130,23 @@ export function BenzTechApp() {
     [applySession, session]
   );
 
+  // When the tablet/phone returns from background, revalidate session (silent refresh if needed).
+  useEffect(() => {
+    if (sessionPhase !== 'authenticated') return;
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshSession({ clearOnMissing: false });
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [sessionPhase, refreshSession]);
+
   useEffect(() => {
     if (sessionPhase !== 'authenticated' || searchParams.get('link_account') !== '1') return;
     if (!isClerkSignInAvailable()) return;
