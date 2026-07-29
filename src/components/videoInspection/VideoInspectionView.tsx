@@ -8,7 +8,10 @@ import {
   CloudOff,
   Link2,
   Loader2,
+  MessageCircle,
   RefreshCw,
+  Share2,
+  Smartphone,
   Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -637,6 +640,98 @@ export function VideoInspectionView({
     }
   };
 
+  /** Ensure we have a share URL, then open the device Messages app (no Twilio required). */
+  const shareViaDeviceSms = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      let url = shareUrl;
+      if (!url) {
+        const result = await api.shareVideoInspection(selected.id);
+        url = result.url;
+        setShareUrl(url);
+        await api.patchVideoInspection(selected.id, { deliveryChannel: 'link' });
+      }
+      const digits = phone.replace(/\D/g, '');
+      const body = encodeURIComponent(
+        `Your vehicle video inspection is ready:\n${url}`
+      );
+      // iOS uses &body=, Android often uses ?body= — sms: path works on both for most WebViews.
+      const href = digits
+        ? `sms:${digits}${/iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?'}body=${body}`
+        : `sms:?body=${body}`;
+      window.location.href = href;
+      toast.message(t('deviceSmsOpened'));
+      void refreshList();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not open Messages');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Open WhatsApp with prefilled customer link (works with personal WhatsApp — no Twilio). */
+  const shareViaWhatsApp = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      let url = shareUrl;
+      if (!url) {
+        const result = await api.shareVideoInspection(selected.id);
+        url = result.url;
+        setShareUrl(url);
+        await api.patchVideoInspection(selected.id, { deliveryChannel: 'link' });
+      }
+      const digits = phone.replace(/\D/g, '');
+      const e164 = digits.length === 10 ? `1${digits}` : digits;
+      const text = encodeURIComponent(
+        `Your vehicle video inspection is ready:\n${url}`
+      );
+      const href = e164.length >= 10
+        ? `https://wa.me/${e164}?text=${text}`
+        : `https://wa.me/?text=${text}`;
+      window.open(href, '_blank', 'noopener,noreferrer');
+      toast.message(t('whatsappOpened'));
+      void refreshList();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not open WhatsApp');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** System share sheet when available (tablet/phone). */
+  const shareNative = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      let url = shareUrl;
+      if (!url) {
+        const result = await api.shareVideoInspection(selected.id);
+        url = result.url;
+        setShareUrl(url);
+        await api.patchVideoInspection(selected.id, { deliveryChannel: 'link' });
+      }
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({
+          title: 'Vehicle video inspection',
+          text: 'Your vehicle video inspection is ready.',
+          url,
+        });
+        toast.success(t('linkCopied'));
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success(t('linkCopied'));
+      }
+      void refreshList();
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      toast.error(e instanceof Error ? e.message : 'Could not share link');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const progressBar =
     uploadProgress && busy ? (
       <div className="mb-4 benz-card p-3">
@@ -1014,6 +1109,36 @@ export function VideoInspectionView({
               onClick={() => void sendSms()}
             >
               {t('sendSms')}
+            </button>
+          </div>
+          <p className="text-[11px] text-benz-muted leading-relaxed">{t('shareAlternativesHint')}</p>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+            <button
+              type="button"
+              className="secondary-btn h-11 px-3 flex-1 min-w-[9rem]"
+              disabled={busy}
+              onClick={() => void shareViaDeviceSms()}
+            >
+              <Smartphone size={16} className="inline mr-1.5" />
+              {t('deviceSms')}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn h-11 px-3 flex-1 min-w-[9rem]"
+              disabled={busy}
+              onClick={() => void shareViaWhatsApp()}
+            >
+              <MessageCircle size={16} className="inline mr-1.5" />
+              {t('whatsappShare')}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn h-11 px-3 flex-1 min-w-[9rem]"
+              disabled={busy}
+              onClick={() => void shareNative()}
+            >
+              <Share2 size={16} className="inline mr-1.5" />
+              {t('systemShare')}
             </button>
           </div>
         </div>

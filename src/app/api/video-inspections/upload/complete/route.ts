@@ -23,9 +23,8 @@ import {
 import { mapVideoInspectionDetail } from '@/lib/videoInspection/mappers';
 import {
   deleteVideoChunksBestEffort,
-  fetchPrivateVideoChunkAsBuffer,
+  assembleVideoChunksToBlob,
   uploadVideoFrameToBlob,
-  uploadVideoToBlob,
 } from '@/lib/videoBlob';
 
 const ALLOWED_FRAME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
@@ -123,18 +122,17 @@ export async function POST(request: Request) {
         data: { status: 'assembling', errorMessage: null },
       });
 
-      let assembled: Buffer;
+      let assembled: { pathname: string; sizeBytes: number };
       try {
-        // Sequential fetch keeps Worker subrequest + memory pressure predictable.
-        const parts: Buffer[] = new Array(uploadSession.totalChunks);
-        let total = 0;
-        for (let i = 0; i < uploadSession.totalChunks; i++) {
-          const path = pathnames[i]!;
-          const buf = await fetchPrivateVideoChunkAsBuffer(path);
-          parts[i] = buf;
-          total += buf.byteLength;
-        }
-        assembled = Buffer.concat(parts, total);
+        // Multipart assemble when available — avoids OOM on 10–20 min walkarounds.
+        const contentType = uploadSession.contentType || 'video/webm';
+        const ext = contentType.includes('mp4') ? 'mp4' : 'webm';
+        assembled = await assembleVideoChunksToBlob(
+          pathnames.filter(Boolean),
+          `inspection.${ext}`,
+          contentType,
+          dealershipId
+        );
       } catch (error) {
         await db.videoUploadSession.updateMany({
           where: {
@@ -152,7 +150,7 @@ export async function POST(request: Request) {
         return reportMappedRouteError(mapped, error, 'video.upload.complete');
       }
 
-      if (assembled.byteLength <= 0) {
+      if (assembled.sizeBytes <= 0) {
         await deleteVideoChunksBestEffort(pathnames.filter(Boolean));
         return apiError('Assembled video is empty', 400);
       }
@@ -164,41 +162,17 @@ export async function POST(request: Request) {
           ? meta.durationSec
           : null;
       if (durationSec !== null && durationSec > maxDurationSec) {
-        return apiError(`Video exceeds max duration (${maxDurationSec}s).`, 400);
+        await deleteVideoChunksBestEffort(pathnames.filter(Boolean));
+        // Soft message — defaults are now 2h; only fails if env is intentionally low.
+        return apiError(
+          `Video exceeds max duration (${Math.floor(maxDurationSec / 60)} min). Contact your manager if you need a longer cap.`,
+          400
+        );
       }
 
       const contentType = uploadSession.contentType || 'video/webm';
-      const ext = contentType.includes('mp4') ? 'mp4' : 'webm';
-
-      const sizeBytes = assembled.byteLength;
-
-      let uploaded;
-      try {
-        uploaded = await uploadVideoToBlob(
-          assembled,
-          `inspection.${ext}`,
-          contentType,
-          dealershipId
-        );
-      } catch (error) {
-        await db.videoUploadSession.updateMany({
-          where: {
-            id: uploadSession.id,
-            dealershipId,
-            technicianId: session.technicianId,
-          },
-          data: {
-            status: 'failed',
-            errorMessage:
-              error instanceof Error ? error.message.slice(0, 500) : 'Final upload failed',
-          },
-        });
-        const mapped = mapBlobRouteError(error, 'upload');
-        return reportMappedRouteError(mapped, error, 'video.upload.complete');
-      }
-
-      // Free assembled buffer reference ASAP (GC) after R2 put
-      assembled = Buffer.alloc(0);
+      const sizeBytes = assembled.sizeBytes;
+      const uploaded = { pathname: assembled.pathname, url: '' };
 
       const framePathnames: string[] = [];
       for (const entry of form.getAll('frames').slice(0, 8)) {
@@ -325,4 +299,4 @@ export async function POST(request: Request) {
   );
 }
 
-export const maxDuration = 300;
+export const maxDuration = 600;

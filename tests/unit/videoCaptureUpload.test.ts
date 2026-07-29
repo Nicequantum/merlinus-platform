@@ -14,15 +14,15 @@ import {
 } from '../../src/lib/videoInspection/uploadSession';
 
 describe('PR-M1b video capture / chunked upload', () => {
-  test('computeChunkCount covers full file with 1MiB parts', () => {
-    assert.equal(VIDEO_UPLOAD_CHUNK_BYTES, 1 * 1024 * 1024);
+  test('computeChunkCount covers full file with 4MiB parts', () => {
+    assert.equal(VIDEO_UPLOAD_CHUNK_BYTES, 4 * 1024 * 1024);
     assert.equal(computeChunkCount(0), 0);
     assert.equal(computeChunkCount(1), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES + 1), 2);
-    // 100 MiB fit under max chunks at 1 MiB
-    assert.ok(computeChunkCount(100 * 1024 * 1024) <= VIDEO_UPLOAD_MAX_CHUNKS);
-    assert.ok(VIDEO_UPLOAD_MAX_CHUNKS >= 100);
+    // 2 GiB fits under max chunks at 4 MiB
+    assert.ok(computeChunkCount(2048 * 1024 * 1024) <= VIDEO_UPLOAD_MAX_CHUNKS);
+    assert.ok(VIDEO_UPLOAD_MAX_CHUNKS >= 512);
   });
 
   test('received mask and pathnames helpers', () => {
@@ -153,6 +153,8 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(blob.includes('uploadVideoChunkToBlob'));
     assert.ok(blob.includes('benz-tech/video-chunk/'));
     assert.ok(blob.includes('deleteVideoChunksBestEffort'));
+    assert.ok(blob.includes('assembleVideoChunksToBlob'));
+    assert.ok(blob.includes('createMultipartUpload'));
   });
 
   test('rate limits allow high chunk throughput for multi-minute HD', () => {

@@ -120,7 +120,10 @@ export async function POST(request: Request) {
       let durationSec: number | null =
         Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : null;
       if (durationSec !== null && durationSec > maxDurationSec) {
-        return apiError(`Video exceeds max duration (${maxDurationSec}s).`, 400);
+        return apiError(
+          `Video exceeds max duration (${Math.floor(maxDurationSec / 60)} min). Contact your manager if you need a longer cap.`,
+          400
+        );
       }
 
       let link;

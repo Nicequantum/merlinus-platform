@@ -79,7 +79,7 @@ export async function POST(
           shareUrl,
           phoneLast4: phone.slice(-4),
           error:
-            'SMS is not configured (set SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER). Link ready to copy.',
+            'SMS is not configured (set SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID). Use Copy link, Text from this phone, or WhatsApp instead.',
         };
       }
 

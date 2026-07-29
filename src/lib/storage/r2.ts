@@ -38,6 +38,25 @@ export type R2BucketLike = {
     cursor?: string;
   }) => Promise<{ objects: Array<{ key: string; size: number }>; truncated: boolean }>;
   head?: (key: string) => Promise<{ key: string; size: number } | null>;
+  /** Multipart upload — used to assemble large MPI videos without full-buffer concat. */
+  createMultipartUpload?: (
+    key: string,
+    options?: {
+      httpMetadata?: { contentType?: string; cacheControl?: string };
+    }
+  ) => Promise<R2MultipartUploadLike>;
+};
+
+/** Minimal multipart surface (Workers R2MultipartUpload). */
+export type R2MultipartUploadLike = {
+  uploadId: string;
+  key: string;
+  uploadPart: (
+    partNumber: number,
+    value: ArrayBuffer | ArrayBufferView | string | Blob | null
+  ) => Promise<{ etag: string; partNumber: number }>;
+  complete: (uploadedParts: Array<{ etag: string; partNumber: number }>) => Promise<unknown>;
+  abort: () => Promise<void>;
 };
 
 export type R2ObjectBodyLike = {

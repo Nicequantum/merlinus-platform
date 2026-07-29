@@ -102,14 +102,31 @@ export function buildCustomerViewerUrl(
   return `${base}/v/${encodeURIComponent(token)}`;
 }
 
+/**
+ * Max video size for MPI walkarounds.
+ * Default 2 GiB — supports ~15–20 min HD tablet captures.
+ * Override with VIDEO_INSPECTION_MAX_MB (integer megabytes).
+ */
 export function getVideoMaxBytes(): number {
-  const mb = Number(process.env.VIDEO_INSPECTION_MAX_MB);
-  if (Number.isFinite(mb) && mb > 0) return Math.floor(mb * 1024 * 1024);
-  return 100 * 1024 * 1024;
+  const raw = process.env.VIDEO_INSPECTION_MAX_MB;
+  if (raw !== undefined && raw !== '') {
+    const mb = Number(raw);
+    if (Number.isFinite(mb) && mb > 0) return Math.floor(mb * 1024 * 1024);
+  }
+  // 2 GiB default — no practical bay length cap for multipoint walkarounds
+  return 2048 * 1024 * 1024;
 }
 
+/**
+ * Max recording duration (seconds).
+ * Default 2 hours (7200s) — long enough for complex multi-issue vehicles.
+ * Override with VIDEO_INSPECTION_MAX_DURATION_SEC (e.g. 86400 for a full day).
+ */
 export function getVideoMaxDurationSec(): number {
-  const sec = Number(process.env.VIDEO_INSPECTION_MAX_DURATION_SEC);
-  if (Number.isFinite(sec) && sec > 0) return Math.floor(sec);
-  return 300;
+  const raw = process.env.VIDEO_INSPECTION_MAX_DURATION_SEC;
+  if (raw !== undefined && raw !== '') {
+    const sec = Number(raw);
+    if (Number.isFinite(sec) && sec > 0) return Math.floor(sec);
+  }
+  return 7200;
 }

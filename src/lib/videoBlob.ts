@@ -12,6 +12,7 @@ import {
   putObject,
   type StoredObjectStream,
 } from '@/lib/storage/objectStorage';
+import { requireR2Bucket } from '@/lib/storage/r2';
 
 export function isAllowedVideoPathname(pathname: string): boolean {
   return pathname.startsWith('benz-tech/video/') && !pathname.includes('..');
@@ -84,6 +85,81 @@ export async function fetchPrivateVideoChunkAsBuffer(pathname: string): Promise<
   const result = await getObjectBuffer(pathname);
   if (!result) throw new Error('Video chunk not found in storage');
   return result.buffer;
+}
+
+/**
+ * Assemble chunk pathnames into a final video object without holding the full
+ * multi-hundred-MB buffer when R2 multipart is available (long walkarounds).
+ * Falls back to sequential concat for smaller files or when multipart is missing.
+ */
+export async function assembleVideoChunksToBlob(
+  chunkPathnames: string[],
+  filename: string,
+  contentType: string,
+  dealershipId: string
+): Promise<UploadedVideoBlob & { sizeBytes: number }> {
+  if (chunkPathnames.length === 0) {
+    throw new Error('No video chunks to assemble');
+  }
+  for (const p of chunkPathnames) {
+    if (!isAllowedVideoChunkPathname(p)) {
+      throw new Error('Invalid video chunk path during assemble');
+    }
+  }
+
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'inspection.webm';
+  const safeDealer = dealershipId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
+  const finalKey = `benz-tech/video/${safeDealer}/${randomUUID()}-${safeName}`;
+  const bucket = requireR2Bucket();
+
+  // Multipart path: one chunk in memory at a time (safe for 15–20 min HD videos).
+  if (typeof bucket.createMultipartUpload === 'function' && chunkPathnames.length > 1) {
+    const multipart = await bucket.createMultipartUpload(finalKey, {
+      httpMetadata: {
+        contentType,
+        cacheControl: 'private, no-store',
+      },
+    });
+    const uploadedParts: Array<{ etag: string; partNumber: number }> = [];
+    let sizeBytes = 0;
+    try {
+      for (let i = 0; i < chunkPathnames.length; i++) {
+        const buf = await fetchPrivateVideoChunkAsBuffer(chunkPathnames[i]!);
+        if (buf.byteLength <= 0) {
+          throw new Error(`Empty video chunk at index ${i}`);
+        }
+        sizeBytes += buf.byteLength;
+        // R2 multipart part numbers are 1-based
+        const partNumber = i + 1;
+        const copy = new Uint8Array(buf.byteLength);
+        copy.set(buf);
+        const part = await multipart.uploadPart(partNumber, copy);
+        uploadedParts.push({ etag: part.etag, partNumber: part.partNumber || partNumber });
+      }
+      await multipart.complete(uploadedParts);
+      return { pathname: finalKey, url: '', sizeBytes };
+    } catch (error) {
+      try {
+        await multipart.abort();
+      } catch {
+        // ignore abort errors
+      }
+      throw error;
+    }
+  }
+
+  // Small / single-chunk fallback — concat then put
+  const parts: Buffer[] = [];
+  let total = 0;
+  for (const path of chunkPathnames) {
+    const buf = await fetchPrivateVideoChunkAsBuffer(path);
+    parts.push(buf);
+    total += buf.byteLength;
+  }
+  if (total <= 0) throw new Error('Assembled video is empty');
+  const assembled = Buffer.concat(parts, total);
+  await putObject(finalKey, assembled, { contentType });
+  return { pathname: finalKey, url: '', sizeBytes: total };
 }
 
 export async function streamPrivateVideoBlob(
