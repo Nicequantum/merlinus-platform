@@ -25,7 +25,12 @@ import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { apiError, handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { consumePendingMfaToken, verifyPendingMfaToken } from '@/lib/mfa/challenge';
-import { verifyMfaFactor } from '@/lib/mfa/service';
+import {
+  clearMfaEnrollmentForRecovery,
+  recoverCorruptMfaIfNeeded,
+  verifyMfaFactor,
+} from '@/lib/mfa/service';
+import { warmEncryptionKeyring } from '@/lib/encryption';
 import { checkRateLimit, getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { logApiWriteRequest } from '@/lib/requestLogging';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody } from '@/lib/validation';
@@ -52,6 +57,11 @@ export async function POST(request: Request) {
 
   try {
     await getDb();
+    try {
+      await warmEncryptionKeyring();
+    } catch {
+      // encryption may still fail closed per decrypt
+    }
     const parsed = await parseRequestBody(request, bodySchema, AUTH_JSON_BODY_LIMIT_BYTES);
     if ('error' in parsed) return parsed.error;
 
@@ -60,12 +70,61 @@ export async function POST(request: Request) {
       return apiError('MFA challenge expired or invalid. Sign in again.', 401);
     }
 
+    // Pre-check: if rotation left MFA unreadable, clear and ask for a clean re-login
+    // (completing login here is OK only if we can issue session — prefer clear + re-login message).
+    const pre = await recoverCorruptMfaIfNeeded(claims.technicianId);
+    if (pre.recovered) {
+      try {
+        await writeAuditedAccess({
+          action: 'auth.mfa_admin_reset',
+          dealershipId: '',
+          technicianId: claims.technicianId,
+          entityType: 'technician',
+          entityId: claims.technicianId,
+          ipAddress: getRequestIp(request),
+          metadata: {
+            stage: 'login_verify_auto_recovery',
+            reason: pre.reason || 'mfa_corrupt',
+          },
+        });
+      } catch {
+        // best-effort
+      }
+      return apiError(
+        'Your authenticator data could not be read after encryption key changes. MFA has been cleared — sign in again with your password, then re-enroll MFA in Settings.',
+        401
+      );
+    }
+
     const factor = await verifyMfaFactor({
       technicianId: claims.technicianId,
       code: parsed.data.code,
     });
 
     if (!factor.ok) {
+      if (factor.code === 'MFA_CORRUPT') {
+        await clearMfaEnrollmentForRecovery(
+          claims.technicianId,
+          'login_verify_mfa_corrupt'
+        );
+        try {
+          await writeAuditedAccess({
+            action: 'auth.mfa_admin_reset',
+            dealershipId: '',
+            technicianId: claims.technicianId,
+            entityType: 'technician',
+            entityId: claims.technicianId,
+            ipAddress: getRequestIp(request),
+            metadata: { stage: 'login_verify_auto_recovery', reason: 'MFA_CORRUPT' },
+          });
+        } catch {
+          // best-effort
+        }
+        return apiError(
+          'Authenticator data was unreadable. MFA has been cleared — sign in again with your password and re-enroll MFA in Settings.',
+          401
+        );
+      }
       try {
         await writeAuditedAccess({
           action: 'auth.mfa_failure',

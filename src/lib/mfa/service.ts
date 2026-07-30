@@ -5,7 +5,12 @@
 import 'server-only';
 
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
-import { decryptSensitiveText, encryptSensitiveText } from '@/lib/encryption';
+import {
+  decryptSensitiveText,
+  encryptSensitiveText,
+  warmEncryptionKeyring,
+} from '@/lib/encryption';
+import { logger } from '@/lib/logger';
 import { revokeAllSessionsForTechnician } from '@/lib/sessionRevocation';
 import {
   decryptBackupCodeHashes,
@@ -40,6 +45,8 @@ export async function isMfaEnabledForTechnician(technicianId: string): Promise<b
 }
 
 async function resolveTotpSecret(technicianId: string): Promise<string | null> {
+  // Keyring must be loaded — MFA secrets are DEK-encrypted; cold login used to skip warm.
+  await warmEncryptionKeyring();
   const db = getRlsDb();
   const userMfa = await db.userMfa.findUnique({
     where: { technicianId },
@@ -47,7 +54,8 @@ async function resolveTotpSecret(technicianId: string): Promise<string | null> {
   });
   if (userMfa?.secretEncrypted) {
     try {
-      return decryptSensitiveText(userMfa.secretEncrypted);
+      const secret = decryptSensitiveText(userMfa.secretEncrypted);
+      if (secret?.trim()) return secret;
     } catch {
       // fall through
     }
@@ -58,10 +66,166 @@ async function resolveTotpSecret(technicianId: string): Promise<string | null> {
   });
   if (!tech?.mfaSecretEncrypted) return null;
   try {
-    return decryptSensitiveText(tech.mfaSecretEncrypted);
+    const secret = decryptSensitiveText(tech.mfaSecretEncrypted);
+    return secret?.trim() ? secret : null;
   } catch {
     return null;
   }
+}
+
+export type MfaMaterialHealth = {
+  enabled: boolean;
+  secretReadable: boolean;
+  backupReadable: boolean;
+  /** True when MFA is on but ciphertext cannot open after keyring warm (rotation damage). */
+  corrupt: boolean;
+};
+
+/**
+ * Detect MFA ciphertext that cannot decrypt after key rotation / keyring load.
+ * Used to auto-recover locked-out owners without a working authenticator.
+ */
+export async function inspectMfaMaterialHealth(technicianId: string): Promise<MfaMaterialHealth> {
+  return withRlsBypass(async () => {
+    await warmEncryptionKeyring();
+    const db = getRlsDb();
+    const userMfa = await db.userMfa.findUnique({
+      where: { technicianId },
+      select: {
+        enabled: true,
+        secretEncrypted: true,
+        backupCodesEncrypted: true,
+      },
+    });
+    const tech = await db.technician.findUnique({
+      where: { id: technicianId },
+      select: {
+        mfaEnabled: true,
+        mfaEnrolledAt: true,
+        mfaSecretEncrypted: true,
+        mfaBackupCodesEncrypted: true,
+      },
+    });
+    const enabled = Boolean(
+      userMfa?.enabled || (tech?.mfaEnabled && tech?.mfaEnrolledAt)
+    );
+    const secretCipher =
+      userMfa?.secretEncrypted?.trim() || tech?.mfaSecretEncrypted?.trim() || '';
+    const backupCipher =
+      userMfa?.backupCodesEncrypted?.trim() ||
+      tech?.mfaBackupCodesEncrypted?.trim() ||
+      '';
+
+    let secretReadable = false;
+    if (secretCipher) {
+      try {
+        const s = decryptSensitiveText(secretCipher);
+        secretReadable = Boolean(s?.trim());
+      } catch {
+        secretReadable = false;
+      }
+    }
+
+    let backupReadable = false;
+    if (backupCipher) {
+      try {
+        const hashes = decryptBackupCodeHashes(backupCipher);
+        backupReadable = hashes.length > 0;
+      } catch {
+        backupReadable = false;
+      }
+    }
+
+    // Corrupt = enrolled/enabled with ciphertext present but neither factor can open.
+    const hasMaterial = Boolean(secretCipher || backupCipher);
+    const corrupt = enabled && hasMaterial && !secretReadable && !backupReadable;
+    return { enabled, secretReadable, backupReadable, corrupt };
+  });
+}
+
+/**
+ * Clear MFA enrollment without TOTP — recovery path after DEK rotation damage only.
+ * Callers must audit.
+ */
+export async function clearMfaEnrollmentForRecovery(
+  technicianId: string,
+  reason: string
+): Promise<{ cleared: boolean }> {
+  return withRlsBypass(async () => {
+    const db = getRlsDb();
+    await db.userMfa.deleteMany({ where: { technicianId } });
+    await db.technician.update({
+      where: { id: technicianId },
+      data: {
+        mfaEnabled: false,
+        mfaSecretEncrypted: null,
+        mfaEnrolledAt: null,
+        mfaBackupCodesEncrypted: null,
+      },
+    });
+    logger.warn('mfa.recovery_cleared', {
+      technicianId,
+      reason: reason.slice(0, 120),
+    });
+    return { cleared: true };
+  });
+}
+
+/**
+ * If MFA is flagged on but secrets are unreadable after keyring warm, clear enrollment.
+ * Returns true when recovery ran (caller should skip MFA challenge / complete login).
+ */
+
+/** One-shot ops unlock: MERLIN_MFA_FORCE_CLEAR_IDENTIFIERS=email1,d7,username */
+export function forceClearMfaIdentifiersFromEnv(): Set<string> {
+  const raw = process.env.MERLIN_MFA_FORCE_CLEAR_IDENTIFIERS?.trim() ?? '';
+  const set = new Set<string>();
+  for (const part of raw.split(/[,;\s]+/)) {
+    const v = part.trim().toLowerCase();
+    if (v) set.add(v);
+  }
+  return set;
+}
+
+export async function forceClearMfaIfAllowlisted(input: {
+  technicianId: string;
+  email?: string | null;
+  d7Number?: string | null;
+  apexUsername?: string | null;
+}): Promise<{ cleared: boolean }> {
+  const allow = forceClearMfaIdentifiersFromEnv();
+  if (allow.size === 0) return { cleared: false };
+  const candidates = [
+    input.email,
+    input.d7Number,
+    input.apexUsername,
+    input.technicianId,
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).trim().toLowerCase());
+  if (!candidates.some((c) => allow.has(c))) return { cleared: false };
+  await clearMfaEnrollmentForRecovery(
+    input.technicianId,
+    'env_force_clear_identifiers'
+  );
+  return { cleared: true };
+}
+
+export async function recoverCorruptMfaIfNeeded(
+  technicianId: string
+): Promise<{ recovered: boolean; reason?: string }> {
+  const health = await inspectMfaMaterialHealth(technicianId);
+  if (!health.corrupt) {
+    return { recovered: false };
+  }
+  await clearMfaEnrollmentForRecovery(
+    technicianId,
+    'encrypted_mfa_unreadable_after_key_rotation'
+  );
+  return {
+    recovered: true,
+    reason: 'encrypted_mfa_unreadable_after_key_rotation',
+  };
 }
 
 /**
@@ -218,11 +382,26 @@ export async function confirmMfaEnrollment(input: {
 export async function verifyMfaFactor(input: {
   technicianId: string;
   code: string;
-}): Promise<{ ok: true; method: 'totp' | 'backup' } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; method: 'totp' | 'backup' }
+  | { ok: false; error: string; code?: 'MFA_CORRUPT' | 'MFA_INVALID' }
+> {
   return withRlsBypass(async () => {
+    await warmEncryptionKeyring();
     const enabled = await isMfaEnabledForTechnician(input.technicianId);
     if (!enabled) {
       return { ok: false, error: 'MFA is not enabled for this account.' };
+    }
+
+    // Rotation damage: secrets exist but cannot decrypt — surface for auto-recovery.
+    const health = await inspectMfaMaterialHealth(input.technicianId);
+    if (health.corrupt) {
+      return {
+        ok: false,
+        code: 'MFA_CORRUPT',
+        error:
+          'Authenticator data cannot be read after encryption key changes. Sign in again — MFA will be cleared so you can re-enroll.',
+      };
     }
 
     const code = input.code.trim();
@@ -258,10 +437,16 @@ export async function verifyMfaFactor(input: {
 
     const secret = await resolveTotpSecret(input.technicianId);
     if (!secret) {
-      return { ok: false, error: 'MFA secret missing. Re-enroll MFA.' };
+      // Enabled flag on but no readable secret — same recovery path as corrupt.
+      return {
+        ok: false,
+        code: 'MFA_CORRUPT',
+        error:
+          'MFA secret is missing or unreadable. Sign in again to clear and re-enroll MFA.',
+      };
     }
     if (!verifyTotpCode(secret, code)) {
-      return { ok: false, error: 'Invalid authentication code.' };
+      return { ok: false, error: 'Invalid authentication code.', code: 'MFA_INVALID' };
     }
     return { ok: true, method: 'totp' };
   });

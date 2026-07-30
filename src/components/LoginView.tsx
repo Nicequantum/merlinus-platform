@@ -57,6 +57,49 @@ export function LoginView({ onLogin, onMfaVerify }: LoginViewProps) {
     }
   };
 
+
+  const handleMfaSelfRecovery = async () => {
+    if (!d7Number.trim() || !password) {
+      toast.error('Enter your D7 and password, then try MFA recovery.');
+      setMfaToken(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
+      const csrf = readCsrfTokenFromDocument();
+      const res = await fetch('/api/auth/mfa/self-recovery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          identifier: d7Number.trim().toUpperCase(),
+          password,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+        cleared?: boolean;
+      };
+      if (!res.ok) throw new Error(data.error || data.message || 'Recovery failed');
+      toast.success(
+        data.message ||
+          'MFA cleared. Sign in with your password, then re-enroll MFA in Settings.'
+      );
+      setMfaToken(null);
+      setMfaCode('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Recovery failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mfaToken) return;
@@ -186,6 +229,14 @@ export function LoginView({ onLogin, onMfaVerify }: LoginViewProps) {
             <button
               type="button"
               className="text-sm text-benz-secondary underline w-full mt-3 touch-target"
+              disabled={loading}
+              onClick={() => void handleMfaSelfRecovery()}
+            >
+              Can't use authenticator? Clear MFA with password
+            </button>
+            <button
+              type="button"
+              className="text-sm text-benz-secondary underline w-full mt-2 touch-target"
               onClick={() => {
                 setMfaToken(null);
                 setMfaCode('');

@@ -67,6 +67,51 @@ export function ApexLoginShell({
     }
   };
 
+  const handleMfaRecovery = async () => {
+    if (!identifier.trim() || !password) {
+      toast.error('Enter your email/username and password first, then try recovery.');
+      setStep('credentials');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { CSRF_HEADER, readCsrfTokenFromDocument } = await import('@/lib/csrfClient');
+      const csrf = readCsrfTokenFromDocument();
+      const res = await fetch('/api/auth/mfa/self-recovery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        cleared?: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Recovery failed');
+      }
+      toast.success(
+        data.message ||
+          'MFA cleared. Sign in again with your password, then re-enroll MFA in Settings.'
+      );
+      setMfaToken(null);
+      setMfaCode('');
+      setStep('credentials');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Recovery failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mfaToken) return;
@@ -257,6 +302,14 @@ export function ApexLoginShell({
               <button
                 type="button"
                 className="text-sm text-benz-secondary underline w-full mt-3 touch-target"
+                disabled={loading}
+                onClick={() => void handleMfaRecovery()}
+              >
+                Can't use authenticator? Clear MFA with password
+              </button>
+              <button
+                type="button"
+                className="text-sm text-benz-secondary underline w-full mt-2 touch-target"
                 onClick={resetToCredentials}
               >
                 Back to sign in

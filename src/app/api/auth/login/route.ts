@@ -17,12 +17,15 @@ import { applySessionCookieToResponse, createSessionToken, loginTechnician } fro
 import { applyCsrfCookieFromRequest, validateCsrfRequest } from '@/lib/csrf';
 import { isLegacyAuthPathEnabled } from '@/lib/authMode';
 import { getDb } from '@/lib/db';
+import { warmEncryptionKeyring } from '@/lib/encryption';
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { isApexPlatformMode } from '@/lib/platformMode';
 import { apiError, handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { createPendingMfaToken } from '@/lib/mfa/challenge';
-import { isMfaEnabledForTechnician } from '@/lib/mfa/service';
+import { isMfaEnabledForTechnician,
+  forceClearMfaIfAllowlisted,
+  recoverCorruptMfaIfNeeded } from '@/lib/mfa/service';
 import { checkRateLimit, getRequestIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { logApiWriteRequest } from '@/lib/requestLogging';
 import { AUTH_JSON_BODY_LIMIT_BYTES, loginRequestSchema, parseRequestBody } from '@/lib/validation';
@@ -42,6 +45,11 @@ export async function POST(request: Request) {
 
     // Bind D1 via getCloudflareContext before any Prisma/auth work (Workers: no fs).
     await getDb();
+    try {
+      await warmEncryptionKeyring();
+    } catch {
+      // keyring warm best-effort
+    }
 
     const parsed = await parseRequestBody(request, loginRequestSchema, AUTH_JSON_BODY_LIMIT_BYTES);
     if ('error' in parsed) {
@@ -60,7 +68,40 @@ export async function POST(request: Request) {
       }
 
       // Dual-path: password OK → MFA challenge when enrolled (elevated roles typically).
-      if (session.mfaEnabled || (await isMfaEnabledForTechnician(session.technicianId))) {
+      // After DEK rotation, MFA ciphertext can become unreadable — auto-clear so owner is not locked out.
+      let mfaRecovered = await recoverCorruptMfaIfNeeded(session.technicianId);
+      if (!mfaRecovered.recovered) {
+        const forced = await forceClearMfaIfAllowlisted({
+          technicianId: session.technicianId,
+          d7Number: session.d7Number,
+        });
+        if (forced.cleared) {
+          mfaRecovered = { recovered: true, reason: 'env_force_clear_identifiers' };
+        }
+      }
+      if (mfaRecovered.recovered) {
+        try {
+          await writeAuditedAccess({
+            action: 'auth.mfa_admin_reset',
+            dealershipId: session.dealershipId,
+            dealerId: auditDealerIdFromSession(session),
+            technicianId: session.technicianId,
+            entityType: 'technician',
+            entityId: session.technicianId,
+            ipAddress: getRequestIp(request),
+            metadata: {
+              stage: 'login_auto_recovery',
+              reason: mfaRecovered.reason || 'mfa_corrupt',
+            },
+          });
+        } catch {
+          // best-effort
+        }
+      }
+      if (
+        !mfaRecovered.recovered &&
+        (session.mfaEnabled || (await isMfaEnabledForTechnician(session.technicianId)))
+      ) {
         const mfaToken = await createPendingMfaToken({
           technicianId: session.technicianId,
           sessionVersion: session.sessionVersion,
@@ -125,7 +166,7 @@ export async function POST(request: Request) {
     }
 
     // Phase 6.1: never re-seed / re-hash owners on failed login (password overwrite vector).
-    const loginResult = await resolveUnifiedLogin(identifier, password);
+    let loginResult = await resolveUnifiedLogin(identifier, password);
 
     if (loginResult.status === 'invalid') {
       logger.warn('auth.login_invalid', {
@@ -134,6 +175,50 @@ export async function POST(request: Request) {
         identifierKind: detectCredentialType(identifier),
       });
       return apiError(INVALID_CREDENTIALS_MESSAGE, 401);
+    }
+
+    if (loginResult.status === 'mfa_required') {
+      let mfaRecovered = await recoverCorruptMfaIfNeeded(loginResult.technicianId);
+      if (!mfaRecovered.recovered) {
+        const forced = await forceClearMfaIfAllowlisted({
+          technicianId: loginResult.technicianId,
+          email: identifier.includes('@') ? identifier : null,
+          d7Number: !identifier.includes('@') ? identifier : null,
+          apexUsername: identifier,
+        });
+        if (forced.cleared) {
+          mfaRecovered = { recovered: true, reason: 'env_force_clear_identifiers' };
+        }
+      }
+      if (mfaRecovered.recovered) {
+        // Re-run login after clear so session is issued without MFA challenge.
+        const retry = await resolveUnifiedLogin(identifier, password);
+        if (retry.status === 'success') {
+          loginResult = retry;
+        } else {
+          // Fall through — should not re-challenge if cleared
+          try {
+            await writeAuditedAccess({
+              action: 'auth.mfa_admin_reset',
+              dealershipId: '',
+              technicianId: loginResult.technicianId,
+              entityType: 'technician',
+              entityId: loginResult.technicianId,
+              ipAddress: getRequestIp(request),
+              metadata: {
+                stage: 'login_auto_recovery',
+                reason: mfaRecovered.reason || 'mfa_corrupt',
+              },
+            });
+          } catch {
+            // best-effort
+          }
+          return apiError(
+            'MFA was reset because authenticator data could not be read after key rotation. Sign in again, then re-enroll MFA in Settings.',
+            401
+          );
+        }
+      }
     }
 
     if (loginResult.status === 'mfa_required') {
