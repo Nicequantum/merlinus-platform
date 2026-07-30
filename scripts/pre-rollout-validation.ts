@@ -1594,6 +1594,12 @@ async function checkSecurityAndConfig(): Promise<void> {
       rel.includes('auth/mfa/login-verify') &&
       content.includes('verifyPendingMfaToken') &&
       content.includes('checkRateLimit');
+    // Password-gated MFA clear after DEK rotation lockout (pre-session, rate limited).
+    const hasMfaSelfRecovery =
+      rel.includes('auth/mfa/self-recovery') &&
+      content.includes('inspectMfaMaterialHealth') &&
+      content.includes('clearMfaEnrollmentForRecovery') &&
+      (content.includes('checkRateLimit') || content.includes('withPublicRoute('));
     if (
       !isPublic &&
       !hasWithAuth &&
@@ -1602,7 +1608,8 @@ async function checkSecurityAndConfig(): Promise<void> {
       !hasPublicVideoShareHardening &&
       !hasTwilioWebhookAuth &&
       !hasQueueConsumerAuth &&
-      !hasMfaLoginVerify
+      !hasMfaLoginVerify &&
+      !hasMfaSelfRecovery
     ) {
       unauthenticated.push(rel);
     }
