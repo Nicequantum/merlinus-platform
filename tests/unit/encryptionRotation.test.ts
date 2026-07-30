@@ -115,7 +115,7 @@ describe('Encryption dual-key + rotation skeleton', () => {
       /start-reencrypt|requireManager/
     );
     assert.match(readSrc('src/components/EncryptionRotationPanel.tsx'), /Encryption key rotation/);
-    assert.match(readSrc('src/components/EncryptionRotationPanel.tsx'), /Full re-encrypt coverage/);
+    assert.match(readSrc('src/components/EncryptionRotationPanel.tsx'), /Re-encrypt plan|re-encrypts the next batch|Resume re-encrypt/);
     assert.match(readSrc('prisma/schema.prisma'), /model EncryptionRotation/);
     assert.match(readSrc('src/lib/healthChecks.ts'), /isDualKeyRotationActive|dual-key/);
     assert.match(readSrc('src/lib/healthChecks.ts'), /probeStaleMfaCiphertext|stillOnPreviousKey/);

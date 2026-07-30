@@ -168,16 +168,18 @@ describe('rate limiting', () => {
     }
   });
 
-  it('allows all app routes on Vercel production without KV using in-memory limits', async () => {
+  it('allows non-auth app routes on production without KV using in-memory limits; auth fail-closes', async () => {
     const saved = saveRateLimitEnv();
     setVercelProductionEnv();
     delete process.env.KV_REST_API_URL;
     delete process.env.KV_REST_API_TOKEN;
+    // Ensure Workers KV binding is not present for this test
+    const g = globalThis as typeof globalThis & { KV_STORE?: unknown };
+    const previousKv = g.KV_STORE;
+    delete g.KV_STORE;
 
     try {
       for (const routeKey of [
-        'auth.login',
-        'auth.me',
         'legal_disclaimer',
         'dashboard.summary',
         'ros.list',
@@ -195,7 +197,23 @@ describe('rate limiting', () => {
         );
         assert.equal(result, null, `expected ${routeKey} to use in-memory fallback`);
       }
+
+      // National posture: auth routes must not soft-open multi-instance without distributed KV.
+      for (const routeKey of ['auth.login', 'auth.me', 'auth.mfa.login-verify']) {
+        const result = await checkRateLimit(
+          makeRequest('203.0.113.10', 'https://merlinus.vercel.app'),
+          routeKey,
+          RATE_LIMITS.auth
+        );
+        assert.ok(result, `expected ${routeKey} to fail closed without KV`);
+        assert.equal(result!.status, 503);
+      }
     } finally {
+      if (previousKv === undefined) {
+        delete g.KV_STORE;
+      } else {
+        g.KV_STORE = previousKv;
+      }
       restoreRateLimitEnv(saved);
     }
   });
