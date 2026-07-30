@@ -60,11 +60,42 @@ describe('video inspection share tokens', () => {
     }
   });
 
+
+  it('PUBLIC_SHARE_HOST prefers custom domain over workers.dev request host', () => {
+    const prevShare = process.env.PUBLIC_SHARE_HOST;
+    const prevApp = process.env.NEXT_PUBLIC_APP_URL;
+    const prevMerlin = process.env.MERLIN_BASE_URL;
+    process.env.PUBLIC_SHARE_HOST = 'https://clarityautoapex.com';
+    process.env.NEXT_PUBLIC_APP_URL = 'https://merlinus-platform.hombre3536.workers.dev';
+    delete process.env.MERLIN_BASE_URL;
+    try {
+      const req = new Request('https://example.invalid/', {
+        headers: {
+          host: 'merlinus-platform.hombre3536.workers.dev',
+          'x-forwarded-proto': 'https',
+        },
+      });
+      const url = buildCustomerViewerUrl('tok123TOKEN_tok123TOKEN_tok123TOK', req);
+      assert.equal(
+        url,
+        'https://clarityautoapex.com/v/tok123TOKEN_tok123TOKEN_tok123TOK'
+      );
+    } finally {
+      if (prevShare === undefined) delete process.env.PUBLIC_SHARE_HOST;
+      else process.env.PUBLIC_SHARE_HOST = prevShare;
+      if (prevApp === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = prevApp;
+      if (prevMerlin === undefined) delete process.env.MERLIN_BASE_URL;
+      else process.env.MERLIN_BASE_URL = prevMerlin;
+    }
+  });
   it('derives production share host from request when env is localhost', () => {
     const prevApp = process.env.NEXT_PUBLIC_APP_URL;
     const prevMerlin = process.env.MERLIN_BASE_URL;
+    const prevShare = process.env.PUBLIC_SHARE_HOST;
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
     delete process.env.MERLIN_BASE_URL;
+    delete process.env.PUBLIC_SHARE_HOST;
     try {
       const req = new Request('https://example.invalid/', {
         headers: {
@@ -80,6 +111,8 @@ describe('video inspection share tokens', () => {
       else process.env.NEXT_PUBLIC_APP_URL = prevApp;
       if (prevMerlin === undefined) delete process.env.MERLIN_BASE_URL;
       else process.env.MERLIN_BASE_URL = prevMerlin;
+      if (prevShare === undefined) delete process.env.PUBLIC_SHARE_HOST;
+      else process.env.PUBLIC_SHARE_HOST = prevShare;
     }
   });
 });

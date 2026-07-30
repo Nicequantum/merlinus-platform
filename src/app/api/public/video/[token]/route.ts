@@ -1,6 +1,6 @@
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { withPublicRoute } from '@/lib/apiRoute';
-import { decryptSensitiveText } from '@/lib/encryption';
+import { decryptSensitiveText, warmEncryptionKeyring } from '@/lib/encryption';
 import { writeAuditLog } from '@/lib/audit';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
@@ -9,7 +9,18 @@ import {
   hashShareToken,
   isValidRawShareToken,
   verifyPasscodeHash,
+  resolveAppBaseUrl,
 } from '@/lib/videoInspection/shareTokens';
+
+function safeDecryptPublicField(ciphertext: string | null | undefined): string {
+  if (!ciphertext?.trim()) return '';
+  try {
+    return decryptSensitiveText(ciphertext);
+  } catch {
+    // Never 500 the customer viewer — video + findings severity still useful without notes.
+    return '';
+  }
+}
 
 /**
  * Public customer video metadata endpoint.
@@ -23,6 +34,11 @@ export async function GET(
   return withPublicRoute(
     request,
     async () => {
+      try {
+        await warmEncryptionKeyring();
+      } catch {
+        // decrypt below is soft-failed
+      }
       const { token } = await params;
       const raw = token?.trim();
       if (!isValidRawShareToken(raw)) return apiError(NOT_FOUND_ERROR, 404);
@@ -69,7 +85,7 @@ export async function GET(
       await writeAuditLog({
         action: 'video.public_view',
         dealershipId: inspection.dealershipId,
-                entityType: 'video_inspection_share',
+        entityType: 'video_inspection_share',
         entityId: share.id,
         metadata: {
           videoInspectionId: inspection.id,
@@ -77,32 +93,34 @@ export async function GET(
         },
       }).catch(() => undefined);
 
-      const host =
-        request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
-        request.headers.get('host')?.trim() ||
-        '';
-      const proto =
-        request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'http'
-          ? 'http'
-          : 'https';
+      // Use the same public origin as share links (PUBLIC_SHARE_HOST / custom domain).
       const mediaPath = `/api/public/video/${encodeURIComponent(raw!)}/media`;
-      const mediaUrl = host ? `${proto}://${host}${mediaPath}` : mediaPath;
+      const mediaUrl = `${resolveAppBaseUrl(request)}${mediaPath}`;
 
       // Decrypted finding notes for customer G/Y/R summary (no internal IDs required).
+      // Soft-decrypt: never fail the whole page if one note key is unreadable post-rotation.
       const findings = (inspection.findings ?? []).map((row) => {
-        const dto = mapFindingDto(row);
-        return {
-          category: dto.category,
-          severity: String(dto.severity),
-          note: dto.note || '',
-        };
+        try {
+          const dto = mapFindingDto(row);
+          return {
+            category: dto.category,
+            severity: String(dto.severity),
+            note: dto.note || '',
+          };
+        } catch {
+          return {
+            category: row.category,
+            severity: String(row.severity),
+            note: safeDecryptPublicField(row.noteEncrypted),
+          };
+        }
       });
 
       return Response.json({
         title: inspection.title,
         vehicleLabel: inspection.vehicleLabel,
         dealershipName: inspection.dealership?.name ?? null,
-        report: decryptSensitiveText(inspection.reportEncrypted || ''),
+        report: safeDecryptPublicField(inspection.reportEncrypted),
         findings,
         mediaUrl,
         hasVideo: Boolean(inspection.videoPathname?.trim()),

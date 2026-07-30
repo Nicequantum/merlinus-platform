@@ -81,36 +81,72 @@ function isLocalhostHost(host: string): boolean {
   );
 }
 
+function isWorkersDevHost(host: string): boolean {
+  return host.toLowerCase().endsWith('.workers.dev');
+}
+
+function originFromEnvCandidate(raw: string | undefined | null): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  try {
+    const u = new URL(v.includes('://') ? v : `https://${v}`);
+    if (isLocalhostHost(u.host)) return null;
+    return stripTrailingSlash(`${u.protocol}//${u.host}`);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Resolve the public app origin for customer share links.
- * Prefer explicit env; on Cloudflare Workers fall back to the request Host
- * so links never ship as http://localhost:3000 in production.
+ *
+ * Priority:
+ * 1. PUBLIC_SHARE_HOST / CUSTOMER_SHARE_HOST / NEXT_PUBLIC_APP_URL / MERLIN_BASE_URL / APP_URL
+ *    (prefer custom domains over *.workers.dev when multiple are set)
+ * 2. Request Host (Workers) — still prefer custom domain env over workers.dev request host
+ * 3. CF_PAGES_URL / VERCEL_URL
+ *
+ * Never emit http://localhost for production share links.
  */
 export function resolveAppBaseUrl(request?: Request | null): string {
-  const candidates = [
+  const envCandidates = [
+    process.env.PUBLIC_SHARE_HOST,
+    process.env.CUSTOMER_SHARE_HOST,
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.MERLIN_BASE_URL,
     process.env.APP_URL,
     process.env.CF_PAGES_URL,
   ];
-  for (const raw of candidates) {
-    const v = raw?.trim();
-    if (!v) continue;
-    try {
-      const u = new URL(v.includes('://') ? v : `https://${v}`);
-      if (!isLocalhostHost(u.host)) {
-        return stripTrailingSlash(`${u.protocol}//${u.host}`);
-      }
-    } catch {
-      // try next
-    }
+
+  const parsed: string[] = [];
+  for (const raw of envCandidates) {
+    const origin = originFromEnvCandidate(raw);
+    if (origin) parsed.push(origin);
   }
+
+  // Prefer first custom (non-workers.dev) origin so bay tablets on workers.dev
+  // still mint clarityautoapex.com customer links when PUBLIC_SHARE_HOST is set.
+  const custom = parsed.find((o) => {
+    try {
+      return !isWorkersDevHost(new URL(o).host);
+    } catch {
+      return false;
+    }
+  });
+  if (custom) return custom;
+  if (parsed[0]) return parsed[0];
 
   if (request) {
     const host =
       request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
       request.headers.get('host')?.trim() ||
       '';
+    if (host && !isLocalhostHost(host) && !isWorkersDevHost(host)) {
+      const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+      const proto = protoHeader === 'http' ? 'http' : 'https';
+      return stripTrailingSlash(`${proto}://${host}`);
+    }
+    // Request is workers.dev with no custom env — last resort for internal testing.
     if (host && !isLocalhostHost(host)) {
       const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
       const proto = protoHeader === 'http' ? 'http' : 'https';

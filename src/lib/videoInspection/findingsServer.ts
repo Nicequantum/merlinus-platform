@@ -15,11 +15,17 @@ import {
 import type { MpiSeverity } from '@/lib/videoInspection/mpiCategories';
 
 export function mapFindingDto(row: FindingRow): FindingDto {
+  let note = '';
+  try {
+    note = decryptSensitiveText(row.noteEncrypted || '');
+  } catch {
+    note = '';
+  }
   return {
     id: row.id,
     category: row.category,
     severity: row.severity,
-    note: decryptSensitiveText(row.noteEncrypted || ''),
+    note,
     timestampSec: row.timestampSec,
     framePathname: row.framePathname,
     sortOrder: row.sortOrder,

@@ -463,6 +463,14 @@ export async function withPublicRoute<T>(
       }
     }
 
+    // Customer share links decrypt report/findings — must load DEK keyring (same as withAuth).
+    try {
+      const { warmEncryptionKeyring } = await import('@/lib/encryption');
+      await warmEncryptionKeyring();
+    } catch {
+      // routes that need decrypt still fail closed; others unaffected
+    }
+
     const startedAt = Date.now();
     const method = request.method;
     try {
