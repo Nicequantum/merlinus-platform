@@ -812,14 +812,27 @@ async function checkHighPriorityAuditFixes(): Promise<void> {
   }
 
   const imageSrc = readFileSync(resolve(process.cwd(), 'src/lib/imageAccess.ts'), 'utf8');
+  // D1: never Prisma-contains R2 pathnames (underscore wildcards → LIKE too complex).
+  // Bounded findMany + exact JSON pathname match is the correct national path.
   if (
     imageSrc.includes('repairOrderContainsPathname') &&
+    imageSrc.includes('loadAttachedPathnames') &&
     imageSrc.includes('findMany') &&
-    imageSrc.includes('contains: pathname')
+    !imageSrc.includes('contains: pathname')
   ) {
-    record('High Priority', 'H9 image access query', 'pass', 'Targeted pathname lookup (no full RO scan)');
+    record(
+      'High Priority',
+      'H9 image access query',
+      'pass',
+      'Bounded RO scan + exact pathname match (no D1 LIKE on R2 paths)'
+    );
   } else {
-    record('High Priority', 'H9 image access query', 'fail', 'Image access still scans all repair orders');
+    record(
+      'High Priority',
+      'H9 image access query',
+      'fail',
+      'Image access must avoid contains:pathname (D1 LIKE complexity) and use exact match'
+    );
   }
 
   const listSrc = readFileSync(resolve(process.cwd(), 'src/app/api/repair-orders/route.ts'), 'utf8');
