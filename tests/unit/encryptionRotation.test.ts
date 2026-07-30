@@ -164,3 +164,11 @@ describe('Encryption dual-key + rotation skeleton', () => {
     );
   });
 });
+
+  it('rotation cadence and status bundle include 90-day guidance', () => {
+    const src = readSrc('src/lib/encryption/rotationService.ts');
+    assert.match(src, /ENCRYPTION_KEY_ROTATION_RECOMMENDED_DAYS/);
+    assert.match(src, /getRotationCadence/);
+    assert.match(src, /hmacKeyConfigured/);
+    assert.ok(src.includes('90'));
+  });

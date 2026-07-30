@@ -310,6 +310,45 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
+  mfaDisable: (code: string) =>
+    apiFetch<{
+      ok: boolean;
+      mfaEnabled: boolean;
+      message?: string;
+      requiresReauth?: boolean;
+    }>('/api/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  getMfaRoster: () =>
+    apiFetch<{
+      ok: boolean;
+      enforcementEnabled: boolean;
+      requiredRoles: string[];
+      rows: Array<{
+        technicianId: string;
+        name: string;
+        role: string;
+        isAdmin: boolean;
+        mfaEnabled: boolean;
+        enrolledAt: string | null;
+        elevated: boolean;
+      }>;
+      elevatedEnrolled: number;
+      elevatedTotal: number;
+    }>('/api/manager/mfa/roster', { cache: 'no-store' }),
+
+  adminResetMfa: (technicianId: string, reason?: string) =>
+    apiFetch<{
+      ok: boolean;
+      message?: string;
+      targetRole?: string;
+    }>('/api/manager/mfa/reset', {
+      method: 'POST',
+      body: JSON.stringify({ technicianId, reason }),
+    }),
+
   listVoiceCustomizations: () =>
     apiFetch<{
       dealershipId: string;
@@ -1095,6 +1134,15 @@ export const api = {
         decryptFailed: number;
         tablesChecked: string[];
       } | null;
+      cadence?: {
+        recommendedDays: number;
+        lastCompletedAt: string | null;
+        daysSinceLastCompleted: number | null;
+        recommendRotate: boolean;
+        neverRotated: boolean;
+        dualKeyOpen: boolean;
+      };
+      hmacKeyConfigured?: boolean;
     }>('/api/manager/encryption/rotate', { cache: 'no-store' }),
 
   beginEncryptionRotation: () =>

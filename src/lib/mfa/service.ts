@@ -325,3 +325,156 @@ export async function getMfaStatusForTechnician(technicianId: string): Promise<{
     };
   });
 }
+
+/**
+ * Self-service disable MFA — requires a valid TOTP or backup code.
+ * Clears UserMfa + Technician mirrors and revokes all sessions.
+ */
+export async function disableMfaForTechnician(input: {
+  technicianId: string;
+  code: string;
+}): Promise<void> {
+  const verified = await verifyMfaFactor({
+    technicianId: input.technicianId,
+    code: input.code,
+  });
+  if (!verified.ok) {
+    throw new Error(verified.error || 'Invalid authentication code.');
+  }
+
+  await withRlsBypass(async () => {
+    const db = getRlsDb();
+    await db.userMfa.deleteMany({ where: { technicianId: input.technicianId } });
+    await db.technician.update({
+      where: { id: input.technicianId },
+      data: {
+        mfaEnabled: false,
+        mfaSecretEncrypted: null,
+        mfaEnrolledAt: null,
+        mfaBackupCodesEncrypted: null,
+      },
+    });
+    await revokeAllSessionsForTechnician(input.technicianId);
+  });
+}
+
+/**
+ * Manager/owner admin reset — clears MFA for a locked-out user at the same rooftop.
+ * Does not require the target's TOTP (ops recovery path). Audited by the route.
+ */
+export async function adminResetMfaForTechnician(input: {
+  targetTechnicianId: string;
+  dealershipId: string;
+  actorTechnicianId: string;
+}): Promise<{ targetName: string; targetRole: string }> {
+  return withRlsBypass(async () => {
+    const db = getRlsDb();
+    const target = await db.technician.findFirst({
+      where: {
+        id: input.targetTechnicianId,
+        dealershipId: input.dealershipId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        isAdmin: true,
+        mfaEnabled: true,
+      },
+    });
+    if (!target) {
+      throw new Error('User not found at this dealership.');
+    }
+    if (target.id === input.actorTechnicianId) {
+      throw new Error('Use Settings → MFA to disable your own authenticator (requires your code).');
+    }
+
+    await db.userMfa.deleteMany({ where: { technicianId: target.id } });
+    await db.technician.update({
+      where: { id: target.id },
+      data: {
+        mfaEnabled: false,
+        mfaSecretEncrypted: null,
+        mfaEnrolledAt: null,
+        mfaBackupCodesEncrypted: null,
+      },
+    });
+    await revokeAllSessionsForTechnician(target.id);
+
+    return {
+      targetName: target.name,
+      targetRole: target.isAdmin ? 'admin' : target.role,
+    };
+  });
+}
+
+export type DealershipMfaRosterRow = {
+  technicianId: string;
+  name: string;
+  role: string;
+  isAdmin: boolean;
+  mfaEnabled: boolean;
+  enrolledAt: string | null;
+  elevated: boolean;
+};
+
+/**
+ * MFA enrollment roster for the active rooftop (elevated roles first).
+ * No secrets returned — flags only for manager compliance view.
+ */
+export async function listDealershipMfaRoster(dealershipId: string): Promise<{
+  enforcementEnabled: boolean;
+  requiredRoles: string[];
+  rows: DealershipMfaRosterRow[];
+  elevatedEnrolled: number;
+  elevatedTotal: number;
+}> {
+  const { isMfaEnforcementEnabled, parseMfaRequiredRoles } = await import('@/lib/mfa/policy');
+  const required = parseMfaRequiredRoles();
+  const enforcementEnabled = isMfaEnforcementEnabled();
+
+  return withRlsBypass(async () => {
+    const techs = await getRlsDb().technician.findMany({
+      where: { dealershipId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        isAdmin: true,
+        mfaEnabled: true,
+        mfaEnrolledAt: true,
+      },
+      orderBy: [{ role: 'asc' }, { name: 'asc' }],
+      take: 200,
+    });
+
+    const rows: DealershipMfaRosterRow[] = techs.map((t) => {
+      const role = (t.role || '').toLowerCase();
+      const elevated = required.has(role) || (t.isAdmin && required.has('admin'));
+      return {
+        technicianId: t.id,
+        name: t.name,
+        role: t.isAdmin && role !== 'admin' ? `${role}+admin` : role,
+        isAdmin: t.isAdmin,
+        mfaEnabled: Boolean(t.mfaEnabled && t.mfaEnrolledAt),
+        enrolledAt: t.mfaEnrolledAt?.toISOString() ?? null,
+        elevated,
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (a.elevated !== b.elevated) return a.elevated ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const elevatedRows = rows.filter((r) => r.elevated);
+    return {
+      enforcementEnabled,
+      requiredRoles: [...required],
+      rows,
+      elevatedEnrolled: elevatedRows.filter((r) => r.mfaEnabled).length,
+      elevatedTotal: elevatedRows.length,
+    };
+  });
+}

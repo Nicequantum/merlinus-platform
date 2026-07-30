@@ -121,6 +121,9 @@ export async function getRotationStatusBundle(): Promise<{
   instructions: string[];
   coverage: ReturnType<typeof getReencryptCoverageSummary>;
   mfaStaleProbe: Awaited<ReturnType<typeof probeStaleMfaCiphertext>> | null;
+  /** 90-day key rotation cadence guidance */
+  cadence: RotationCadence;
+  hmacKeyConfigured: boolean;
 }> {
   const keys = getEncryptionKeyStatus();
   const rotation = await getActiveOrLatestRotation();
@@ -144,6 +147,9 @@ export async function getRotationStatusBundle(): Promise<{
     }
   }
 
+  const cadence = await getRotationCadence();
+  const hmacKeyConfigured = Boolean(process.env.SEARCH_HMAC_KEY?.trim());
+
   const instructions = [
     '1. Backup the database before any key change.',
     '2. Generate a new key on this page (shown once — copy to your secret store).',
@@ -152,9 +158,75 @@ export async function getRotationStatusBundle(): Promise<{
     '5. Start re-encryption (walks ALL AES columns including MFA secrets — zero-downtime dual-key).',
     '6. Confirm coverage includes MFA (UserMfa + Technician mirrors) and health shows no stale MFA ciphertext.',
     '7. When 100% complete and MFA probe is clean, remove DATA_ENCRYPTION_KEY_PREVIOUS and redeploy.',
+    '8. Recommended cadence: rotate every 90 days (or sooner after a suspected key exposure).',
   ];
 
-  return { keys, rotation, canStartReencrypt, instructions, coverage, mfaStaleProbe };
+  return {
+    keys,
+    rotation,
+    canStartReencrypt,
+    instructions,
+    coverage,
+    mfaStaleProbe,
+    cadence,
+    hmacKeyConfigured,
+  };
+}
+
+/** Recommended DATA_ENCRYPTION_KEY rotation interval (days). */
+export const ENCRYPTION_KEY_ROTATION_RECOMMENDED_DAYS = 90;
+
+export type RotationCadence = {
+  recommendedDays: number;
+  lastCompletedAt: string | null;
+  daysSinceLastCompleted: number | null;
+  recommendRotate: boolean;
+  neverRotated: boolean;
+  dualKeyOpen: boolean;
+};
+
+/**
+ * 90-day rotation hygiene from EncryptionRotation history + dual-key flag.
+ */
+export async function getRotationCadence(): Promise<RotationCadence> {
+  const dualKeyOpen = isDualKeyRotationActive();
+  return withRlsBypass(async () => {
+    let lastCompletedAt: string | null = null;
+    try {
+      const row = await getRlsDb().encryptionRotation.findFirst({
+        where: { status: 'completed' },
+        orderBy: { finishedAt: 'desc' },
+        select: { finishedAt: true, startedAt: true },
+      });
+      const at = row?.finishedAt || row?.startedAt || null;
+      lastCompletedAt = at ? at.toISOString() : null;
+    } catch {
+      lastCompletedAt = null;
+    }
+
+    let daysSinceLastCompleted: number | null = null;
+    if (lastCompletedAt) {
+      daysSinceLastCompleted = Math.floor(
+        (Date.now() - new Date(lastCompletedAt).getTime()) / (24 * 60 * 60 * 1000)
+      );
+    }
+    const neverRotated = !lastCompletedAt;
+    // Recommend rotate when dual-key is stuck open or past 90 days.
+    // "Never rotated" is informational (new fleets) — UI still surfaces it.
+    const recommendRotate =
+      dualKeyOpen ||
+      (daysSinceLastCompleted !== null &&
+        daysSinceLastCompleted >= ENCRYPTION_KEY_ROTATION_RECOMMENDED_DAYS);
+
+    return {
+      recommendedDays: ENCRYPTION_KEY_ROTATION_RECOMMENDED_DAYS,
+      lastCompletedAt,
+      daysSinceLastCompleted,
+      recommendRotate,
+      neverRotated,
+      dualKeyOpen,
+    };
+  });
 }
 
 /**

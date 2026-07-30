@@ -47,6 +47,15 @@ type MfaStaleProbe = {
   tablesChecked: string[];
 };
 
+type RotationCadence = {
+  recommendedDays: number;
+  lastCompletedAt: string | null;
+  daysSinceLastCompleted: number | null;
+  recommendRotate: boolean;
+  neverRotated: boolean;
+  dualKeyOpen: boolean;
+};
+
 /**
  * Manager Settings → Security → Encryption Key Rotation
  * Guided flow: generate → deploy secrets → paste/submit new key → re-encrypt.
@@ -63,6 +72,8 @@ export function EncryptionRotationPanel() {
   const [instructions, setInstructions] = useState<string[]>([]);
   const [coverage, setCoverage] = useState<ReencryptCoverage | null>(null);
   const [mfaStaleProbe, setMfaStaleProbe] = useState<MfaStaleProbe | null>(null);
+  const [cadence, setCadence] = useState<RotationCadence | null>(null);
+  const [hmacKeyConfigured, setHmacKeyConfigured] = useState(false);
   const [oneTimeKey, setOneTimeKey] = useState<string | null>(null);
   const [newKeyFingerprint, setNewKeyFingerprint] = useState<string | null>(null);
   const [previousKeyFingerprint, setPreviousKeyFingerprint] = useState<string | null>(null);
@@ -79,6 +90,8 @@ export function EncryptionRotationPanel() {
       setInstructions(data.instructions || []);
       setCoverage((data.coverage as ReencryptCoverage) || null);
       setMfaStaleProbe((data.mfaStaleProbe as MfaStaleProbe) || null);
+      setCadence((data.cadence as RotationCadence) || null);
+      setHmacKeyConfigured(Boolean(data.hmacKeyConfigured));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load encryption status');
     } finally {
@@ -257,6 +270,39 @@ export function EncryptionRotationPanel() {
                 {keys?.dualKeyActive ? 'ACTIVE' : 'off'}
               </strong>
             </div>
+            {cadence ? (
+              <div
+                className={`rounded px-2 py-1.5 text-[11px] ${
+                  cadence.recommendRotate
+                    ? 'border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100'
+                    : 'bg-black/5 dark:bg-white/5 text-benz-secondary'
+                }`}
+              >
+                <div className="font-semibold mb-0.5">
+                  Key rotation cadence (every {cadence.recommendedDays} days)
+                </div>
+                {cadence.neverRotated ? (
+                  <div>No completed rotation on record yet — schedule when ready.</div>
+                ) : (
+                  <div>
+                    Last completed{' '}
+                    {cadence.daysSinceLastCompleted != null
+                      ? `${cadence.daysSinceLastCompleted} day${
+                          cadence.daysSinceLastCompleted === 1 ? '' : 's'
+                        } ago`
+                      : 'recently'}
+                    {cadence.lastCompletedAt
+                      ? ` (${new Date(cadence.lastCompletedAt).toLocaleDateString()})`
+                      : ''}
+                    {cadence.recommendRotate ? ' — rotation recommended now.' : '.'}
+                  </div>
+                )}
+                <div className="text-[10px] mt-1 opacity-80">
+                  SEARCH_HMAC_KEY: {hmacKeyConfigured ? 'configured' : 'missing'} (search index;
+                  rotate with ops if key is rotated outside this UI)
+                </div>
+              </div>
+            ) : null}
             {coverage ? (
               <div className="rounded bg-black/5 dark:bg-white/5 px-2 py-1.5 space-y-1">
                 <div className="text-[10px] uppercase tracking-wide text-benz-muted">

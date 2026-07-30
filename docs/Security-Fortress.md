@@ -141,6 +141,16 @@ Older migrations under `prisma/migrations/*rls*` may reference Postgres `ENABLE/
 
 Operators: enroll managers → enable `MERLIN_MFA_ENFORCE` → include MFA columns in every key rotation (full reencrypt plan).
 
+### v4.1+ operator upgrades (in-app)
+
+| Capability | Where |
+|------------|--------|
+| Self enroll / re-enroll / disable MFA | Settings → Multi-factor authentication |
+| Dealership MFA roster + admin reset (lost phone) | Settings → Dealership MFA roster (manager/owner) |
+| Encryption key generate / dual-key / re-encrypt | Settings → Encryption key rotation |
+| 90-day cadence banner + health warn when overdue | Encryption panel + `/api/health` encryption check |
+
+
 ---
 
 ## AI jobs queue — operational criticality (P0-4)

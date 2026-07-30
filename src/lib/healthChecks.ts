@@ -190,6 +190,34 @@ export async function checkEncryption(): Promise<DependencyCheck> {
         detail: `Dual-key active (primary=${getPrimaryKeyFingerprint()} previous=${getPreviousKeyFingerprint()}) — finish re-encrypt (incl. MFA) then remove DATA_ENCRYPTION_KEY_PREVIOUS`,
       };
     }
+
+    // 90-day cadence — recommend rotation when overdue (not "never rotated" for new fleets).
+    try {
+      const { getRotationCadence } = await import('@/lib/encryption/rotationService');
+      const cadence = await getRotationCadence();
+      if (
+        cadence.daysSinceLastCompleted !== null &&
+        cadence.daysSinceLastCompleted >= cadence.recommendedDays
+      ) {
+        return {
+          status: 'warn',
+          latencyMs,
+          detail: `primary=${getPrimaryKeyFingerprint()} lastRotation=${cadence.daysSinceLastCompleted}d ago — overdue (recommend every ${cadence.recommendedDays} days)`,
+        };
+      }
+      const agePart =
+        cadence.daysSinceLastCompleted !== null
+          ? ` lastRotation=${cadence.daysSinceLastCompleted}d`
+          : ' lastRotation=none';
+      return {
+        status: 'ok',
+        latencyMs,
+        detail: `primary=${getPrimaryKeyFingerprint()} dualKey=off${agePart} fullReencryptPlan=yes`,
+      };
+    } catch {
+      // fall through
+    }
+
     return {
       status: 'ok',
       latencyMs,

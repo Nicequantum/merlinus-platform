@@ -10,15 +10,16 @@ const SECURITY_CATEGORIES: Array<{ title: string; items: string[] }> = [
     title: 'Data Encryption',
     items: [
       'Customer PII and repair content encrypted at rest using AES-256-GCM',
-      'Phase 3 PII migration: dual-storage active (plaintext + encrypted columns until Phase 4 cutover)',
+      'Dual-key AES-256-GCM rotation with full re-encrypt including MFA secrets',
     ],
   },
   {
     title: 'Access Control',
     items: [
       'Session-based authentication (stays signed in until logout or password change — no idle timeout)',
+      'TOTP multi-factor authentication for elevated roles (managers / owners / admins)',
       'Diagnostic images protected with strict authorization checks on upload and update',
-      'Images stored in Vercel Blob with session-based private access',
+      'Images and video stored in private object storage (R2) with session-based access',
       'Optimistic concurrency control to prevent data corruption',
     ],
   },
@@ -32,7 +33,7 @@ const SECURITY_CATEGORIES: Array<{ title: string; items: string[] }> = [
   {
     title: 'Infrastructure Security',
     items: [
-      'Production-grade distributed rate limiting using Vercel KV',
+      'Production-grade distributed rate limiting (Cloudflare KV when bound)',
       'Pre-deployment validation gates (environment, secrets, AI timeouts, PII checks)',
       'Complete separation of in-app UI from PWA/home screen assets',
       'Regular security hardening updates and monitoring via Sentry',

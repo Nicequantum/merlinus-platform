@@ -96,3 +96,15 @@ describe('MFA fortress — TOTP + backup codes', () => {
     assert.match(readSrc('src/lib/rate-limit.ts'), /authMfa/);
   });
 });
+
+  it('admin roster/reset and self-disable routes exist', () => {
+    assert.match(readSrc('src/lib/mfa/service.ts'), /adminResetMfaForTechnician/);
+    assert.match(readSrc('src/lib/mfa/service.ts'), /listDealershipMfaRoster/);
+    assert.match(readSrc('src/lib/mfa/service.ts'), /disableMfaForTechnician/);
+    assert.match(readSrc('src/app/api/manager/mfa/roster/route.ts'), /listDealershipMfaRoster/);
+    assert.match(readSrc('src/app/api/manager/mfa/reset/route.ts'), /adminResetMfaForTechnician/);
+    assert.match(readSrc('src/app/api/auth/mfa/disable/route.ts'), /disableMfaForTechnician/);
+    assert.match(readSrc('src/components/MfaAdminPanel.tsx'), /Dealership MFA roster/);
+    assert.match(readSrc('src/lib/audit.ts'), /auth\.mfa_admin_reset/);
+    assert.match(readSrc('src/lib/audit.ts'), /auth\.mfa_disable/);
+  });

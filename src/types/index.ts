@@ -696,6 +696,8 @@ export const AUDIT_ACTIONS = [
   'auth.mfa_failure',
   'auth.mfa_backup_used',
   'auth.mfa_backup_regenerate',
+  'auth.mfa_disable',
+  'auth.mfa_admin_reset',
   'auth.clerk_link',
   'consent.accept',
   'legalDisclaimer.accept',

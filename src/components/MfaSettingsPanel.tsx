@@ -37,6 +37,7 @@ export function MfaSettingsPanel({ session, onSessionRefresh }: MfaSettingsPanel
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [regenCode, setRegenCode] = useState('');
+  const [disableCode, setDisableCode] = useState('');
   const [step, setStep] = useState<'idle' | 'enrolling' | 'codes'>('idle');
 
   const refresh = useCallback(async () => {
@@ -231,6 +232,59 @@ export function MfaSettingsPanel({ session, onSessionRefresh }: MfaSettingsPanel
           >
             Re-enroll authenticator
           </button>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void (async () => {
+                if (!disableCode.trim()) return;
+                if (
+                  !window.confirm(
+                    'Disable MFA on this account? You will need to sign in again.'
+                  )
+                ) {
+                  return;
+                }
+                setBusy(true);
+                try {
+                  await api.mfaDisable(disableCode.trim());
+                  toast.success('MFA disabled — sign in again');
+                  setDisableCode('');
+                  setBackupCodes(null);
+                  setStep('idle');
+                  await onSessionRefresh?.();
+                  await refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Could not disable MFA');
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+            className="space-y-2 border-t border-benz-border/50 pt-4"
+          >
+            <div className="text-xs font-semibold text-benz-secondary">Disable MFA</div>
+            <p className="text-[11px] text-benz-muted leading-relaxed">
+              Enter a current authenticator or backup code. Sessions will be signed out.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                className="benz-input benz-input-mono flex-1"
+                autoComplete="one-time-code"
+                placeholder="Authenticator or backup code"
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                className="benz-danger-btn h-10 px-4 text-xs font-semibold"
+                disabled={busy || !disableCode.trim()}
+              >
+                Disable MFA
+              </button>
+            </div>
+          </form>
         </div>
       ) : (
         <div className="space-y-4">

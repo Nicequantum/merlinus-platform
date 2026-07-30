@@ -31,6 +31,7 @@ import { DealershipBranding } from '@/components/DealershipBranding';
 import { ClerkLinkAccountSection } from '@/components/ClerkLinkAccountSection';
 import { SecurityComplianceSection } from '@/components/SecurityComplianceSection';
 import { MfaSettingsPanel } from '@/components/MfaSettingsPanel';
+import { MfaAdminPanel } from '@/components/MfaAdminPanel';
 import { DepartmentTailoringPanel } from '@/components/voice/DepartmentTailoringPanel';
 import { EncryptionRotationPanel } from '@/components/EncryptionRotationPanel';
 
@@ -379,6 +380,7 @@ export function SettingsView({
         session.role === 'owner' ||
         session.isAdmin) && (
         <>
+          <MfaAdminPanel />
           <EncryptionRotationPanel />
           <DepartmentTailoringPanel />
         </>
