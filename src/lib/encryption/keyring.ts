@@ -31,6 +31,7 @@ type CacheState = KeyringSnapshot & { loadedAt: number };
 
 let cache: CacheState | null = null;
 let loadPromise: Promise<KeyringSnapshot> | null = null;
+let tableEnsurePromise: Promise<boolean> | null = null;
 
 function fingerprintSecret(secret: string): string {
   return createHash('sha256').update(secret, 'utf8').digest('hex').slice(0, 16);
@@ -76,6 +77,68 @@ export function generateDekSecret(): string {
 
 export function fingerprintDek(secret: string): string {
   return fingerprintSecret(secret);
+}
+
+function isMissingTableError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? '');
+  return (
+    /EncryptionKeyring/i.test(msg) &&
+    (/does not exist/i.test(msg) ||
+      /no such table/i.test(msg) ||
+      /P2021/i.test(msg) ||
+      /SQLITE_ERROR/i.test(msg))
+  ) || /no such table:\s*EncryptionKeyring/i.test(msg);
+}
+
+/**
+ * Create EncryptionKeyring if missing (self-heal when D1 migration not yet applied).
+ * Idempotent. Returns true when table is usable.
+ */
+export async function ensureEncryptionKeyringTable(): Promise<boolean> {
+  if (tableEnsurePromise) return tableEnsurePromise;
+
+  tableEnsurePromise = (async () => {
+    try {
+      await withRlsBypass(async () => {
+        const db = getRlsDb() as {
+          $executeRawUnsafe: (sql: string) => Promise<unknown>;
+        };
+        await db.$executeRawUnsafe(`
+CREATE TABLE IF NOT EXISTS "EncryptionKeyring" (
+    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'global',
+    "primaryFingerprint" TEXT NOT NULL DEFAULT '',
+    "primaryWrapped" TEXT NOT NULL DEFAULT '',
+    "previousFingerprint" TEXT NOT NULL DEFAULT '',
+    "previousWrapped" TEXT NOT NULL DEFAULT '',
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "lastRotatedAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`);
+        await db.$executeRawUnsafe(`
+INSERT OR IGNORE INTO "EncryptionKeyring" (
+  "id", "primaryFingerprint", "primaryWrapped",
+  "previousFingerprint", "previousWrapped", "version", "createdAt", "updatedAt"
+) VALUES (
+  'global', '', '', '', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+)`);
+      });
+      // Prove Prisma can read it
+      await withRlsBypass(async () => {
+        await getRlsDb().encryptionKeyring.findUnique({ where: { id: KEYRING_ID } });
+      });
+      logger.info('encryption.keyring_table_ensured');
+      return true;
+    } catch (error) {
+      logger.error('encryption.keyring_table_ensure_failed', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+      tableEnsurePromise = null;
+      return false;
+    }
+  })();
+
+  return tableEnsurePromise;
 }
 
 function bootstrapFromEnv(): KeyringSnapshot {
@@ -132,8 +195,6 @@ export async function ensureEncryptionKeyringLoaded(force = false): Promise<Keyr
             });
           }
         }
-        // Always keep env KEK as last-resort decrypt candidate during first migration
-        // (handled in encryption.ts candidates) — here primary is the DEK.
         return setCache({
           primarySecret,
           previousSecret,
@@ -148,9 +209,17 @@ export async function ensureEncryptionKeyringLoaded(force = false): Promise<Keyr
         });
       }
     } catch (error) {
-      logger.error('encryption.keyring_load_failed', {
-        error: error instanceof Error ? error.message : 'unknown',
-      });
+      if (isMissingTableError(error)) {
+        logger.info('encryption.keyring_table_missing_bootstrap', {
+          detail: 'EncryptionKeyring missing — using env KEK until table is created',
+        });
+        // Best-effort create so the next rotate can succeed without a deploy wait.
+        await ensureEncryptionKeyringTable();
+      } else {
+        logger.error('encryption.keyring_load_failed', {
+          error: error instanceof Error ? error.message : 'unknown',
+        });
+      }
     }
     return setCache(bootstrapFromEnv());
   })();
@@ -178,6 +247,13 @@ export async function rotateInAppDek(): Promise<{
   previousFingerprint: string;
   version: number;
 }> {
+  const tableOk = await ensureEncryptionKeyringTable();
+  if (!tableOk) {
+    throw new Error(
+      'EncryptionKeyring table could not be created. Apply D1 migration: npx wrangler d1 migrations apply merlinus-d1 --remote'
+    );
+  }
+
   const current = await ensureEncryptionKeyringLoaded(true);
   const previousSecret = current.primarySecret;
   const newSecret = generateDekSecret();
@@ -187,32 +263,41 @@ export async function rotateInAppDek(): Promise<{
   const previousWrapped = wrapDekSecret(previousSecret);
   const now = new Date();
 
-  await withRlsBypass(async () => {
-    const db = getRlsDb();
-    const existing = await db.encryptionKeyring.findUnique({ where: { id: KEYRING_ID } });
-    const version = (existing?.version ?? 0) + 1;
-    await db.encryptionKeyring.upsert({
-      where: { id: KEYRING_ID },
-      create: {
-        id: KEYRING_ID,
-        primaryFingerprint,
-        primaryWrapped,
-        previousFingerprint,
-        previousWrapped,
-        version,
-        lastRotatedAt: now,
-      },
-      update: {
-        primaryFingerprint,
-        primaryWrapped,
-        previousFingerprint,
-        previousWrapped,
-        version,
-        lastRotatedAt: now,
-        updatedAt: now,
-      },
+  try {
+    await withRlsBypass(async () => {
+      const db = getRlsDb();
+      const existing = await db.encryptionKeyring.findUnique({ where: { id: KEYRING_ID } });
+      const version = (existing?.version ?? 0) + 1;
+      await db.encryptionKeyring.upsert({
+        where: { id: KEYRING_ID },
+        create: {
+          id: KEYRING_ID,
+          primaryFingerprint,
+          primaryWrapped,
+          previousFingerprint,
+          previousWrapped,
+          version,
+          lastRotatedAt: now,
+        },
+        update: {
+          primaryFingerprint,
+          primaryWrapped,
+          previousFingerprint,
+          previousWrapped,
+          version,
+          lastRotatedAt: now,
+          updatedAt: now,
+        },
+      });
     });
-  });
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      throw new Error(
+        'EncryptionKeyring table is missing. Run: npx wrangler d1 migrations apply merlinus-d1 --remote (migration 20250801120000_encryption_keyring)'
+      );
+    }
+    throw error;
+  }
 
   invalidateKeyringCache();
   await ensureEncryptionKeyringLoaded(true);
@@ -231,19 +316,29 @@ export async function rotateInAppDek(): Promise<{
 
 /** After re-encrypt completes — drop previous DEK so dual-key window closes. */
 export async function finalizeInAppDekRotation(): Promise<void> {
-  await withRlsBypass(async () => {
-    const db = getRlsDb();
-    const row = await db.encryptionKeyring.findUnique({ where: { id: KEYRING_ID } });
-    if (!row?.primaryWrapped) return;
-    await db.encryptionKeyring.update({
-      where: { id: KEYRING_ID },
-      data: {
-        previousFingerprint: '',
-        previousWrapped: '',
-        updatedAt: new Date(),
-      },
+  await ensureEncryptionKeyringTable();
+  try {
+    await withRlsBypass(async () => {
+      const db = getRlsDb();
+      const row = await db.encryptionKeyring.findUnique({ where: { id: KEYRING_ID } });
+      if (!row?.primaryWrapped) return;
+      await db.encryptionKeyring.update({
+        where: { id: KEYRING_ID },
+        data: {
+          previousFingerprint: '',
+          previousWrapped: '',
+          updatedAt: new Date(),
+        },
+      });
     });
-  });
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      throw new Error(
+        'EncryptionKeyring table is missing. Apply migration 20250801120000_encryption_keyring on D1 remote.'
+      );
+    }
+    throw error;
+  }
   invalidateKeyringCache();
   await ensureEncryptionKeyringLoaded(true);
   logger.info('encryption.keyring_finalized', {

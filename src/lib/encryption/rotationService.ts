@@ -133,6 +133,13 @@ export async function getRotationStatusBundle(): Promise<{
   /** True when managers can rotate without Worker secrets */
   inAppRotationReady: boolean;
 }> {
+  // Self-heal missing EncryptionKeyring (D1 migration lag) then warm DEK cache.
+  try {
+    const { ensureEncryptionKeyringTable } = await import('@/lib/encryption/keyring');
+    await ensureEncryptionKeyringTable();
+  } catch {
+    // fall through — warm still bootstraps from env
+  }
   await warmEncryptionKeyring();
   const keys = getEncryptionKeyStatus();
   const rotation = await getActiveOrLatestRotation();
