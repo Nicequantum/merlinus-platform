@@ -30,6 +30,8 @@ export const INTENTIONAL_BARE_API_ROUTES: Readonly<Record<string, string>> = {
     'Public login — RATE_LIMITS.auth + credential verification',
   'src/app/api/auth/mfa/login-verify/route.ts':
     'MFA second factor at login — RATE_LIMITS.authMfaLogin + pending MFA JWT (pre-session)',
+  'src/app/api/auth/mfa/self-recovery/route.ts':
+    'Password-gated MFA clear for DEK-rotation lockout — RATE_LIMITS.authMfa + password verify; only when corrupt or MERLIN_MFA_PASSWORD_RECOVERY',
   'src/app/api/auth/logout/route.ts':
     'Session clear — rate limited; safe when unauthenticated',
   'src/app/api/auth/me/route.ts':

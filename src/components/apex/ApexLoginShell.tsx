@@ -305,7 +305,7 @@ export function ApexLoginShell({
                 disabled={loading}
                 onClick={() => void handleMfaRecovery()}
               >
-                Can't use authenticator? Clear MFA with password
+                Can{"'"}t use authenticator? Clear MFA with password
               </button>
               <button
                 type="button"

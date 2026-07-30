@@ -232,7 +232,7 @@ export function LoginView({ onLogin, onMfaVerify }: LoginViewProps) {
               disabled={loading}
               onClick={() => void handleMfaSelfRecovery()}
             >
-              Can't use authenticator? Clear MFA with password
+              Can{"'"}t use authenticator? Clear MFA with password
             </button>
             <button
               type="button"
