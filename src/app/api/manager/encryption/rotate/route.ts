@@ -2,20 +2,21 @@
  * Encryption key rotation control plane (manager/owner).
  *
  * GET  — status (fingerprints + active rotation progress)
- * POST — { action: begin | confirm-env | start-reencrypt | cancel }
+ * POST — { action: rotate-in-app | begin | confirm-env | start-reencrypt | cancel | finalize }
  *
- * Keys are never stored in D1. `begin` returns a one-time new key for ops secrets.
- * `confirm-env` accepts the pasted new key (fingerprinted only) to verify dual-key is live.
+ * Primary path: `rotate-in-app` — generates DEK, stores wrapped keyring, starts re-encrypt.
+ * No Worker secret edits. Legacy begin/confirm-env remain for advanced ops.
  */
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
 import {
-  beginEncryptionRotation,
   cancelEncryptionRotation,
   confirmEncryptionEnvKey,
   getRotationStatusBundle,
+  rotateEncryptionKeysInApp,
   startReencryptPass,
 } from '@/lib/encryption/rotationService';
+import { finalizeInAppDekRotation } from '@/lib/encryption/keyring';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { AUTH_JSON_BODY_LIMIT_BYTES, parseRequestBody } from '@/lib/validation';
 import { z } from 'zod';
@@ -42,9 +43,16 @@ export async function GET(request: Request) {
 }
 
 const postSchema = z.object({
-  action: z.enum(['begin', 'confirm-env', 'start-reencrypt', 'cancel']),
+  action: z.enum([
+    'rotate-in-app',
+    'begin',
+    'confirm-env',
+    'start-reencrypt',
+    'cancel',
+    'finalize',
+  ]),
   rotationId: z.string().trim().min(1).max(64).optional(),
-  /** Pasted new key for confirm-env only — never persisted */
+  /** Legacy: pasted new key for confirm-env only — never persisted */
   newKey: z.string().min(32).max(256).optional(),
   startReencrypt: z.boolean().optional(),
 });
@@ -57,26 +65,26 @@ export async function POST(request: Request) {
       if ('error' in parsed) return parsed.error;
 
       try {
-        if (parsed.data.action === 'begin') {
-          const result = await beginEncryptionRotation({
+        if (parsed.data.action === 'rotate-in-app' || parsed.data.action === 'begin') {
+          // `begin` maps to in-app rotate (no env copy step — raw DEK never returned).
+          const result = await rotateEncryptionKeysInApp({
             technicianId: session.technicianId,
             dealershipId: session.dealershipId,
           });
           return {
             ok: true,
-            action: 'begin',
+            action: 'rotate-in-app',
             rotation: result.rotation,
-            newKey: result.newKey,
+            primaryFingerprint: result.primaryFingerprint,
             previousKeyFingerprint: result.previousKeyFingerprint,
-            newKeyFingerprint: result.newKeyFingerprint,
-            warning:
-              'Copy newKey now — it is not stored server-side. Set PREVIOUS=old KEY=new on the Worker, deploy, then paste the new key below and Submit New Key.',
+            message: result.message,
+            // Deliberately omit newKey — never send DEK material to the browser.
           };
         }
 
         if (parsed.data.action === 'confirm-env') {
           if (!parsed.data.newKey) {
-            return apiError('newKey is required for confirm-env', 400);
+            return apiError('newKey is required for confirm-env (legacy env path)', 400);
           }
           const result = await confirmEncryptionEnvKey({
             technicianId: session.technicianId,
@@ -103,6 +111,18 @@ export async function POST(request: Request) {
             action: 'start-reencrypt',
             rotation,
             message: 'Background re-encryption started under dual-key decrypt.',
+          };
+        }
+
+        if (parsed.data.action === 'finalize') {
+          await finalizeInAppDekRotation();
+          const bundle = await getRotationStatusBundle();
+          return {
+            ok: true,
+            action: 'finalize',
+            message: 'Previous data key retired. Dual-key window closed.',
+            keys: bundle.keys,
+            rotation: bundle.rotation,
           };
         }
 

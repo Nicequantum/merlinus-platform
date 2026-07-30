@@ -2,18 +2,24 @@ import 'server-only';
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'crypto';
 import { logger } from './logger';
+import {
+  ensureEncryptionKeyringLoaded,
+  getCachedKeyring,
+  type KeyringSnapshot,
+} from '@/lib/encryption/keyring';
 
 /**
- * L4 / P1-5 — Encryption key rotation
+ * L4 / P1-5 — Encryption key rotation (in-app DEK + optional env dual-key)
  *
- * Encrypt always uses the current DATA_ENCRYPTION_KEY.
+ * Encrypt always uses the current **primary DEK** (from EncryptionKeyring when active,
+ * otherwise DATA_ENCRYPTION_KEY bootstrap).
  * Decrypt tries, in order:
- *   1. Current key + current salt (H7 key-derived or ENCRYPTION_SALT)
- *   2. Previous key DATA_ENCRYPTION_KEY_PREVIOUS (online dual-key window)
- *   3. Current key + legacy scrypt salt (pre-H7 rows)
- *   4. Previous key + legacy scrypt salt
+ *   1. Primary DEK (+ salt variants)
+ *   2. Previous DEK (in-app dual-key window during re-encrypt)
+ *   3. Env DATA_ENCRYPTION_KEY / PREVIOUS (legacy / bootstrap)
  *
- * Rotation procedure: set PREVIOUS=old, KEY=new → deploy → run reencrypt → remove PREVIOUS.
+ * Managers rotate DEKs from Settings with no Worker secret changes.
+ * DATA_ENCRYPTION_KEY remains the master KEK that wraps DEKs at rest.
  * See docs/Reencryption-Runbook.md.
  */
 
@@ -22,9 +28,7 @@ const IV_LENGTH = 12;
 
 const LEGACY_SCRYPT_SALT = 'benz-tech-pii-salt';
 
-function getDataEncryptionSecret(): string {
-  // H17: AES uses DATA_ENCRYPTION_KEY only (no ENCRYPTION_KEY fallback in this module).
-  // Legacy ENCRYPTION_KEY is mapped to DATA_ENCRYPTION_KEY at startup via applyLegacyEncryptionEnvAliases().
+function getEnvPrimarySecret(): string {
   const secret = process.env.DATA_ENCRYPTION_KEY?.trim();
   if (!secret || secret.length < 32) {
     throw new Error('DATA_ENCRYPTION_KEY must be set (min 32 chars) for PII encryption');
@@ -32,8 +36,7 @@ function getDataEncryptionSecret(): string {
   return secret;
 }
 
-/** Optional previous key for dual-key decrypt during rotation (min 32 chars). */
-function getPreviousEncryptionSecret(): string | null {
+function getEnvPreviousSecret(): string | null {
   const secret = process.env.DATA_ENCRYPTION_KEY_PREVIOUS?.trim();
   if (!secret || secret.length < 32) return null;
   return secret;
@@ -49,20 +52,37 @@ function deriveKey(secret: string, salt: string): Buffer {
   return scryptSync(secret, salt, 32);
 }
 
-/** New encryptions use current key + current salt only. */
+/** Active plaintext secrets for encrypt/decrypt (sync — uses keyring cache). */
+function resolveActiveSecrets(): { primary: string; previous: string | null; ring: KeyringSnapshot } {
+  const ring = getCachedKeyring();
+  return {
+    primary: ring.primarySecret,
+    previous: ring.previousSecret,
+    ring,
+  };
+}
+
+/** New encryptions use current primary DEK (or env bootstrap). */
 function getPrimaryKey(): Buffer {
-  const secret = getDataEncryptionSecret();
-  return deriveKey(secret, scryptSaltForSecret(secret));
+  const { primary } = resolveActiveSecrets();
+  return deriveKey(primary, scryptSaltForSecret(primary));
 }
 
 /**
  * All keys that may decrypt historical ciphertext during rotation + legacy salt window.
- * Order: current primary, previous primary, current+legacy salt, previous+legacy salt.
+ * Order: DEK primary, DEK previous, env primary, env previous — each with modern + legacy salt.
  */
 export function getDecryptKeyCandidates(): Buffer[] {
-  const secrets: string[] = [getDataEncryptionSecret()];
-  const prev = getPreviousEncryptionSecret();
-  if (prev && prev !== secrets[0]) secrets.push(prev);
+  const { primary, previous } = resolveActiveSecrets();
+  const secrets: string[] = [primary];
+  if (previous && previous !== primary) secrets.push(previous);
+
+  // Env KEK/bootstrap always available for rows encrypted before first in-app rotation
+  // (and ops-style DATA_ENCRYPTION_KEY_PREVIOUS if still set).
+  const envPrimary = getEnvPrimarySecret();
+  if (!secrets.includes(envPrimary)) secrets.push(envPrimary);
+  const envPrev = getEnvPreviousSecret();
+  if (envPrev && !secrets.includes(envPrev)) secrets.push(envPrev);
 
   const keys: Buffer[] = [];
   const seen = new Set<string>();
@@ -80,9 +100,11 @@ export function getDecryptKeyCandidates(): Buffer[] {
   return keys;
 }
 
-/** True when dual-key rotation window is active (previous key configured). */
+/** True when dual-key rotation window is active (previous DEK or env previous). */
 export function isDualKeyRotationActive(): boolean {
-  return Boolean(getPreviousEncryptionSecret());
+  const ring = getCachedKeyring();
+  if (ring.previousSecret) return true;
+  return Boolean(getEnvPreviousSecret());
 }
 
 /** SHA-256 fingerprint of a secret (first 16 hex chars) — never returns key material. */
@@ -91,15 +113,18 @@ export function fingerprintSecret(secret: string): string {
 }
 
 export function getPrimaryKeyFingerprint(): string {
-  return fingerprintSecret(getDataEncryptionSecret());
+  return resolveActiveSecrets().ring.primaryFingerprint || fingerprintSecret(resolveActiveSecrets().primary);
 }
 
 export function getPreviousKeyFingerprint(): string | null {
-  const prev = getPreviousEncryptionSecret();
-  return prev ? fingerprintSecret(prev) : null;
+  const { ring, previous } = resolveActiveSecrets();
+  if (ring.previousFingerprint) return ring.previousFingerprint;
+  if (previous) return fingerprintSecret(previous);
+  const envPrev = getEnvPreviousSecret();
+  return envPrev ? fingerprintSecret(envPrev) : null;
 }
 
-/** Cryptographically strong 48-byte key as base64url (store as DATA_ENCRYPTION_KEY). */
+/** Cryptographically strong 48-byte key as base64url. */
 export function generateDataEncryptionKey(): string {
   return randomBytes(48).toString('base64url');
 }
@@ -111,9 +136,14 @@ export interface EncryptionKeyStatus {
   /** Days previous key has been configured is unknown in-process; flag only. */
   recommendCloseDualKey: boolean;
   candidateDecryptKeys: number;
+  /** True when DEKs are stored in DB (in-app rotation path). */
+  inAppKeyring: boolean;
+  keyringVersion: number;
+  lastRotatedAt: string | null;
 }
 
 export function getEncryptionKeyStatus(): EncryptionKeyStatus {
+  const ring = getCachedKeyring();
   const dualKeyActive = isDualKeyRotationActive();
   return {
     primaryFingerprint: getPrimaryKeyFingerprint(),
@@ -121,7 +151,15 @@ export function getEncryptionKeyStatus(): EncryptionKeyStatus {
     dualKeyActive,
     recommendCloseDualKey: dualKeyActive,
     candidateDecryptKeys: getDecryptKeyCandidates().length,
+    inAppKeyring: ring.inAppActive,
+    keyringVersion: ring.version,
+    lastRotatedAt: ring.lastRotatedAt,
   };
+}
+
+/** Prefer ensureEncryptionKeyringLoaded before encrypt/decrypt on request paths. */
+export async function warmEncryptionKeyring(): Promise<void> {
+  await ensureEncryptionKeyringLoaded();
 }
 
 export function encryptPII(plaintext: string): string {
@@ -155,21 +193,20 @@ export function decryptPII(ciphertext: string): string {
       lastError = error;
     }
   }
-  // H6: loud failure after current + previous + legacy salt attempts.
   logger.error('encryption.decrypt_failed', {
     error: lastError instanceof Error ? lastError.message : 'unknown',
     dualKey: isDualKeyRotationActive(),
     candidateCount: keys.length,
   });
   throw new Error(
-    'PII decryption failed — verify DATA_ENCRYPTION_KEY (and DATA_ENCRYPTION_KEY_PREVIOUS during rotation) matches the key used to encrypt data'
+    'PII decryption failed — verify encryption keyring / DATA_ENCRYPTION_KEY matches the key used to encrypt data'
   );
 }
 
 /**
  * True when AES-GCM ciphertext decrypts with the **current primary key only**
  * (no previous dual-key candidates). Used after re-encrypt to detect rows still
- * bound to DATA_ENCRYPTION_KEY_PREVIOUS.
+ * bound to previous DEK.
  */
 export function canDecryptWithPrimaryKeyOnly(ciphertext: string): boolean {
   if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return true;
@@ -200,7 +237,7 @@ export function requiresPreviousKeyToDecrypt(ciphertext: string): boolean {
  * Re-encrypt ciphertext with the current primary key.
  * Returns null if decrypt fails or value is empty / not ciphertext-shaped.
  * Used by rotation batch jobs.
- * Zero-downtime: dual-key decrypt still works while PREVIOUS is set.
+ * Zero-downtime: dual-key decrypt still works while previous DEK is set.
  */
 export function reencryptCiphertextWithCurrentKey(ciphertext: string): string | null {
   if (!ciphertext || !isLikelyEncryptedPayload(ciphertext)) return null;

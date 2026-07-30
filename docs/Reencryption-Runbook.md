@@ -63,27 +63,29 @@ Rotating `DATA_ENCRYPTION_KEY` uses an **online dual-key window** so the app can
 
 Decrypt order: current key → previous key → legacy scrypt salt variants.
 
-### Procedure (Manager Control / in-app preferred)
+### Procedure (Manager Settings — **preferred**, zero env edits)
 
-1. **Backup** — full database snapshot before any key change.
-2. **Optional maintenance** — `MERLIN_MAINTENANCE_MODE=true` for large fleets (not strictly required for dual-key online window).
-3. **Generate key (UI)** — Settings → **Security** → Encryption key rotation → **Generate new key**  
-   - Copy the one-time **newKey** (not stored in D1). Fingerprints compare live vs target.
-4. **Activate dual-key secrets**  
-   - `DATA_ENCRYPTION_KEY_PREVIOUS` = **old** key  
-   - `DATA_ENCRYPTION_KEY` = **newKey**  
-   - Deploy Worker secrets and restart.
-5. **Submit New Key (UI)** — paste into **Enter newly rotated key** → **Submit New Key**  
-   - Verifies fingerprint vs rotation target and live primary under dual-key.  
-   - Optionally auto-starts re-encryption.
-6. **Re-encryption progress** — same page progress bar (`EncryptionRotation`).  
-   - Walks **all** AES `*Encrypted` columns including **UserMfa** + **Technician MFA mirrors** (`REENCRYPT_TABLE_PLAN` / `reencryptPlan.ts`).  
-   - Manual **Start re-encryption** if auto-start was off. CLI: `npm run db:reencrypt` (legacy plaintext path; prefer in-app for dual-key).
-7. **Verify** — spot-check RO detail + list search; **MFA login** still works; health `encryption` has no “MFA ciphertext still on previous key”; UI MFA probe clean.
-8. **Close dual-key** — only after step 7: delete `DATA_ENCRYPTION_KEY_PREVIOUS` from Worker secrets; redeploy. Health should clear dual-key warn.
+`DATA_ENCRYPTION_KEY` is the long-lived **master KEK**. Data keys (DEKs) live in `EncryptionKeyring` wrapped by the KEK. Managers rotate DEKs in-app:
 
-**Zero-downtime:** Keep PREVIOUS set until reencrypt completes. Decrypt uses dual-key candidates throughout; encrypt always uses the new primary.
-9. **Clear maintenance** if used. Recommend rotation every **90 days**.
+1. **Backup** — full database snapshot before any key change (recommended).
+2. Settings → **Security** → Encryption key rotation → **Rotate keys now**
+3. App generates a new DEK, stores it wrapped in D1, opens dual-key decrypt, and **starts re-encryption automatically**.
+4. Watch progress to 100%. Plan includes **UserMfa** + Technician MFA mirrors.
+5. When MFA probe is clean, previous DEK is **retired automatically** (or use **Retire previous key**).
+6. Cadence: every **90 days** (banner + health warn when overdue).
+
+No Worker secret changes. Raw DEK material is **never** shown in the browser.
+
+### Legacy procedure (env dual-key — advanced / break-glass)
+
+Still supported if you must rotate the master KEK itself (`DATA_ENCRYPTION_KEY`):
+
+1. Generate/store new KEK offline  
+2. Set `DATA_ENCRYPTION_KEY_PREVIOUS` = old, `DATA_ENCRYPTION_KEY` = new, redeploy  
+3. Use confirm-env / re-encrypt paths  
+4. Remove PREVIOUS after clean re-encrypt  
+
+**Zero-downtime:** dual-key decrypt throughout re-encrypt; encrypt always uses the new primary DEK/KEK.
 
 ### API skeleton
 

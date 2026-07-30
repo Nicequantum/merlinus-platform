@@ -1430,6 +1430,26 @@ model EncryptionRotation {
 }
 
 /**
+ * Platform data-encryption keyring (DEKs wrapped by env KEK).
+ * Managers rotate DEKs in-app; DATA_ENCRYPTION_KEY stays as master KEK only.
+ * Single global row id = "global".
+ */
+model EncryptionKeyring {
+  id                   String    @id @default("global")
+  primaryFingerprint   String    @default("")
+  /** AES-GCM ciphertext of primary DEK secret, wrapped with KEK (DATA_ENCRYPTION_KEY). */
+  primaryWrapped       String    @default("")
+  previousFingerprint  String    @default("")
+  previousWrapped      String    @default("")
+  version              Int       @default(1)
+  lastRotatedAt        DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@map("EncryptionKeyring")
+}
+
+/**
  * P3-4 — Self-service password recovery tokens (hashed at rest).
  * Public request/confirm routes use withRlsBypass + rate limits.
  */

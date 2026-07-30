@@ -172,3 +172,20 @@ describe('Encryption dual-key + rotation skeleton', () => {
     assert.match(src, /hmacKeyConfigured/);
     assert.ok(src.includes('90'));
   });
+
+
+  it('in-app DEK rotation path exists (no env copy step)', () => {
+    const src = readSrc('src/lib/encryption/rotationService.ts');
+    assert.match(src, /rotateEncryptionKeysInApp/);
+    assert.match(src, /finalizeInAppDekRotation/);
+    const keyring = readSrc('src/lib/encryption/keyring.ts');
+    assert.match(keyring, /rotateInAppDek/);
+    assert.match(keyring, /wrapDekSecret/);
+    assert.match(keyring, /EncryptionKeyring|encryptionKeyring/);
+    const panel = readSrc('src/components/EncryptionRotationPanel.tsx');
+    assert.match(panel, /Rotate keys now/);
+    assert.match(panel, /rotateEncryptionKeysInApp/);
+    assert.ok(!panel.includes('Worker secrets') || panel.includes('no environment'));
+    const route = readSrc('src/app/api/manager/encryption/rotate/route.ts');
+    assert.match(route, /rotate-in-app/);
+  });

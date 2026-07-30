@@ -14,7 +14,13 @@ import {
   getPrimaryKeyFingerprint,
   getPreviousKeyFingerprint,
   reencryptCiphertextWithCurrentKey,
+  warmEncryptionKeyring,
 } from '@/lib/encryption';
+import {
+  finalizeInAppDekRotation,
+  rotateInAppDek,
+  ensureEncryptionKeyringLoaded,
+} from '@/lib/encryption/keyring';
 import {
   REENCRYPT_TABLE_PLAN,
   getReencryptCoverageSummary,
@@ -124,7 +130,10 @@ export async function getRotationStatusBundle(): Promise<{
   /** 90-day key rotation cadence guidance */
   cadence: RotationCadence;
   hmacKeyConfigured: boolean;
+  /** True when managers can rotate without Worker secrets */
+  inAppRotationReady: boolean;
 }> {
+  await warmEncryptionKeyring();
   const keys = getEncryptionKeyStatus();
   const rotation = await getActiveOrLatestRotation();
   const canStartReencrypt =
@@ -138,7 +147,6 @@ export async function getRotationStatusBundle(): Promise<{
   const coverage = getReencryptCoverageSummary();
 
   let mfaStaleProbe: Awaited<ReturnType<typeof probeStaleMfaCiphertext>> | null = null;
-  // Probe when dual-key is open or after a completed job (before PREVIOUS is removed).
   if (keys.dualKeyActive || rotation?.status === 'completed' || rotation?.status === 'running') {
     try {
       mfaStaleProbe = await probeStaleMfaCiphertext(30);
@@ -151,14 +159,11 @@ export async function getRotationStatusBundle(): Promise<{
   const hmacKeyConfigured = Boolean(process.env.SEARCH_HMAC_KEY?.trim());
 
   const instructions = [
-    '1. Backup the database before any key change.',
-    '2. Generate a new key on this page (shown once — copy to your secret store).',
-    '3. Deploy Worker secrets: DATA_ENCRYPTION_KEY_PREVIOUS=<old>, DATA_ENCRYPTION_KEY=<new>.',
-    '4. Paste the new key into “Enter newly rotated key” and Submit New Key to verify dual-key is live.',
-    '5. Start re-encryption (walks ALL AES columns including MFA secrets — zero-downtime dual-key).',
-    '6. Confirm coverage includes MFA (UserMfa + Technician mirrors) and health shows no stale MFA ciphertext.',
-    '7. When 100% complete and MFA probe is clean, remove DATA_ENCRYPTION_KEY_PREVIOUS and redeploy.',
-    '8. Recommended cadence: rotate every 90 days (or sooner after a suspected key exposure).',
+    '1. Click “Rotate keys now” — generates a new data key inside the app (no Worker env edits).',
+    '2. Background re-encryption starts automatically under dual-key decrypt (zero downtime).',
+    '3. Watch progress until 100%. MFA secrets are included.',
+    '4. When complete and the MFA probe is clean, previous key is retired automatically.',
+    '5. Recommended cadence: every 90 days (or sooner after suspected exposure).',
   ];
 
   return {
@@ -170,6 +175,7 @@ export async function getRotationStatusBundle(): Promise<{
     mfaStaleProbe,
     cadence,
     hmacKeyConfigured,
+    inAppRotationReady: true,
   };
 }
 
@@ -189,9 +195,11 @@ export type RotationCadence = {
  * 90-day rotation hygiene from EncryptionRotation history + dual-key flag.
  */
 export async function getRotationCadence(): Promise<RotationCadence> {
+  await ensureEncryptionKeyringLoaded();
   const dualKeyOpen = isDualKeyRotationActive();
+  const ring = getEncryptionKeyStatus();
   return withRlsBypass(async () => {
-    let lastCompletedAt: string | null = null;
+    let lastCompletedAt: string | null = ring.lastRotatedAt;
     try {
       const row = await getRlsDb().encryptionRotation.findFirst({
         where: { status: 'completed' },
@@ -199,9 +207,15 @@ export async function getRotationCadence(): Promise<RotationCadence> {
         select: { finishedAt: true, startedAt: true },
       });
       const at = row?.finishedAt || row?.startedAt || null;
-      lastCompletedAt = at ? at.toISOString() : null;
+      const fromJob = at ? at.toISOString() : null;
+      // Prefer the more recent of keyring vs completed job
+      if (fromJob) {
+        if (!lastCompletedAt || new Date(fromJob) > new Date(lastCompletedAt)) {
+          lastCompletedAt = fromJob;
+        }
+      }
     } catch {
-      lastCompletedAt = null;
+      // ignore
     }
 
     let daysSinceLastCompleted: number | null = null;
@@ -211,8 +225,6 @@ export async function getRotationCadence(): Promise<RotationCadence> {
       );
     }
     const neverRotated = !lastCompletedAt;
-    // Recommend rotate when dual-key is stuck open or past 90 days.
-    // "Never rotated" is informational (new fleets) — UI still surfaces it.
     const recommendRotate =
       dualKeyOpen ||
       (daysSinceLastCompleted !== null &&
@@ -419,6 +431,7 @@ export async function confirmEncryptionEnvKey(input: {
 
 /**
  * Begin guided rotation: capture fingerprints, generate new key (returned once).
+ * @deprecated Prefer rotateEncryptionKeysInApp — full in-app path without env edits.
  * Does not mutate Worker secrets — operator must deploy dual-key env.
  */
 export async function beginEncryptionRotation(input: {
@@ -431,30 +444,77 @@ export async function beginEncryptionRotation(input: {
   previousKeyFingerprint: string;
   newKeyFingerprint: string;
 }> {
-  const keys = getEncryptionKeyStatus();
-  if (keys.dualKeyActive) {
+  // Redirect legacy "generate only" into true in-app rotate so double-click / old UI
+  // still produces a working dual-key window without env edits.
+  const result = await rotateEncryptionKeysInApp(input);
+  return {
+    rotation: result.rotation,
+    newKey: '', // never expose DEK material to the browser
+    previousKeyFingerprint: result.previousKeyFingerprint,
+    newKeyFingerprint: result.primaryFingerprint,
+  };
+}
+
+/**
+ * One-click in-app DEK rotation (manager/owner):
+ * 1. Generate new DEK, store wrapped in EncryptionKeyring
+ * 2. Old primary becomes previous (dual-key decrypt)
+ * 3. Start background re-encrypt
+ * 4. On complete, previous DEK is finalized away
+ *
+ * No Worker secret / env changes required.
+ */
+export async function rotateEncryptionKeysInApp(input: {
+  technicianId: string;
+  dealershipId: string;
+}): Promise<{
+  rotation: EncryptionRotationDto;
+  primaryFingerprint: string;
+  previousKeyFingerprint: string;
+  message: string;
+}> {
+  await warmEncryptionKeyring();
+
+  const active = await getActiveOrLatestRotation();
+  if (active && active.status === 'running') {
     throw new Error(
-      'Dual-key is already active. Finish or cancel the current re-encrypt before generating another key.'
+      'A re-encryption job is already running. Wait for it to finish or cancel it first.'
     );
   }
 
-  const active = await getActiveOrLatestRotation();
-  if (active && (active.status === 'running' || active.status === 'pending_env')) {
-    throw new Error('A rotation is already in progress. Cancel it first or complete re-encryption.');
+  // Serialize: if dual-key still open from a prior incomplete rotate, resume reencrypt instead
+  const liveBefore = getEncryptionKeyStatus();
+  if (liveBefore.dualKeyActive && liveBefore.inAppKeyring) {
+    const resumed = await startReencryptPass({
+      technicianId: input.technicianId,
+      dealershipId: input.dealershipId,
+      rotationId: active?.status === 'pending_env' || active?.status === 'failed' ? active.id : undefined,
+    });
+    return {
+      rotation: resumed,
+      primaryFingerprint: liveBefore.primaryFingerprint,
+      previousKeyFingerprint: liveBefore.previousFingerprint || '',
+      message:
+        'Dual-key window was already open — resumed re-encryption. No new key generated.',
+    };
   }
 
-  const newKey = generateDataEncryptionKey();
-  const newKeyFingerprint = fingerprintSecret(newKey);
-  const previousKeyFingerprint = keys.primaryFingerprint;
+  const rotated = await rotateInAppDek();
 
   const row = await withRlsBypass(async () =>
     getRlsDb().encryptionRotation.create({
       data: {
-        status: 'pending_env',
-        primaryFingerprint: previousKeyFingerprint,
-        previousFingerprint: previousKeyFingerprint,
-        targetFingerprint: newKeyFingerprint,
+        status: 'running',
+        primaryFingerprint: rotated.primaryFingerprint,
+        previousFingerprint: rotated.previousFingerprint,
+        targetFingerprint: rotated.primaryFingerprint,
         startedByTechnicianId: input.technicianId,
+        cancelRequested: false,
+        totalRecords: 0,
+        processedRecords: 0,
+        updatedRecords: 0,
+        failedRecords: 0,
+        currentTable: REENCRYPT_TABLE_PLAN[0]?.table || '',
       },
     })
   );
@@ -467,25 +527,49 @@ export async function beginEncryptionRotation(input: {
       entityType: 'encryptionRotation',
       entityId: row.id,
       metadata: {
-        previousFingerprint: previousKeyFingerprint,
-        targetFingerprint: newKeyFingerprint,
+        mode: 'in_app_dek',
+        previousFingerprint: rotated.previousFingerprint,
+        targetFingerprint: rotated.primaryFingerprint,
+        version: rotated.version,
       },
     });
   } catch {
     // best-effort
   }
 
-  logger.info('encryption.rotation_begin', {
+  try {
+    await writeAuditedAccess({
+      action: 'encryption.rotation_reencrypt_start',
+      dealershipId: input.dealershipId,
+      technicianId: input.technicianId,
+      entityType: 'encryptionRotation',
+      entityId: row.id,
+      metadata: {
+        mode: 'in_app_dek',
+        primaryFingerprint: rotated.primaryFingerprint,
+        previousFingerprint: rotated.previousFingerprint,
+      },
+    });
+  } catch {
+    // best-effort
+  }
+
+  await scheduleBackgroundWork(`encryption.reencrypt:${row.id}`, async () => {
+    await runReencryptRotationJob(row.id);
+  });
+
+  logger.info('encryption.rotation_in_app', {
     rotationId: row.id,
-    previousFingerprint: previousKeyFingerprint,
-    targetFingerprint: newKeyFingerprint,
+    primaryFingerprint: rotated.primaryFingerprint,
+    previousFingerprint: rotated.previousFingerprint,
   });
 
   return {
     rotation: mapDto(row),
-    newKey,
-    previousKeyFingerprint,
-    newKeyFingerprint,
+    primaryFingerprint: rotated.primaryFingerprint,
+    previousKeyFingerprint: rotated.previousFingerprint,
+    message:
+      'New encryption key activated in-app. Re-encryption started — keep this page open to watch progress. No environment variable changes needed.',
   };
 }
 
@@ -494,9 +578,10 @@ export async function startReencryptPass(input: {
   dealershipId: string;
   rotationId?: string;
 }): Promise<EncryptionRotationDto> {
+  await warmEncryptionKeyring();
   if (!isDualKeyRotationActive()) {
     throw new Error(
-      'Dual-key not active. Deploy DATA_ENCRYPTION_KEY_PREVIOUS (old) and DATA_ENCRYPTION_KEY (new) first.'
+      'Dual-key not active. Use “Rotate keys now” to create an in-app dual-key window, then re-encrypt runs automatically.'
     );
   }
 
@@ -719,6 +804,26 @@ export async function runReencryptRotationJob(rotationId: string): Promise<void>
       });
     });
     logger.info('encryption.rotation_completed', { rotationId });
+
+    // Close in-app dual-key window only when MFA ciphertext is clean on primary.
+    try {
+      const probe = await probeStaleMfaCiphertext(40);
+      if (probe.stillOnPreviousKey === 0) {
+        await finalizeInAppDekRotation();
+        logger.info('encryption.keyring_auto_finalized', { rotationId, mfaSampled: probe.sampled });
+      } else {
+        logger.info('encryption.keyring_finalize_deferred', {
+          rotationId,
+          stillOnPreviousKey: probe.stillOnPreviousKey,
+        });
+      }
+    } catch (error) {
+      logger.error('encryption.keyring_finalize_failed', {
+        rotationId,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+
     try {
       await writeAuditedAccess({
         action: 'encryption.rotation_complete',
@@ -726,7 +831,7 @@ export async function runReencryptRotationJob(rotationId: string): Promise<void>
         technicianId: existing?.startedByTechnicianId || 'system',
         entityType: 'encryptionRotation',
         entityId: rotationId,
-        metadata: { status: 'completed' },
+        metadata: { status: 'completed', mode: 'in_app_dek' },
       });
     } catch {
       // best-effort

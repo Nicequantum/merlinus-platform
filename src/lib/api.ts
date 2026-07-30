@@ -1106,6 +1106,9 @@ export const api = {
         dualKeyActive: boolean;
         recommendCloseDualKey: boolean;
         candidateDecryptKeys: number;
+        inAppKeyring?: boolean;
+        keyringVersion?: number;
+        lastRotatedAt?: string | null;
       };
       rotation: {
         id: string;
@@ -1143,22 +1146,39 @@ export const api = {
         dualKeyOpen: boolean;
       };
       hmacKeyConfigured?: boolean;
+      inAppRotationReady?: boolean;
     }>('/api/manager/encryption/rotate', { cache: 'no-store' }),
 
+  /** One-click in-app DEK rotation — no Worker env edits. */
+  rotateEncryptionKeysInApp: () =>
+    apiFetch<{
+      ok: boolean;
+      action: string;
+      rotation: unknown;
+      primaryFingerprint: string;
+      previousKeyFingerprint: string;
+      message?: string;
+    }>('/api/manager/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'rotate-in-app' }),
+    }),
+
+  /** @deprecated use rotateEncryptionKeysInApp */
   beginEncryptionRotation: () =>
     apiFetch<{
       ok: boolean;
-      newKey: string;
+      newKey?: string;
       previousKeyFingerprint: string;
-      newKeyFingerprint: string;
+      newKeyFingerprint?: string;
+      primaryFingerprint?: string;
       rotation: unknown;
       warning?: string;
+      message?: string;
     }>('/api/manager/encryption/rotate', {
       method: 'POST',
-      body: JSON.stringify({ action: 'begin' }),
+      body: JSON.stringify({ action: 'rotate-in-app' }),
     }),
 
-  /** Verify pasted new key against live dual-key env; optionally start re-encrypt. */
   confirmEncryptionEnvKey: (input: {
     newKey: string;
     rotationId?: string;
@@ -1193,6 +1213,17 @@ export const api = {
         body: JSON.stringify({ action: 'start-reencrypt', rotationId }),
       }
     ),
+
+  finalizeEncryptionRotation: () =>
+    apiFetch<{
+      ok: boolean;
+      message?: string;
+      keys?: unknown;
+      rotation?: unknown;
+    }>('/api/manager/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'finalize' }),
+    }),
 
   cancelEncryptionRotation: (rotationId?: string) =>
     apiFetch<{ ok: boolean; rotation: unknown }>('/api/manager/encryption/rotate', {

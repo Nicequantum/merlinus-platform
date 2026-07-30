@@ -147,6 +147,13 @@ async function withAuthInner<T>(
   }
 
   const rawSession = await resolveAppSession(request);
+  // Warm in-app DEK keyring so encrypt/decrypt use the manager-rotated key.
+  try {
+    const { warmEncryptionKeyring } = await import('@/lib/encryption');
+    await warmEncryptionKeyring();
+  } catch {
+    // encryption may be misconfigured — individual routes still fail closed
+  }
   if (!rawSession) {
     return apiError(UNAUTHORIZED_ERROR, 401);
   }
