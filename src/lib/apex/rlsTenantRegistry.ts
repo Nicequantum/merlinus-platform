@@ -94,6 +94,8 @@ export const PLATFORM_NON_TENANT_MODELS = [
   'SessionRefreshToken',
   /** Platform-wide AES key rotation progress (not per-rooftop). */
   'EncryptionRotation',
+  /** Platform-wide wrapped DEK keyring (KEK is env; not per-rooftop). */
+  'EncryptionKeyring',
 ] as const;
 
 export type PlatformNonTenantModel = (typeof PLATFORM_NON_TENANT_MODELS)[number];
