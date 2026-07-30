@@ -13,22 +13,27 @@ function readSrc(rel: string): string {
 }
 
 describe('Settings security polish — rotation UI + in-app MFA', () => {
-  it('rotation panel has generate, submit field, and progress', () => {
+  it('rotation panel is one-click in-app with progress (no env paste flow)', () => {
     const panel = readSrc('src/components/EncryptionRotationPanel.tsx');
-    assert.match(panel, /Generate new key/);
-    assert.match(panel, /Enter newly rotated key/i);
-    assert.match(panel, /Submit New Key/);
-    assert.match(panel, /confirmEncryptionEnvKey/);
+    assert.match(panel, /Rotate keys now/);
+    assert.match(panel, /rotateEncryptionKeysInApp/);
     assert.match(panel, /progressPercent/);
     assert.match(panel, /fingerprint/i);
+    assert.match(panel, /Resume re-encrypt/);
+    assert.match(panel, /90 days/i);
+    // Legacy env-paste flow removed from UI
+    assert.doesNotMatch(panel, /Generate new key/);
+    assert.doesNotMatch(panel, /Enter newly rotated key/i);
   });
 
-  it('rotation API supports confirm-env', () => {
+  it('rotation API supports confirm-env (legacy) and rotate-in-app', () => {
     const route = readSrc('src/app/api/manager/encryption/rotate/route.ts');
     const svc = readSrc('src/lib/encryption/rotationService.ts');
     assert.match(route, /confirm-env/);
+    assert.match(route, /rotate-in-app/);
     assert.match(svc, /confirmEncryptionEnvKey/);
-    assert.match(svc, /encryption\.rotation_env_confirmed/);
+    assert.match(svc, /rotateEncryptionKeysInApp/);
+    assert.match(svc, /tickReencryptRotationJob/);
   });
 
   it('client TOTP helpers generate secret and otpauth URI', () => {

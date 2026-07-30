@@ -15,9 +15,9 @@ function readSrc(rel: string): string {
 }
 
 describe('Desktop companion parity + live sync', () => {
-  it('desktop uses full sync role for bidirectional edits', () => {
+  it('every device uses full sync role for live multi-device edits', () => {
     assert.equal(deriveCompanionSyncRole(true), 'full');
-    assert.equal(deriveCompanionSyncRole(false), 'publisher');
+    assert.equal(deriveCompanionSyncRole(false), 'full');
   });
 
   it('parses and builds deep links for RO/line', () => {

@@ -61,15 +61,19 @@ describe('desktop companion sync', () => {
     assert.ok(bridge.includes('ensureRepairOrderOpen'));
   });
 
-  it('uses full role on desktop (publish+subscribe) and polls KV as SSE fallback', () => {
+  it('uses full duplex role on every device and polls KV as SSE fallback', () => {
     const role = readSrc('src/lib/companionSyncRole.ts');
     const hook = readSrc('src/hooks/useCompanionSync.ts');
     const pollRoute = readSrc('src/app/api/companion/poll/route.ts');
-    assert.ok(role.includes("return isDesktopViewport ? 'full' : 'publisher'"));
+    const hub = readSrc('src/lib/companionHub.ts');
+    assert.ok(role.includes("return 'full'"));
     assert.ok(hook.includes('/api/companion/poll'));
     assert.ok(hook.includes('canAutoPublish'));
     assert.ok(hook.includes('liveTechnicianSession'));
+    assert.ok(hook.includes('peerDeviceCount'));
     assert.ok(pollRoute.includes('drainKvCompanionEvents'));
+    assert.ok(pollRoute.includes('touchCompanionPresence'));
+    assert.ok(hub.includes('getRateLimitKv') || hub.includes('workersKv'));
   });
 
   it('waits for in-flight openROById before companion handlers apply state', () => {

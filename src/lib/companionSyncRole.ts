@@ -1,11 +1,12 @@
 export type CompanionSyncRole = 'publisher' | 'subscriber' | 'full';
 
 /**
- * Narrow viewport = bay tablet (primary publisher).
- * Wide viewport = desktop command center (`full`: publish local edits + subscribe to bay live).
+ * Every signed-in device is full-duplex: publish local edits and subscribe to peers.
+ * Viewport only changes layout (desktop command center chrome), not sync capability —
+ * tablet ↔ phone ↔ desktop must all stay live for the same account.
  */
-export function deriveCompanionSyncRole(isDesktopViewport: boolean): CompanionSyncRole {
-  return isDesktopViewport ? 'full' : 'publisher';
+export function deriveCompanionSyncRole(_isDesktopViewport: boolean): CompanionSyncRole {
+  return 'full';
 }
 
 export function companionRolePublishes(role: CompanionSyncRole): boolean {

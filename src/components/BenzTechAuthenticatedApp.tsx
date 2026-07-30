@@ -971,6 +971,7 @@ export function BenzTechAuthenticatedApp({
             liveTechnicianSession={companion.liveTechnicianSession}
             liveWorkflowStatus={companion.workflowStatus}
             liveLastSeenAt={companion.liveLastSeenAt}
+            peerDeviceCount={companion.peerDeviceCount}
             roSummaries={ro.todayROs || ro.allROs || []}
             onOpenRo={(id) => void ro.ensureRepairOrderOpen(id)}
             onNavigate={shellNavigate}

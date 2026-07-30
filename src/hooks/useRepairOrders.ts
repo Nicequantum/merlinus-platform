@@ -48,6 +48,7 @@ import type { VisionPipelineControls, VisionPipelineId } from '@/hooks/visionPip
 import { isStoryCertificationPendingForLine } from '@/hooks/repairOrders/storyCertificationPending';
 import { resetStoryWorkflowUiState } from '@/hooks/repairOrders/storyWorkflowUiReset';
 import { applyCompanionROPatch } from '@/lib/companionMerge';
+import { publishCompanionLivePatch } from '@/lib/companionLiveBridge';
 import { mergePersistedWithClient } from '@/lib/repairOrderMerge';
 import {
   companionSnapshotHasChanges,
@@ -405,12 +406,13 @@ export function useRepairOrders({
   const syncCompanionRepairOrderSnapshot = useCallback(
     async (
       repairOrderId: string,
-      options?: { lineId?: string | null }
+      options?: { lineId?: string | null; force?: boolean }
     ): Promise<CompanionSnapshotDelta | null> => {
       if (roRef.current?.id !== repairOrderId) return null;
 
       // Never full-replace while the tech has unsaved local edits or a PUT in flight.
-      if (isLocallyDirty()) {
+      // force still fetches + merges (client dirty fields win via mergePersistedWithClient).
+      if (isLocallyDirty() && !options?.force) {
         return null;
       }
 
@@ -429,10 +431,12 @@ export function useRepairOrders({
         const { qualityByLine, reviewByLine } = hydrateStoryQualityFromRO(normalized);
         const { certificationByLine, lastGeneratedByLine } = hydrateStoryWorkflowFromRO(normalized);
 
+        const dirty = isLocallyDirty();
         flushSync(() => {
           roRef.current = normalized;
           setCurrentRO(normalized);
-          markCleanFromServer();
+          // force+dirty: keep dirty flag so local typing is not treated as clean.
+          if (!dirty) markCleanFromServer();
           if (preservedLineId && normalized.repairLines.some((line) => line.id === preservedLineId)) {
             setCurrentLineId(preservedLineId);
           }
@@ -544,6 +548,19 @@ export function useRepairOrders({
               ? { immediate: true }
               : undefined
       );
+
+      // Live mirror to peer devices (debounced typing; immediate when forced save).
+      const roId = roRef.current?.id;
+      if (roId) {
+        publishCompanionLivePatch(
+          {
+            repairOrderId: roId,
+            lineId,
+            linePatch: nextUpdates,
+          },
+          { immediate: Boolean(options?.immediate) }
+        );
+      }
     },
     [applyROUpdate, isStoryCertificationPending]
   );

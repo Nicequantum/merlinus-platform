@@ -11,6 +11,7 @@ import {
   type CompanionSyncRole,
 } from '@/lib/companionSyncRole';
 import type { TechnicianSession } from '@/types';
+import { setCompanionLivePublisher } from '@/lib/companionLiveBridge';
 
 type RepairOrdersApi = ReturnType<typeof useRepairOrders>;
 type OcrApi = ReturnType<typeof useOcrProgress>;
@@ -59,6 +60,11 @@ export function CompanionSyncBridge({ enabled, role, ro, ocr, children }: Compan
     },
     onRORefresh: async (repairOrderId) => {
       await getRoApi().ensureRepairOrderOpen(repairOrderId);
+      // Always re-fetch when already open — previous path was a no-op and left peers stale.
+      await getRoApi().syncCompanionRepairOrderSnapshot(repairOrderId, {
+        lineId: getRoApi().currentLineId,
+        force: true,
+      });
     },
     onROPatch: async (payload) => {
       await getRoApi().ensureRepairOrderOpen(payload.repairOrderId);
@@ -86,8 +92,20 @@ export function CompanionSyncBridge({ enabled, role, ro, ocr, children }: Compan
     },
   });
 
-  const { publishNavigation, publishStatus, recordActivity, isSubscriber, roSnapshotIntervalMs } =
+  const { publishNavigation, publishStatus, publishROPatch, recordActivity, isSubscriber, roSnapshotIntervalMs } =
     companion;
+
+  useEffect(() => {
+    if (!enabled) {
+      setCompanionLivePublisher(null);
+      return;
+    }
+    setCompanionLivePublisher({
+      publishROPatch,
+      publishActivity: recordActivity,
+    });
+    return () => setCompanionLivePublisher(null);
+  }, [enabled, publishROPatch, recordActivity]);
 
   useEffect(() => {
     if (!enabled || !autoPublish) return;
@@ -249,6 +267,26 @@ export function CompanionSyncBridge({ enabled, role, ro, ocr, children }: Compan
     ro.view,
     roSnapshotIntervalMs,
   ]);
+
+
+  // Wake / focus catch-up: pull latest RO when returning to the tablet or desktop tab.
+  useEffect(() => {
+    if (!enabled || !isSubscriber) return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const api = getRoApi();
+      const id = api.currentRO?.id;
+      if (!id) return;
+      if (api.view !== 'ro' && api.view !== 'line') return;
+      void api.syncCompanionRepairOrderSnapshot(id, { lineId: api.currentLineId, force: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [enabled, isSubscriber]);
 
   return <>{children(companion)}</>;
 }

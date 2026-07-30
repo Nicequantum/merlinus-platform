@@ -16,7 +16,7 @@ import type {
   CompanionEvent,
   CompanionWorkflowStatus,
 } from '@/lib/companionSyncTypes';
-import type { AppView, RepairLine, StoryQualityResult } from '@/types';
+import type { AppView, RepairLine, RepairOrder, StoryQualityResult } from '@/types';
 
 const STREAM_URL = '/api/companion/stream';
 const PUBLISH_URL = '/api/companion/publish';
@@ -24,13 +24,13 @@ const POLL_URL = '/api/companion/poll';
 const MAX_ACTIVITY = 40;
 const RECONNECT_MS = 2_000;
 /** Poll only as SSE fallback — when connected, poll infrequently for missed events. */
-const POLL_MS_CONNECTED = 15_000;
-const POLL_MS_DISCONNECTED = 3_000;
-const POLL_LOOKBACK_MS = 120_000;
+const POLL_MS_CONNECTED = 4_000;
+const POLL_MS_DISCONNECTED = 2_000;
+const POLL_LOOKBACK_MS = 180_000;
 /** Desktop full-RO refresh when idle (no live bay session). */
-const RO_SNAPSHOT_MS_IDLE = 8_000;
+const RO_SNAPSHOT_MS_IDLE = 5_000;
 /** Faster mirror when live technician session is active. */
-const RO_SNAPSHOT_MS_LIVE = 3_500;
+const RO_SNAPSHOT_MS_LIVE = 2_000;
 
 interface CompanionHandlers {
   onNavigation: (payload: {
@@ -43,6 +43,7 @@ interface CompanionHandlers {
     repairOrderId: string;
     lineId?: string;
     linePatch?: Partial<RepairLine>;
+    roPatch?: Partial<Pick<RepairOrder, 'roNumber' | 'complaints' | 'vehicle' | 'customer'>>;
   }) => void | Promise<void>;
   onStoryQuality: (payload: {
     repairOrderId: string;
@@ -83,6 +84,7 @@ export function useCompanionSync({
   const [liveTechnicianSession, setLiveTechnicianSession] = useState(false);
   const [liveLastSeenAt, setLiveLastSeenAt] = useState<string | null>(null);
   const [liveRemoteDeviceId, setLiveRemoteDeviceId] = useState<string | null>(null);
+  const [peerDeviceCount, setPeerDeviceCount] = useState(0);
 
   const seenIdsRef = useRef(new Set<string>());
   const applyingRemoteRef = useRef(false);
@@ -195,6 +197,7 @@ export function useCompanionSync({
             repairOrderId: event.repairOrderId,
             lineId: event.lineId,
             linePatch: event.linePatch,
+            roPatch: event.roPatch,
           });
           if (event.linePatch?.warrantyStory !== undefined) {
             pushActivity({
@@ -294,7 +297,7 @@ export function useCompanionSync({
     if (!liveTechnicianSession || !liveLastSeenAt) return;
     const t = setInterval(() => {
       const age = Date.now() - Date.parse(liveLastSeenAt);
-      if (age > 60_000) {
+      if (age > 90_000) {
         setLiveTechnicianSession(false);
       }
     }, 5_000);
@@ -426,9 +429,25 @@ export function useCompanionSync({
       if (cancelled) return;
       try {
         const since = encodeURIComponent(lastPollAtRef.current);
-        const response = await fetch(`${POLL_URL}?since=${since}`, { credentials: 'include' });
+        const response = await fetch(`${POLL_URL}?since=${since}`, {
+          credentials: 'include',
+          headers: { [COMPANION_DEVICE_HEADER]: deviceId },
+        });
         if (!response.ok) return;
-        const payload = (await response.json()) as { events?: CompanionEvent[] };
+        const payload = (await response.json()) as {
+          events?: CompanionEvent[];
+          presence?: { peerCount?: number; peers?: Array<{ deviceId: string; lastSeenAt: string }> };
+        };
+        if (payload.presence) {
+          const peerCount = payload.presence.peerCount ?? 0;
+          setPeerDeviceCount(peerCount);
+          if (peerCount > 0) {
+            const peer = payload.presence.peers?.[0];
+            setLiveTechnicianSession(true);
+            setLiveLastSeenAt(peer?.lastSeenAt ?? new Date().toISOString());
+            setLiveRemoteDeviceId(peer?.deviceId ?? null);
+          }
+        }
         const events = payload.events ?? [];
         for (const event of events) {
           await handleEventRef.current(event);
@@ -534,6 +553,7 @@ export function useCompanionSync({
     liveTechnicianSession,
     liveLastSeenAt,
     liveRemoteDeviceId,
+    peerDeviceCount,
     publishNavigation,
     publishStatus,
     publishActivity,

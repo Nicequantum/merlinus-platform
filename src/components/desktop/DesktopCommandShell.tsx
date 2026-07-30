@@ -63,6 +63,8 @@ interface DesktopCommandShellProps {
   liveTechnicianSession: boolean;
   liveWorkflowStatus?: CompanionWorkflowStatus;
   liveLastSeenAt?: string | null;
+  /** Other devices on the same account currently heartbeating. */
+  peerDeviceCount?: number;
   roSummaries?: RepairOrderSummary[];
   onOpenRo?: (id: string) => void;
   onNavigate: (dest: DesktopNavId | 'home') => void;
@@ -127,6 +129,7 @@ export function DesktopCommandShell({
   liveTechnicianSession,
   liveWorkflowStatus,
   liveLastSeenAt,
+  peerDeviceCount = 0,
   roSummaries = [],
   onOpenRo,
   onNavigate,
@@ -235,7 +238,7 @@ export function DesktopCommandShell({
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight text-benz-primary truncate">{title}</h1>
-              <CompanionConnectionBadge state={connectionState} />
+              <CompanionConnectionBadge state={connectionState} peerCount={peerDeviceCount} livePeer={liveTechnicianSession} />
               <LiveTechnicianSessionBadge
                 active={liveTechnicianSession}
                 workflowStatus={liveWorkflowStatus || workflowStatus}

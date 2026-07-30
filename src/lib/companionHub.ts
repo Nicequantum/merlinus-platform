@@ -3,17 +3,31 @@ import 'server-only';
 import { randomUUID } from 'crypto';
 import type { CompanionEvent } from '@/lib/companionSyncTypes';
 import { logger } from '@/lib/logger';
+import { getRateLimitKv } from '@/lib/storage/workersKv';
 
 type CompanionListener = (event: CompanionEvent) => void;
 
 const listenersByTechnician = new Map<string, Set<CompanionListener>>();
 
-const KV_QUEUE_MAX = 50;
-const KV_QUEUE_TTL_SEC = 600;
+const KV_QUEUE_MAX = 80;
+const KV_QUEUE_TTL_SEC = 900;
+const PRESENCE_TTL_SEC = 90;
 
 function kvQueueKey(technicianId: string): string {
   return `companion:sse:${technicianId}`;
 }
+
+function presenceKey(technicianId: string): string {
+  return `companion:presence:${technicianId}`;
+}
+
+export type CompanionPresenceDevice = {
+  deviceId: string;
+  lastSeenAt: string;
+  repairOrderId?: string | null;
+  lineId?: string | null;
+  label?: string;
+};
 
 function notifyLocal(technicianId: string, event: CompanionEvent): void {
   const listeners = listenersByTechnician.get(technicianId);
@@ -29,12 +43,63 @@ function notifyLocal(technicianId: string, event: CompanionEvent): void {
   }
 }
 
+async function readEventList(technicianId: string): Promise<CompanionEvent[]> {
+  // Prefer Workers KV (production Cloudflare path)
+  const workersKv = getRateLimitKv();
+  if (workersKv) {
+    try {
+      const raw = await workersKv.get(kvQueueKey(technicianId));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as CompanionEvent[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  // Legacy Vercel / Upstash REST
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return [];
+  try {
+    const { kv } = await import('@vercel/kv');
+    const raw = await kv.lrange<string>(kvQueueKey(technicianId), 0, KV_QUEUE_MAX - 1);
+    if (!raw?.length) return [];
+    const out: CompanionEvent[] = [];
+    for (const item of raw) {
+      try {
+        out.push((typeof item === 'string' ? JSON.parse(item) : item) as CompanionEvent);
+      } catch {
+        // skip
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 async function persistToKv(technicianId: string, event: CompanionEvent): Promise<void> {
+  const workersKv = getRateLimitKv();
+  if (workersKv) {
+    try {
+      const existing = await readEventList(technicianId);
+      const next = [event, ...existing.filter((e) => e.id !== event.id)].slice(0, KV_QUEUE_MAX);
+      await workersKv.put(kvQueueKey(technicianId), JSON.stringify(next), {
+        expirationTtl: KV_QUEUE_TTL_SEC,
+      });
+      return;
+    } catch (error) {
+      logger.warn('companion.workers_kv_persist_failed', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+      // fall through to REST
+    }
+  }
+
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    if (process.env.NODE_ENV === 'production') {
       logger.warn('companion.kv_not_configured', {
         type: event.type,
-        hint: 'Companion live sync requires KV_REST_API_URL and KV_REST_API_TOKEN in production',
+        hint: 'Companion live sync needs Workers KV_STORE binding or KV_REST_API_*',
       });
     }
     return;
@@ -95,24 +160,100 @@ export async function drainKvCompanionEvents(
   technicianId: string,
   sinceIso: string
 ): Promise<CompanionEvent[]> {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return [];
-  try {
-    const { kv } = await import('@vercel/kv');
-    const raw = await kv.lrange<string>(kvQueueKey(technicianId), 0, KV_QUEUE_MAX - 1);
-    if (!raw?.length) return [];
+  const list = await readEventList(technicianId);
+  if (!list.length) return [];
+  const sinceMs = Date.parse(sinceIso);
+  return list
+    .filter((event) => {
+      const ts = Date.parse(event.timestamp);
+      return !Number.isNaN(ts) && ts >= sinceMs;
+    })
+    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+}
 
-    const sinceMs = Date.parse(sinceIso);
-    const parsed: CompanionEvent[] = [];
-    for (const item of raw) {
-      try {
-        const event = (typeof item === 'string' ? JSON.parse(item) : item) as CompanionEvent;
-        if (Date.parse(event.timestamp) >= sinceMs) parsed.push(event);
-      } catch {
-        // skip malformed
+/** Heartbeat a device so peers can show honest multi-device presence. */
+export async function touchCompanionPresence(
+  technicianId: string,
+  device: CompanionPresenceDevice
+): Promise<CompanionPresenceDevice[]> {
+  const workersKv = getRateLimitKv();
+  let devices: CompanionPresenceDevice[] = [];
+
+  if (workersKv) {
+    try {
+      const raw = await workersKv.get(presenceKey(technicianId));
+      if (raw) {
+        const parsed = JSON.parse(raw) as CompanionPresenceDevice[];
+        if (Array.isArray(parsed)) devices = parsed;
       }
+    } catch {
+      devices = [];
     }
-    return parsed.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
-  } catch {
-    return [];
+  } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const { kv } = await import('@vercel/kv');
+      const raw = await kv.get<CompanionPresenceDevice[]>(presenceKey(technicianId));
+      if (Array.isArray(raw)) devices = raw;
+    } catch {
+      devices = [];
+    }
+  } else {
+    return [device];
   }
+
+  const now = Date.now();
+  const cutoff = now - PRESENCE_TTL_SEC * 1000;
+  const map = new Map<string, CompanionPresenceDevice>();
+  for (const d of devices) {
+    if (Date.parse(d.lastSeenAt) >= cutoff) map.set(d.deviceId, d);
+  }
+  map.set(device.deviceId, { ...device, lastSeenAt: new Date().toISOString() });
+  const next = Array.from(map.values());
+
+  if (workersKv) {
+    try {
+      await workersKv.put(presenceKey(technicianId), JSON.stringify(next), {
+        expirationTtl: PRESENCE_TTL_SEC * 2,
+      });
+    } catch {
+      // ignore
+    }
+  } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const { kv } = await import('@vercel/kv');
+      await kv.set(presenceKey(technicianId), next, { ex: PRESENCE_TTL_SEC * 2 });
+    } catch {
+      // ignore
+    }
+  }
+
+  return next;
+}
+
+export async function listCompanionPresence(
+  technicianId: string
+): Promise<CompanionPresenceDevice[]> {
+  const workersKv = getRateLimitKv();
+  let devices: CompanionPresenceDevice[] = [];
+  if (workersKv) {
+    try {
+      const raw = await workersKv.get(presenceKey(technicianId));
+      if (raw) {
+        const parsed = JSON.parse(raw) as CompanionPresenceDevice[];
+        if (Array.isArray(parsed)) devices = parsed;
+      }
+    } catch {
+      return [];
+    }
+  } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const { kv } = await import('@vercel/kv');
+      const raw = await kv.get<CompanionPresenceDevice[]>(presenceKey(technicianId));
+      if (Array.isArray(raw)) devices = raw;
+    } catch {
+      return [];
+    }
+  }
+  const cutoff = Date.now() - PRESENCE_TTL_SEC * 1000;
+  return devices.filter((d) => Date.parse(d.lastSeenAt) >= cutoff);
 }

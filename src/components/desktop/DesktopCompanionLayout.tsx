@@ -38,6 +38,8 @@ interface DesktopCompanionLayoutProps {
   storyCertification: StoryCertificationRecord | null;
   lastGeneratedStoryText?: string | null;
   connectionState: CompanionConnectionState;
+  peerDeviceCount?: number;
+  livePeer?: boolean;
   workflowStatus: CompanionWorkflowStatus;
   statusMessage?: string | null;
   statusProgress?: number | null;
@@ -59,6 +61,8 @@ export function DesktopCompanionLayout({
   storyCertification,
   lastGeneratedStoryText = null,
   connectionState,
+  peerDeviceCount = 0,
+  livePeer = false,
   workflowStatus,
   statusMessage,
   statusProgress,
@@ -127,7 +131,7 @@ export function DesktopCompanionLayout({
             <span className="text-xs uppercase tracking-widest font-semibold text-benz-secondary">
               Desktop Companion
             </span>
-            <CompanionConnectionBadge state={connectionState} />
+            <CompanionConnectionBadge state={connectionState} peerCount={peerDeviceCount} livePeer={livePeer} />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-benz-primary truncate">
             {ro.roNumber}

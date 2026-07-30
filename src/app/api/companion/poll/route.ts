@@ -1,11 +1,16 @@
 import { withAuth } from '@/lib/apiRoute';
-import { drainKvCompanionEvents } from '@/lib/companionHub';
+import {
+  drainKvCompanionEvents,
+  listCompanionPresence,
+  touchCompanionPresence,
+} from '@/lib/companionHub';
+import { getCompanionDeviceIdFromRequest } from '@/lib/companionPublish';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const DEFAULT_LOOKBACK_MS = 120_000;
+const DEFAULT_LOOKBACK_MS = 180_000;
 
 export async function GET(request: Request) {
   return withAuth(
@@ -18,8 +23,31 @@ export async function GET(request: Request) {
           ? sinceParam
           : new Date(Date.now() - DEFAULT_LOOKBACK_MS).toISOString();
 
-      const events = await drainKvCompanionEvents(session.technicianId, sinceIso);
-      return { events, since: sinceIso };
+      const deviceId = getCompanionDeviceIdFromRequest(request);
+      const repairOrderId = url.searchParams.get('repairOrderId');
+      const lineId = url.searchParams.get('lineId');
+
+      const [events, presence] = await Promise.all([
+        drainKvCompanionEvents(session.technicianId, sinceIso),
+        touchCompanionPresence(session.technicianId, {
+          deviceId,
+          lastSeenAt: new Date().toISOString(),
+          repairOrderId: repairOrderId || null,
+          lineId: lineId || null,
+        }).catch(async () => listCompanionPresence(session.technicianId)),
+      ]);
+
+      const peers = presence.filter((d) => d.deviceId !== deviceId);
+
+      return {
+        events,
+        since: sinceIso,
+        presence: {
+          devices: presence,
+          peerCount: peers.length,
+          peers,
+        },
+      };
     },
     {
       rateLimitKey: 'companion.poll',

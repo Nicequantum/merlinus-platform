@@ -162,8 +162,26 @@ export async function PATCH(
       });
 
       void broadcastCompanionEvent(session.technicianId, {
+        type: 'ro.patch',
+        repairOrderId: id,
+        lineId,
+        linePatch: {
+          ...(data.description !== undefined ? { description: data.description } : {}),
+          ...(data.customerConcern !== undefined
+            ? { customerConcern: data.customerConcern }
+            : {}),
+          ...(data.technicianNotes !== undefined
+            ? { technicianNotes: data.technicianNotes }
+            : {}),
+          ...(nextStoryText !== undefined ? { warrantyStory: nextStoryText } : {}),
+        },
+        updatedAt: roRow.updatedAt.toISOString(),
+      });
+      // Also nudge full refresh for photo/audit side effects on other devices.
+      void broadcastCompanionEvent(session.technicianId, {
         type: 'ro.refresh',
         repairOrderId: id,
+        reason: 'line.patch',
       });
 
       return {
