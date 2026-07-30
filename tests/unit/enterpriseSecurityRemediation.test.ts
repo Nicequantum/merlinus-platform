@@ -127,3 +127,28 @@ describe('Enterprise security remediation wave 2+', () => {
     assert.match(src, /storyUpdated/);
   });
 });
+
+
+describe('Enterprise security remediation wave 4', () => {
+  it('critical audit set covers MFA admin reset and video share lifecycle', () => {
+    const src = readSrc('src/lib/audit.ts');
+    assert.match(src, /CRITICAL_AUDIT_ACTIONS[\s\S]*auth\.mfa_admin_reset/);
+    assert.match(src, /CRITICAL_AUDIT_ACTIONS[\s\S]*video\.share_revoke/);
+  });
+
+  it('story AI brand load runs under withSessionRls', () => {
+    const src = readSrc('src/lib/storyAiRoute.ts');
+    assert.match(src, /withSessionRls\(session/);
+  });
+
+  it('RO search blind-index min fragment is at least 3', () => {
+    const src = readSrc('src/lib/piiSearchToken.ts');
+    assert.match(src, /MIN_RO_SEARCH_FRAGMENT_LEN = 3/);
+  });
+
+  it('audit RO hash prefers HMAC pepper', () => {
+    const src = readSrc('src/lib/auditMetadataSanitize.ts');
+    assert.match(src, /createHmac/);
+    assert.match(src, /SEARCH_HMAC_KEY/);
+  });
+});

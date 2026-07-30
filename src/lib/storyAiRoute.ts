@@ -16,7 +16,7 @@ import type { RepairLine, RepairOrder } from '@/types';
 import type { SessionPayload } from '@/lib/auth';
 import { storyBrandFromDealership } from '@/lib/storyBrand/resolveStoryBrand';
 import { resolveStoryBrandPack, type StoryBrandId, type StoryBrandPack } from '@/prompts/story';
-import { getRlsDb } from '@/lib/apex/rlsContext';
+import { getRlsDb, withSessionRls } from '@/lib/apex/rlsContext';
 
 type StoryRouteRo = NonNullable<Awaited<ReturnType<typeof loadStoryRouteRepairOrder>>>;
 
@@ -92,10 +92,13 @@ export async function withStoryAiRoute(
 
       let storyBrand = storyBrandFromDealership(null);
       try {
-        const dealership = await getRlsDb().dealership.findFirst({
-          where: { id: session.dealershipId },
-          select: { storyBrand: true },
-        });
+        // Short RLS session even when route uses useRls:false for long Grok work.
+        const dealership = await withSessionRls(session, async (_tx) =>
+          getRlsDb().dealership.findFirst({
+            where: { id: session.dealershipId },
+            select: { storyBrand: true },
+          })
+        );
         storyBrand = storyBrandFromDealership(dealership);
       } catch {
         // Pre-migration or missing column — default mercedes (safe for existing pilots)

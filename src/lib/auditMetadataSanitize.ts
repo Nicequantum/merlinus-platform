@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { sanitizeIdentifier, sanitizeText } from '@/lib/sanitize';
 import type { AuditAction } from '@/lib/audit';
 
@@ -104,6 +104,17 @@ const ALLOWED_NUMBER_KEYS = new Set([
 export function hashRoNumberForAudit(roNumber: string): string {
   const normalized = roNumber.trim().toUpperCase();
   if (!normalized) return '';
+  const pepper =
+    process.env.SEARCH_HMAC_KEY?.trim() ||
+    process.env.DATA_ENCRYPTION_KEY?.trim() ||
+    process.env.SESSION_SECRET?.trim() ||
+    '';
+  if (pepper) {
+    return createHmac('sha256', pepper)
+      .update(`apex-audit-ro:${normalized}`)
+      .digest('hex')
+      .slice(0, 32);
+  }
   return createHash('sha256').update(`apex-audit-ro:${normalized}`).digest('hex').slice(0, 32);
 }
 

@@ -3,7 +3,7 @@ import 'server-only';
 import { createHmac } from 'crypto';
 
 /** Minimum substring length for blind-index RO search tokens. */
-const MIN_RO_SEARCH_FRAGMENT_LEN = 2;
+const MIN_RO_SEARCH_FRAGMENT_LEN = 3;
 
 function getSearchHmacSecret(): string {
   // Primary search HMAC key — must be set (or aliased from ENCRYPTION_KEY at env startup).
