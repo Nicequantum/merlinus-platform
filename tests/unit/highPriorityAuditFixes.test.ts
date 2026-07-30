@@ -73,13 +73,13 @@ describe('High priority audit fixes (H1–H15)', () => {
     assert.equal(rateSrc.includes('FAIL_CLOSED_ROUTE_KEYS'), false);
   });
 
-  it('H9: image access uses targeted query with exact pathname verification', () => {
+  it('H9: image access uses exact pathname verification without D1 LIKE on paths', () => {
     const src = readSrc('src/lib/imageAccess.ts');
-    // H9 — single-path targeted lookup (not full RO table scan)
     assert.ok(src.includes('repairOrderContainsPathname'));
-    assert.ok(src.includes('contains: pathname') || src.includes("contains: pathname"));
+    // D1: no Prisma contains/LIKE on R2 pathnames (underscore wildcard blow-up)
+    assert.equal(src.includes('contains: pathname'), false);
+    assert.ok(src.includes('LIKE or GLOB pattern too complex') || src.includes('loadAttachedPathnames'));
     assert.ok(src.includes('findMany'));
-    // Phase 7.1 H4 — batched multi-path scan for extract/attach
     assert.ok(src.includes('loadAttachedPathnames') || src.includes('pathnamesFromImageJson'));
     assert.ok(src.includes('findForbiddenImagePathname'));
   });

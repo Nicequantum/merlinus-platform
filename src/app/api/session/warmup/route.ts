@@ -87,6 +87,16 @@ export async function GET(request: Request) {
           });
           // Touch getRlsDb once more (create path uses both)
           void getRlsDb();
+          // Same findMany shape as image access (RO scan extract) — no LIKE on pathnames.
+          await getRlsDb().repairOrder.findMany({
+            where: { dealershipId: session.dealershipId },
+            select: {
+              xentryImageUrls: true,
+              repairLines: { select: { xentryImageUrls: true } },
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 5,
+          });
           rlsPathWarmed = Boolean(getActiveRlsContext());
         } catch (error) {
           logger.warn('session.warmup_rls_path_failed', {

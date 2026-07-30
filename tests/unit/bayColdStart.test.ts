@@ -122,6 +122,7 @@ describe('Bay cold-start + offline polish', () => {
 
   it('bay warmup + keep-alive + visibility hooks exist', () => {
     assert.match(readSrc('src/lib/bayWarmup.ts'), /runAggressiveBayWarmup/);
+    assert.match(readSrc('src/lib/bayWarmup.ts'), /ensureBayScanReady/);
     assert.match(readSrc('src/lib/bayWarmup.ts'), /startVisibilityBayWarmup/);
     assert.match(readSrc('src/lib/bayWarmup.ts'), /uploadPathWarmed/);
     assert.match(readSrc('src/lib/clientFetchRetry.ts'), /aggressive/);

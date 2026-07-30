@@ -224,9 +224,10 @@ export function ApexPlatformApp() {
       void refreshSession({ clearOnMissing: false });
       // Rooftop enter is the #1 cold-start moment — warm R2/upload before first Scan RO.
       void import('@/lib/bayWarmup')
-        .then(({ runAggressiveBayWarmup }) =>
-          runAggressiveBayWarmup({
-            prefetchRoList: true,
+        .then(({ ensureBayScanReady }) =>
+          ensureBayScanReady({
+            maxWaitMs: 18_000,
+            force: true,
             technicianId: next.technicianId,
             dealershipId: next.dealershipId,
           })

@@ -64,22 +64,23 @@ export function buildRoNumberSearchTokens(roNumber: string): string[] {
   return Array.from(tokens);
 }
 
-/** Build query tokens from a user search term for SQLite/D1 `contains` matching on the JSON token blob. */
+/**
+ * Build query tokens from a user search term for SQLite/D1 `contains` matching
+ * on the stored JSON token blob.
+ *
+ * Store side indexes ALL substrings of the RO number. Query side only needs the
+ * hash of the **full search term** (plus legacy secrets). Expanding query-side
+ * substrings creates dozens of OR LIKE clauses and triggers D1
+ * "LIKE or GLOB pattern too complex".
+ */
 export function buildRoNumberSearchQueryTokens(term: string): string[] {
   const normalized = normalizeRoNumberForSearch(term);
   if (!normalized) return [];
 
-  const secrets = getSearchHmacSecretsForQuery();
   const tokens = new Set<string>();
-
-  for (const secret of secrets) {
-    if (normalized.length < MIN_RO_SEARCH_FRAGMENT_LEN) {
-      const single = hashRoNumberSearchFragment(normalized, secret);
-      if (single) tokens.add(single);
-      continue;
-    }
-    collectRoNumberFragmentTokens(normalized, secret, tokens);
+  for (const secret of getSearchHmacSecretsForQuery()) {
+    const token = hashRoNumberSearchFragment(normalized, secret);
+    if (token) tokens.add(token);
   }
-
   return Array.from(tokens);
 }

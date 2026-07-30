@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import { DealershipBranding } from '@/components/DealershipBranding';
@@ -37,6 +37,13 @@ export function LoginView({ onLogin, onMfaVerify }: LoginViewProps) {
   const [mfaCode, setMfaCode] = useState('');
   const [mfaName, setMfaName] = useState<string | undefined>();
   const showClerkOption = isClerkSignInAvailable();
+  // Pre-auth isolate tick so first post-login warm is not a cold Worker start.
+  useEffect(() => {
+    void import('@/lib/clientFetchRetry')
+      .then(({ keepAlivePublicStatus }) => keepAlivePublicStatus())
+      .catch(() => undefined);
+  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

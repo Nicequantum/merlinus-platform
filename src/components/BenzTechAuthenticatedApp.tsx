@@ -159,14 +159,15 @@ export function BenzTechAuthenticatedApp({
       })
       .catch(() => undefined);
     void import('@/lib/bayWarmup')
-      .then(({ startVisibilityBayWarmup, runAggressiveBayWarmup }) => {
+      .then(({ startVisibilityBayWarmup, ensureBayScanReady }) => {
         stopVis = startVisibilityBayWarmup({
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
         });
-        // Immediate double warm on rooftop enter (first login cold-start class).
-        return runAggressiveBayWarmup({
-          prefetchRoList: true,
+        // Immediate multi-pass warm on rooftop enter (first login cold-start class).
+        return ensureBayScanReady({
+          maxWaitMs: 18_000,
+          force: true,
           technicianId: session.technicianId,
           dealershipId: session.dealershipId,
         });

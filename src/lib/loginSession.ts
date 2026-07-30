@@ -177,11 +177,12 @@ export async function loginWithCredentials(
     }
     // Aggressive bay warm: session + status + today's RO list (technician path)
     void import('@/lib/bayWarmup')
-      .then(({ runAggressiveBayWarmup }) =>
-        runAggressiveBayWarmup({
-          prefetchRoList: true,
+      .then(({ ensureBayScanReady }) =>
+        ensureBayScanReady({
           technicianId: data.session!.technicianId,
           dealershipId: data.session!.dealershipId,
+          maxWaitMs: 18_000,
+          force: true,
         })
       )
       .catch(() =>

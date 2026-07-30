@@ -17,7 +17,7 @@ export type ImageAccessSession = {
 export const RECENT_UPLOAD_ACCESS_MS = 60 * 60 * 1000;
 
 /** Bound RO scan for image attachment checks (Phase 7.1 H4). */
-const IMAGE_ACCESS_RO_SCAN_LIMIT = 150;
+const IMAGE_ACCESS_RO_SCAN_LIMIT = 200;
 
 function pathnamesFromImageJson(raw: string): string[] {
   try {
@@ -76,43 +76,6 @@ function roleScopedRoWhere(session: ImageAccessSession) {
 }
 
 /**
- * H9 — targeted pathname lookup: filter by JSON text contains, then exact-parse match.
- * Avoids loading the full dealership RO table for single-path access checks.
- */
-export async function repairOrderContainsPathname(
-  session: ImageAccessSession,
-  pathname: string
-): Promise<boolean> {
-  if (!pathname) return false;
-  const db = getRlsDb();
-  const scope = roleScopedRoWhere(session);
-
-  // Pre-filter with string contains (indexed table scan bound), then exact JSON parse.
-  const candidates = await db.repairOrder.findMany({
-    where: {
-      ...scope,
-      OR: [
-        { xentryImageUrls: { contains: pathname } },
-        { repairLines: { some: { xentryImageUrls: { contains: pathname } } } },
-      ],
-    },
-    select: {
-      xentryImageUrls: true,
-      repairLines: { select: { xentryImageUrls: true } },
-    },
-    take: 25,
-  });
-
-  for (const ro of candidates) {
-    if (pathnamesFromImageJson(ro.xentryImageUrls).includes(pathname)) return true;
-    for (const line of ro.repairLines) {
-      if (pathnamesFromImageJson(line.xentryImageUrls).includes(pathname)) return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Phase 7.1 H4 — one RO query, build attached pathname set in memory (no per-path N+1).
  * Used when checking many pathnames at once (extract / attach flows).
  */
@@ -140,6 +103,23 @@ async function loadAttachedPathnames(session: ImageAccessSession): Promise<Set<s
     }
   }
   return attached;
+}
+
+/**
+ * Pathname access check for RO-attached images.
+ *
+ * IMPORTANT (D1): do NOT use Prisma `contains` / SQL LIKE on R2 pathnames.
+ * Paths contain many `_` characters; SQLite treats `_` as a single-char wildcard,
+ * and D1 fails with "LIKE or GLOB pattern too complex". We scan a bounded recent
+ * RO window and match pathnames exactly after JSON parse instead.
+ */
+export async function repairOrderContainsPathname(
+  session: ImageAccessSession,
+  pathname: string
+): Promise<boolean> {
+  if (!pathname) return false;
+  const attached = await loadAttachedPathnames(session);
+  return attached.has(pathname);
 }
 
 /**

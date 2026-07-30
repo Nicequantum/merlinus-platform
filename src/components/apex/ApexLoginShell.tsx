@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApexDealershipSelector } from '@/components/apex/ApexDealershipSelector';
 import { ApexLogoMark } from '@/components/apex/ApexLogoMark';
 import type { ApexLoginDealershipOption } from '@/lib/apexLoginSession';
@@ -40,6 +40,13 @@ export function ApexLoginShell({
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaName, setMfaName] = useState<string | undefined>();
+  // Pre-auth isolate tick so first post-login warm is not a cold Worker start.
+  useEffect(() => {
+    void import('@/lib/clientFetchRetry')
+      .then(({ keepAlivePublicStatus }) => keepAlivePublicStatus())
+      .catch(() => undefined);
+  }, []);
+
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -53,23 +53,37 @@ export function buildRepairOrderListWhere(
   );
 
   if (params.q) {
-    const term = params.q;
-    const roSearchTokens = buildRoNumberSearchQueryTokens(term);
-    // SQLite/D1: no mode:'insensitive' and no String[] hasSome — use contains on JSON token blob.
-    const orClauses: Prisma.RepairOrderWhereInput[] = [
-      { year: { contains: term } },
-      { make: { contains: term } },
-      { model: { contains: term } },
-    ];
-
-    for (const token of roSearchTokens) {
-      orClauses.unshift({ roNumberSearchTokens: { contains: token } });
+    // Bound length — long OCR junk in `q` + many OR LIKE clauses trips D1 pattern limits.
+    const term = params.q.trim().slice(0, 64);
+    if (term) {
+      const roSearchTokens = buildRoNumberSearchQueryTokens(term);
+      // Hex HMAC tokens are safe for LIKE (no `_`/`%`). Cap to a few secrets max.
+      const safeTokens = roSearchTokens.slice(0, 4);
+      // Vehicle free-text: strip LIKE wildcards so user input cannot explode D1.
+      const vehicleTerm = term
+        .replace(/[%_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 32);
+      const orClauses: Prisma.RepairOrderWhereInput[] = [];
+      for (const token of safeTokens) {
+        orClauses.push({ roNumberSearchTokens: { contains: token } });
+      }
+      if (vehicleTerm.length >= 1) {
+        orClauses.push(
+          { year: { contains: vehicleTerm } },
+          { make: { contains: vehicleTerm } },
+          { model: { contains: vehicleTerm } }
+        );
+      }
+      if (orClauses.length === 0) {
+        return { ...roleWhere, id: '__no_search_match__' };
+      }
+      return {
+        ...roleWhere,
+        OR: orClauses,
+      };
     }
-
-    return {
-      ...roleWhere,
-      OR: orClauses,
-    };
   }
 
   const tz = resolveDealershipTimezone(session.dealershipTimezone);

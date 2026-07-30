@@ -362,10 +362,15 @@ export function useROScan({
         const scanStartedAt = Date.now();
         // Cold-start: await upload path warm briefly so Process RO extract does not race cold R2.
         try {
-          const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
-          await ensureUploadPathReady({ maxWaitMs: 6_000 });
+          const { ensureBayScanReady } = await import('@/lib/bayWarmup');
+          await ensureBayScanReady({ maxWaitMs: 14_000 });
         } catch {
-          // ignore
+          try {
+            const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
+            await ensureUploadPathReady({ maxWaitMs: 8_000 });
+          } catch {
+            // ignore
+          }
         }
         // Warm Tesseract WASM only for OCR fallback path — do not start recognize() yet.
         void warmupOcrWorker().catch((error) => {
@@ -595,12 +600,17 @@ export function useROScan({
       if (rawFiles.length === 0) return;
 
       try {
-        // Critical cold-start gate: first RO scan after login must hit a warm R2/upload path.
+        // Critical cold-start gate: first RO scan after login must hit a warm R2/upload/D1 path.
         try {
-          const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
-          await ensureUploadPathReady({ maxWaitMs: 8_000 });
+          const { ensureBayScanReady } = await import('@/lib/bayWarmup');
+          await ensureBayScanReady({ maxWaitMs: 16_000, force: false });
         } catch {
-          // continue — upload retries still apply
+          try {
+            const { ensureUploadPathReady } = await import('@/lib/bayUploadReady');
+            await ensureUploadPathReady({ maxWaitMs: 10_000 });
+          } catch {
+            // continue — upload retries still apply
+          }
         }
 
         const normalizedFiles = await normalizeScanFiles(rawFiles);
