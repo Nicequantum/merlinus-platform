@@ -13,6 +13,7 @@ import {
   type StoredObjectStream,
 } from '@/lib/storage/objectStorage';
 import { requireR2Bucket } from '@/lib/storage/r2';
+import { R2_MULTIPART_MIN_PART_BYTES } from '@/lib/videoInspection/uploadConstants';
 
 export function isAllowedVideoPathname(pathname: string): boolean {
   return pathname.startsWith('benz-tech/video/') && !pathname.includes('..');
@@ -90,7 +91,11 @@ export async function fetchPrivateVideoChunkAsBuffer(pathname: string): Promise<
 /**
  * Assemble chunk pathnames into a final video object without holding the full
  * multi-hundred-MB buffer when R2 multipart is available (long walkarounds).
- * Falls back to sequential concat for smaller files or when multipart is missing.
+ *
+ * R2/S3 rule: every multipart part **except the last** must be >= 5 MiB.
+ * Client chunks may be smaller (legacy 4 MiB sessions) or the last fragment
+ * may be small — we coalesce buffers so non-final parts always meet the floor.
+ * Falls back to sequential concat + putObject for tiny videos / missing multipart.
  */
 export async function assembleVideoChunksToBlob(
   chunkPathnames: string[],
@@ -112,8 +117,16 @@ export async function assembleVideoChunksToBlob(
   const finalKey = `benz-tech/video/${safeDealer}/${randomUUID()}-${safeName}`;
   const bucket = requireR2Bucket();
 
-  // Multipart path: one chunk in memory at a time (safe for 15–20 min HD videos).
-  if (typeof bucket.createMultipartUpload === 'function' && chunkPathnames.length > 1) {
+  // Single stored chunk → simple put (no multipart min-size risk).
+  if (chunkPathnames.length === 1) {
+    const buf = await fetchPrivateVideoChunkAsBuffer(chunkPathnames[0]!);
+    if (buf.byteLength <= 0) throw new Error('Assembled video is empty');
+    await putObject(finalKey, buf, { contentType });
+    return { pathname: finalKey, url: '', sizeBytes: buf.byteLength };
+  }
+
+  // Multipart with coalescing: never emit a non-final part under 5 MiB.
+  if (typeof bucket.createMultipartUpload === 'function') {
     const multipart = await bucket.createMultipartUpload(finalKey, {
       httpMetadata: {
         contentType,
@@ -122,6 +135,28 @@ export async function assembleVideoChunksToBlob(
     });
     const uploadedParts: Array<{ etag: string; partNumber: number }> = [];
     let sizeBytes = 0;
+    let pending: Buffer[] = [];
+    let pendingSize = 0;
+    let partNumber = 1;
+
+    const flushPending = async (isFinal: boolean) => {
+      if (pendingSize <= 0) return;
+      // Non-final parts must meet R2 minimum; keep accumulating if too small.
+      if (!isFinal && pendingSize < R2_MULTIPART_MIN_PART_BYTES) return;
+
+      const buf = Buffer.concat(pending, pendingSize);
+      pending = [];
+      pendingSize = 0;
+      const copy = new Uint8Array(buf.byteLength);
+      copy.set(buf);
+      const part = await multipart.uploadPart(partNumber, copy);
+      uploadedParts.push({
+        etag: part.etag,
+        partNumber: part.partNumber || partNumber,
+      });
+      partNumber += 1;
+    };
+
     try {
       for (let i = 0; i < chunkPathnames.length; i++) {
         const buf = await fetchPrivateVideoChunkAsBuffer(chunkPathnames[i]!);
@@ -129,13 +164,22 @@ export async function assembleVideoChunksToBlob(
           throw new Error(`Empty video chunk at index ${i}`);
         }
         sizeBytes += buf.byteLength;
-        // R2 multipart part numbers are 1-based
-        const partNumber = i + 1;
-        const copy = new Uint8Array(buf.byteLength);
-        copy.set(buf);
-        const part = await multipart.uploadPart(partNumber, copy);
-        uploadedParts.push({ etag: part.etag, partNumber: part.partNumber || partNumber });
+        pending.push(buf);
+        pendingSize += buf.byteLength;
+        const isLastChunk = i === chunkPathnames.length - 1;
+        if (isLastChunk) {
+          await flushPending(true);
+        } else {
+          await flushPending(false);
+        }
       }
+
+      if (uploadedParts.length === 0) {
+        throw new Error('Assembled video is empty');
+      }
+
+      // One part only (e.g. total under 5 MiB, or all coalesced) — complete is fine
+      // because the sole part is the "last" part and may be any size.
       await multipart.complete(uploadedParts);
       return { pathname: finalKey, url: '', sizeBytes };
     } catch (error) {
@@ -144,11 +188,30 @@ export async function assembleVideoChunksToBlob(
       } catch {
         // ignore abort errors
       }
+
+      // Fallback: if multipart failed due to part size / API quirks, concat + put
+      // when total is still reasonable for Worker memory (~64 MiB).
+      const message = error instanceof Error ? error.message : String(error);
+      const looksLikePartSize =
+        /minimum allowed object size|EntityTooSmall|part size|10011/i.test(message);
+      if (looksLikePartSize && sizeBytes > 0 && sizeBytes <= 64 * 1024 * 1024) {
+        const parts: Buffer[] = [];
+        let total = 0;
+        for (const path of chunkPathnames) {
+          const buf = await fetchPrivateVideoChunkAsBuffer(path);
+          parts.push(buf);
+          total += buf.byteLength;
+        }
+        if (total <= 0) throw error;
+        const assembled = Buffer.concat(parts, total);
+        await putObject(finalKey, assembled, { contentType });
+        return { pathname: finalKey, url: '', sizeBytes: total };
+      }
       throw error;
     }
   }
 
-  // Small / single-chunk fallback — concat then put
+  // Multipart unavailable — concat then put
   const parts: Buffer[] = [];
   let total = 0;
   for (const path of chunkPathnames) {

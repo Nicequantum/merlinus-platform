@@ -106,6 +106,18 @@ export function mapBlobRouteError(error: unknown, operation: 'upload' | 'fetch')
     };
   }
 
+  // R2/S3 multipart: non-final parts must be >= 5 MiB (error 10011 / EntityTooSmall).
+  if (/minimum allowed object size|EntityTooSmall|10011|part size too small/i.test(raw)) {
+    return {
+      message:
+        operation === 'upload'
+          ? 'Video save failed while assembling the recording. Please try Save again — the system will re-assemble the file.'
+          : 'Could not load the saved video. Try again or re-record.',
+      status: 502,
+      logDetail,
+    };
+  }
+
   const prefix = operation === 'upload' ? 'Photo upload failed' : 'Could not load uploaded photo';
   return {
     message: `${prefix}: ${sanitizeScanErrorDetail(raw)}`,

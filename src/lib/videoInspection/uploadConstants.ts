@@ -1,15 +1,22 @@
 /** PR-M1b — chunked upload limits (shared client/server). */
 
 /**
- * Chunk size for resumable uploads (4 MiB).
+ * Chunk size for resumable uploads (6 MiB).
+ * Must be >= R2/S3 multipart minimum part size (5 MiB) for non-final parts.
  * Larger chunks = fewer Worker subrequests on 10–20 min walkaround videos.
  * Still well under Cloudflare request body limits.
  */
-export const VIDEO_UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024;
+export const VIDEO_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
+
+/**
+ * R2/S3: every multipart part except the last must be at least 5 MiB.
+ * Used when assembling stored client chunks into a final object.
+ */
+export const R2_MULTIPART_MIN_PART_BYTES = 5 * 1024 * 1024;
 
 /**
  * Hard cap on chunk count.
- * At 4 MiB chunks this supports up to ~4 GiB (env VIDEO_INSPECTION_MAX_MB still caps).
+ * At 6 MiB chunks this supports multi-GB videos (env VIDEO_INSPECTION_MAX_MB still caps).
  * 1024 chunks keeps complete-assemble subrequests under Worker limits.
  */
 export const VIDEO_UPLOAD_MAX_CHUNKS = 1024;

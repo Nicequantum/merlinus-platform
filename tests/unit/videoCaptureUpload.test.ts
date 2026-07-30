@@ -15,12 +15,12 @@ import {
 
 describe('PR-M1b video capture / chunked upload', () => {
   test('computeChunkCount covers full file with 4MiB parts', () => {
-    assert.equal(VIDEO_UPLOAD_CHUNK_BYTES, 4 * 1024 * 1024);
+    assert.equal(VIDEO_UPLOAD_CHUNK_BYTES, 6 * 1024 * 1024);
     assert.equal(computeChunkCount(0), 0);
     assert.equal(computeChunkCount(1), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES), 1);
     assert.equal(computeChunkCount(VIDEO_UPLOAD_CHUNK_BYTES + 1), 2);
-    // 2 GiB fits under max chunks at 4 MiB
+    // 2 GiB fits under max chunks at 6 MiB
     assert.ok(computeChunkCount(2048 * 1024 * 1024) <= VIDEO_UPLOAD_MAX_CHUNKS);
     assert.ok(VIDEO_UPLOAD_MAX_CHUNKS >= 512);
   });
@@ -155,6 +155,8 @@ describe('PR-M1b video capture / chunked upload', () => {
     assert.ok(blob.includes('deleteVideoChunksBestEffort'));
     assert.ok(blob.includes('assembleVideoChunksToBlob'));
     assert.ok(blob.includes('createMultipartUpload'));
+    assert.ok(blob.includes('R2_MULTIPART_MIN_PART_BYTES') || blob.includes('MIN_PART') || blob.includes('5 * 1024'));
+    assert.ok(blob.includes('flushPending') || blob.includes('pendingSize') || blob.includes('minimum allowed'));
   });
 
   test('rate limits allow high chunk throughput for multi-minute HD', () => {
