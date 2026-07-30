@@ -27,7 +27,6 @@ import {
   MFA_REENCRYPT_TABLES,
 } from '@/lib/encryption/reencryptPlan';
 import { logger } from '@/lib/logger';
-import { scheduleBackgroundWork } from '@/lib/aiJobs/schedule';
 
 export type { ReencryptTablePlanEntry } from '@/lib/encryption/reencryptPlan';
 export {
@@ -64,7 +63,11 @@ export interface EncryptionRotationDto {
   liveKeyStatus: ReturnType<typeof getEncryptionKeyStatus>;
 }
 
-const BATCH_SIZE = Math.max(10, Number(process.env.REENCRYPT_BATCH_SIZE ?? 40));
+const BATCH_SIZE = Math.max(10, Number(process.env.REENCRYPT_BATCH_SIZE ?? 50));
+/** Max batches per status-poll tick (Cloudflare CPU budget). */
+const TICK_MAX_BATCHES = Math.max(2, Math.min(15, Number(process.env.REENCRYPT_TICK_BATCHES ?? 8)));
+/** Lease so a killed request cannot permanently block ticks. */
+const TICK_LEASE_MS = 45_000;
 
 function mapDto(
   row: {
@@ -87,8 +90,15 @@ function mapDto(
 ): EncryptionRotationDto {
   const total = Math.max(0, row.totalRecords);
   const processed = Math.max(0, row.processedRecords);
-  const progressPercent =
-    total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : row.status === 'completed' ? 100 : 0;
+  let progressPercent = 0;
+  if (row.status === 'completed') {
+    progressPercent = 100;
+  } else if (total > 0) {
+    // Cap at 99 while running so UI does not show 100% before status flips.
+    progressPercent = Math.min(99, Math.round((processed / total) * 100));
+  } else if (row.status === 'running') {
+    progressPercent = 1;
+  }
   return {
     id: row.id,
     status: row.status as RotationStatus,
@@ -148,7 +158,7 @@ export async function getRotationStatusBundle(): Promise<{
   // Full background while-loops often die under waitUntil limits; polling drives progress.
   if (rotation?.status === 'running') {
     try {
-      rotation = (await tickReencryptRotationJob(rotation.id, { maxBatches: 5 })) || rotation;
+      rotation = (await tickReencryptRotationJob(rotation.id, { maxBatches: TICK_MAX_BATCHES })) || rotation;
       keys = getEncryptionKeyStatus();
     } catch (error) {
       logger.error('encryption.rotation_status_tick_failed', {
@@ -576,9 +586,23 @@ export async function rotateEncryptionKeysInApp(input: {
     // best-effort
   }
 
-  await scheduleBackgroundWork(`encryption.reencrypt:${row.id}`, async () => {
-    await runReencryptRotationJob(row.id);
-  });
+  // Estimate total immediately so progress % is meaningful from the first poll.
+  try {
+    const total = await estimateTotalRecords();
+    await withRlsBypass(async () => {
+      await getRlsDb().encryptionRotation.update({
+        where: { id: row.id },
+        data: { totalRecords: total, currentTable: REENCRYPT_TABLE_PLAN[0]?.table || '' },
+      });
+    });
+  } catch (error) {
+    logger.warn('encryption.rotation_estimate_failed', {
+      error: error instanceof Error ? error.message : 'unknown',
+    });
+  }
+
+  // First tick inline — do NOT start a long waitUntil while-loop (races poll ticks and freezes).
+  const advanced = await tickReencryptRotationJob(row.id, { maxBatches: TICK_MAX_BATCHES });
 
   logger.info('encryption.rotation_in_app', {
     rotationId: row.id,
@@ -587,11 +611,11 @@ export async function rotateEncryptionKeysInApp(input: {
   });
 
   return {
-    rotation: mapDto(row),
+    rotation: advanced || mapDto(row),
     primaryFingerprint: rotated.primaryFingerprint,
     previousKeyFingerprint: rotated.previousFingerprint,
     message:
-      'New encryption key activated in-app. Re-encryption started — keep this page open to watch progress. No environment variable changes needed.',
+      'New encryption key activated in-app. Re-encryption is running — keep this Settings page open until 100%. No environment variable changes needed.',
   };
 }
 
@@ -669,11 +693,20 @@ export async function startReencryptPass(input: {
     // best-effort
   }
 
-  await scheduleBackgroundWork(`encryption.reencrypt:${row.id}`, async () => {
-    await runReencryptRotationJob(row.id);
-  });
+  try {
+    const total = await estimateTotalRecords();
+    await withRlsBypass(async () => {
+      await getRlsDb().encryptionRotation.update({
+        where: { id: row.id },
+        data: { totalRecords: total },
+      });
+    });
+  } catch {
+    // non-fatal
+  }
 
-  return mapDto(row);
+  const advanced = await tickReencryptRotationJob(row.id, { maxBatches: TICK_MAX_BATCHES });
+  return advanced || mapDto(row);
 }
 
 export async function cancelEncryptionRotation(input: {
@@ -745,23 +778,35 @@ async function estimateTotalRecords(): Promise<number> {
 
 /**
  * Process a limited number of re-encrypt batches (Cloudflare-safe).
- * Full while-loop jobs die under waitUntil CPU/time limits; status polling
- * advances the cursor instead so rotation actually completes.
+ * Full while-loop jobs die under waitUntil CPU/time limits and raced poll ticks.
+ * Status polling is the single driver of progress.
  */
-const reencryptTickInFlight = new Set<string>();
+const reencryptTickLease = new Map<string, number>();
+
+function acquireTickLease(rotationId: string): boolean {
+  const now = Date.now();
+  const until = reencryptTickLease.get(rotationId) ?? 0;
+  if (until > now) return false;
+  reencryptTickLease.set(rotationId, now + TICK_LEASE_MS);
+  return true;
+}
+
+function releaseTickLease(rotationId: string): void {
+  reencryptTickLease.delete(rotationId);
+}
 
 export async function tickReencryptRotationJob(
   rotationId: string,
   options?: { maxBatches?: number }
 ): Promise<EncryptionRotationDto | null> {
-  if (reencryptTickInFlight.has(rotationId)) {
+  if (!acquireTickLease(rotationId)) {
     return getActiveOrLatestRotation();
   }
-  reencryptTickInFlight.add(rotationId);
 
   try {
     await warmEncryptionKeyring();
-    const maxBatches = Math.max(1, Math.min(20, options?.maxBatches ?? 5));
+    const maxBatches = Math.max(1, Math.min(20, options?.maxBatches ?? TICK_MAX_BATCHES));
+    const deadline = Date.now() + 12_000; // soft CPU budget per request
 
     let row = await withRlsBypass(async () =>
       getRlsDb().encryptionRotation.findUnique({ where: { id: rotationId } })
@@ -785,7 +830,7 @@ export async function tickReencryptRotationJob(
         getRlsDb().encryptionRotation.update({
           where: { id: rotationId },
           data: {
-            totalRecords: total,
+            totalRecords: Math.max(1, total),
             currentTable: row!.currentTable || REENCRYPT_TABLE_PLAN[0]?.table || '',
           },
         })
@@ -797,10 +842,22 @@ export async function tickReencryptRotationJob(
     if (row.currentTable) {
       const idx = REENCRYPT_TABLE_PLAN.findIndex((t) => t.table === row!.currentTable);
       if (idx >= 0) tableIndex = idx;
+      else {
+        // Unknown table name from older plan — restart from beginning of current plan.
+        tableIndex = 0;
+        cursorId = '';
+      }
     }
 
     let batches = 0;
-    while (batches < maxBatches && tableIndex < REENCRYPT_TABLE_PLAN.length) {
+    let lastCursor = cursorId;
+    let stagnantBatches = 0;
+
+    while (
+      batches < maxBatches &&
+      tableIndex < REENCRYPT_TABLE_PLAN.length &&
+      Date.now() < deadline
+    ) {
       const cancelled = await withRlsBypass(async () => {
         const r = await getRlsDb().encryptionRotation.findUnique({
           where: { id: rotationId },
@@ -820,25 +877,60 @@ export async function tickReencryptRotationJob(
 
       const plan = REENCRYPT_TABLE_PLAN[tableIndex]!;
       const batch = await processTableBatch(plan.table, plan.columns, cursorId, BATCH_SIZE);
-      cursorId = batch.nextCursor;
       batches += 1;
 
+      // Stall recovery: same cursor twice with no completion → force advance table.
+      if (!batch.done && batch.nextCursor && batch.nextCursor === lastCursor && batch.scanned > 0) {
+        stagnantBatches += 1;
+      } else if (!batch.done && batch.scanned === 0) {
+        stagnantBatches += 1;
+      } else {
+        stagnantBatches = 0;
+      }
+      lastCursor = batch.nextCursor;
+
+      let forceDone = batch.done;
+      if (stagnantBatches >= 2) {
+        logger.warn('encryption.rotation_cursor_stall', {
+          rotationId,
+          table: plan.table,
+          cursorId,
+          nextCursor: batch.nextCursor,
+        });
+        forceDone = true;
+        stagnantBatches = 0;
+      }
+
+      cursorId = forceDone ? '' : batch.nextCursor;
+
       await withRlsBypass(async () => {
-        await getRlsDb().encryptionRotation.update({
+        const db = getRlsDb();
+        const current = await db.encryptionRotation.findUnique({
+          where: { id: rotationId },
+          select: { processedRecords: true, totalRecords: true },
+        });
+        const nextProcessed = (current?.processedRecords ?? 0) + batch.scanned;
+        let totalRecords = current?.totalRecords ?? 0;
+        // If estimate was low, grow total so % keeps moving toward completion honestly.
+        if (totalRecords > 0 && nextProcessed > totalRecords) {
+          totalRecords = nextProcessed + BATCH_SIZE * 2;
+        }
+        await db.encryptionRotation.update({
           where: { id: rotationId },
           data: {
             currentTable: plan.table,
-            cursorId: batch.nextCursor,
+            cursorId: forceDone ? '' : batch.nextCursor,
             processedRecords: { increment: batch.scanned },
             updatedRecords: { increment: batch.updated },
             failedRecords: { increment: batch.failed },
+            totalRecords,
             updatedAt: new Date(),
             status: 'running',
           },
         });
       });
 
-      if (batch.done) {
+      if (forceDone) {
         tableIndex += 1;
         cursorId = '';
         if (tableIndex < REENCRYPT_TABLE_PLAN.length) {
@@ -857,11 +949,14 @@ export async function tickReencryptRotationJob(
 
     if (tableIndex >= REENCRYPT_TABLE_PLAN.length) {
       await withRlsBypass(async () => {
+        const cur = await getRlsDb().encryptionRotation.findUnique({ where: { id: rotationId } });
+        if (!cur) return;
         await getRlsDb().encryptionRotation.update({
           where: { id: rotationId },
           data: {
             status: 'completed',
             finishedAt: new Date(),
+            processedRecords: Math.max(cur.processedRecords, cur.totalRecords || 0),
             currentTable: '',
             cursorId: '',
           },
@@ -876,6 +971,11 @@ export async function tickReencryptRotationJob(
           logger.info('encryption.keyring_auto_finalized', {
             rotationId,
             mfaSampled: probe.sampled,
+          });
+        } else {
+          logger.info('encryption.keyring_finalize_deferred', {
+            rotationId,
+            stillOnPreviousKey: probe.stillOnPreviousKey,
           });
         }
       } catch (error) {
@@ -919,140 +1019,46 @@ export async function tickReencryptRotationJob(
     logger.error('encryption.rotation_tick_failed', { rotationId, error: message });
     return getActiveOrLatestRotation();
   } finally {
-    reencryptTickInFlight.delete(rotationId);
+    releaseTickLease(rotationId);
   }
 }
 
 /**
- * Process re-encryption until complete/cancelled. Safe to resume.
+ * Resume re-encryption by driving ticks until complete/cancelled/failed.
+ * Prefer poll-driven ticks in production; this helper is for tests / manual resume.
  */
 export async function runReencryptRotationJob(rotationId: string): Promise<void> {
-  const total = await estimateTotalRecords();
-  await withRlsBypass(async () => {
-    await getRlsDb().encryptionRotation.update({
-      where: { id: rotationId },
-      data: { totalRecords: total, status: 'running' },
-    });
-  });
-
-  let tableIndex = 0;
-  let cursorId = '';
-
-  // Restore cursor from DB if resuming
+  // Ensure totals exist
   const existing = await withRlsBypass(async () =>
     getRlsDb().encryptionRotation.findUnique({ where: { id: rotationId } })
   );
-  if (existing?.currentTable) {
-    const idx = REENCRYPT_TABLE_PLAN.findIndex((t) => t.table === existing.currentTable);
-    if (idx >= 0) tableIndex = idx;
-    cursorId = existing.cursorId || '';
-  }
-
-  try {
-    while (tableIndex < REENCRYPT_TABLE_PLAN.length) {
-      const plan = REENCRYPT_TABLE_PLAN[tableIndex]!;
-      const cancelled = await withRlsBypass(async () => {
-        const r = await getRlsDb().encryptionRotation.findUnique({
-          where: { id: rotationId },
-          select: { cancelRequested: true, status: true },
-        });
-        return r?.cancelRequested || r?.status === 'cancelled';
-      });
-      if (cancelled) {
-        await withRlsBypass(async () => {
-          await getRlsDb().encryptionRotation.update({
-            where: { id: rotationId },
-            data: {
-              status: 'cancelled',
-              finishedAt: new Date(),
-            },
-          });
-        });
-        logger.info('encryption.rotation_cancelled', { rotationId });
-        return;
-      }
-
-      const batch = await processTableBatch(plan.table, plan.columns, cursorId, BATCH_SIZE);
-      cursorId = batch.nextCursor;
-      await withRlsBypass(async () => {
-        await getRlsDb().encryptionRotation.update({
-          where: { id: rotationId },
-          data: {
-            currentTable: plan.table,
-            cursorId: batch.nextCursor,
-            processedRecords: { increment: batch.scanned },
-            updatedRecords: { increment: batch.updated },
-            failedRecords: { increment: batch.failed },
-            updatedAt: new Date(),
-          },
-        });
-      });
-
-      if (batch.done) {
-        tableIndex += 1;
-        cursorId = '';
-      }
-    }
-
+  if (!existing) return;
+  if (existing.status !== 'running') {
     await withRlsBypass(async () => {
       await getRlsDb().encryptionRotation.update({
         where: { id: rotationId },
-        data: {
-          status: 'completed',
-          finishedAt: new Date(),
-          currentTable: '',
-          cursorId: '',
-        },
+        data: { status: 'running', cancelRequested: false, errorMessage: null, finishedAt: null },
       });
     });
-    logger.info('encryption.rotation_completed', { rotationId });
-
-    // Close in-app dual-key window only when MFA ciphertext is clean on primary.
-    try {
-      const probe = await probeStaleMfaCiphertext(40);
-      if (probe.stillOnPreviousKey === 0) {
-        await finalizeInAppDekRotation();
-        logger.info('encryption.keyring_auto_finalized', { rotationId, mfaSampled: probe.sampled });
-      } else {
-        logger.info('encryption.keyring_finalize_deferred', {
-          rotationId,
-          stillOnPreviousKey: probe.stillOnPreviousKey,
-        });
-      }
-    } catch (error) {
-      logger.error('encryption.keyring_finalize_failed', {
-        rotationId,
-        error: error instanceof Error ? error.message : 'unknown',
-      });
-    }
-
-    try {
-      await writeAuditedAccess({
-        action: 'encryption.rotation_complete',
-        dealershipId: 'platform',
-        technicianId: existing?.startedByTechnicianId || 'system',
-        entityType: 'encryptionRotation',
-        entityId: rotationId,
-        metadata: { status: 'completed', mode: 'in_app_dek' },
-      });
-    } catch {
-      // best-effort
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  }
+  if (!existing.totalRecords) {
+    const total = await estimateTotalRecords();
     await withRlsBypass(async () => {
       await getRlsDb().encryptionRotation.update({
         where: { id: rotationId },
-        data: {
-          status: 'failed',
-          errorMessage: message.slice(0, 500),
-          finishedAt: new Date(),
-        },
+        data: { totalRecords: Math.max(1, total) },
       });
     });
-    logger.error('encryption.rotation_failed', { rotationId, error: message });
   }
+
+  // Cap iterations so this never becomes an unbounded Worker task.
+  for (let i = 0; i < 500; i++) {
+    const dto = await tickReencryptRotationJob(rotationId, { maxBatches: TICK_MAX_BATCHES });
+    if (!dto || dto.status !== 'running') return;
+  }
+  logger.warn('encryption.rotation_run_job_iteration_cap', { rotationId });
 }
+
 
 async function processTableBatch(
   table: string,
@@ -1076,9 +1082,12 @@ async function processTableBatch(
     const select: Record<string, boolean> = { id: true };
     for (const c of columns) select[c] = true;
 
+    // Prefer id > cursor (stable on D1/SQLite). Prisma skip+cursor can re-read the same page.
     const rows = await model.findMany({
       take,
-      ...(cursorId ? { skip: 1, cursor: { id: cursorId } } : {}),
+      ...(cursorId
+        ? { where: { id: { gt: cursorId } } }
+        : {}),
       orderBy: { id: 'asc' },
       select,
     });
@@ -1114,12 +1123,14 @@ async function processTableBatch(
     }
 
     const nextCursor = String(rows[rows.length - 1]?.id || cursorId);
+    // Guard infinite loop if ids do not advance.
+    const advanced = Boolean(nextCursor) && nextCursor !== cursorId;
     return {
       scanned: rows.length,
       updated,
       failed,
-      nextCursor,
-      done: rows.length < take,
+      nextCursor: advanced ? nextCursor : cursorId,
+      done: rows.length < take || !advanced,
     };
   });
 }

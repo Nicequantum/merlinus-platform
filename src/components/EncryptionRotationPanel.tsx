@@ -65,6 +65,8 @@ export function EncryptionRotationPanel() {
   const [busy, setBusy] = useState(false);
   const rotateLock = useRef(false);
   const loadInFlight = useRef(false);
+  const lastProgressRef = useRef<{ pct: number; at: number }>({ pct: -1, at: Date.now() });
+  const [stalled, setStalled] = useState(false);
   const [keys, setKeys] = useState<{
     primaryFingerprint: string;
     previousFingerprint: string | null;
@@ -92,6 +94,19 @@ export function EncryptionRotationPanel() {
     }
     setCadence((data.cadence as RotationCadence) || null);
     setHmacKeyConfigured(Boolean(data.hmacKeyConfigured));
+    const rot = data.rotation as RotationDto | null;
+    if (rot?.status === 'running') {
+      const pct = rot.progressPercent ?? 0;
+      if (pct !== lastProgressRef.current.pct) {
+        lastProgressRef.current = { pct, at: Date.now() };
+        setStalled(false);
+      } else if (Date.now() - lastProgressRef.current.at > 45_000) {
+        setStalled(true);
+      }
+    } else {
+      setStalled(false);
+      lastProgressRef.current = { pct: -1, at: Date.now() };
+    }
   }, []);
 
   const load = useCallback(
@@ -124,7 +139,8 @@ export function EncryptionRotationPanel() {
   // Stable poll while running — soft refresh only (no full unmount)
   useEffect(() => {
     if (rotation?.status !== 'running') return;
-    const t = setInterval(() => void load('soft'), 2_500);
+    // Aggressive poll: each request also advances re-encrypt batches server-side.
+    const t = setInterval(() => void load('soft'), 2_000);
     return () => clearInterval(t);
   }, [rotation?.status, load]);
 
@@ -365,6 +381,12 @@ export function EncryptionRotationPanel() {
                 <div className="text-[11px] text-benz-secondary leading-relaxed">
                   Keep this page open. Each refresh re-encrypts the next batch (Cloudflare-safe).
                   Progress should climb until 100%.
+                </div>
+              ) : null}
+              {running && stalled ? (
+                <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-100">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  Progress has not moved for a while. Leave this page open, or press refresh. If it stays stuck, cancel and use Resume re-encrypt.
                 </div>
               ) : null}
               {rotation.errorMessage ? (
