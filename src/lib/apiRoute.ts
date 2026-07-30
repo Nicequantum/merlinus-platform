@@ -124,12 +124,23 @@ async function withAuthInner<T>(
     return apiError(MAINTENANCE_MODE_ERROR, 503);
   }
 
+  const rateConfig =
+    options.rateLimit || (options.trackUsage ? RATE_LIMITS.generate : RATE_LIMITS.default);
+
+  // Pre-auth IP dimension.
+  // Auth routes: strict IP (brute force).
+  // Bay routes: looser IP so shared dealer NAT is not the primary throttle;
+  // post-auth user dimension is the real budget.
   if (!options.skipRateLimit) {
-    const rateLimited = await checkRateLimit(
-      request,
-      routeKey,
-      options.rateLimit || (options.trackUsage ? RATE_LIMITS.generate : RATE_LIMITS.default)
-    );
+    const { isAuthRateLimitRoute } = await import('@/lib/rate-limit');
+    const authSensitive = isAuthRateLimitRoute(routeKey);
+    const preAuthConfig = authSensitive
+      ? rateConfig
+      : {
+          limit: Math.max(rateConfig.limit * 4, rateConfig.limit + 120),
+          windowMs: rateConfig.windowMs,
+        };
+    const rateLimited = await checkRateLimit(request, routeKey, preAuthConfig);
     if (rateLimited) {
       applyRequestIdHeader(rateLimited, requestId);
       return rateLimited;
@@ -159,6 +170,21 @@ async function withAuthInner<T>(
   }
 
   const session = enrichSessionWithTenantScope(rawSession);
+
+  // Post-auth identity dimension: shared dealer NAT no longer shares one tech's budget.
+  if (!options.skipRateLimit && session.technicianId) {
+    const { isAuthRateLimitRoute } = await import('@/lib/rate-limit');
+    if (!isAuthRateLimitRoute(routeKey)) {
+      const userLimited = await checkRateLimit(request, routeKey, rateConfig, {
+        technicianId: session.technicianId,
+        dealershipId: session.dealershipId || session.activeDealershipId || null,
+      });
+      if (userLimited) {
+        applyRequestIdHeader(userLimited, requestId);
+        return userLimited;
+      }
+    }
+  }
 
   if (options.requireOwner || options.requireOwnerNational) {
     if (!isApexPlatformMode() || !session.isOwner) {

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import {
   applyApexAccessCookie,
   createApexAccessToken,
+  getAccessTtlForSession,
   type ApexAccessClaims,
 } from '@/lib/apex/apexSession';
 import { isApexPlatformMode } from '@/lib/platformMode';
@@ -79,7 +80,7 @@ async function applyRefreshedSessionCookie(
             (session.role === 'owner' ? 'national' : 'dealership'),
       ipHash: jwtPayload && 'ipHash' in jwtPayload ? jwtPayload.ipHash ?? null : null,
     });
-    applyApexAccessCookie(response, accessToken);
+    applyApexAccessCookie(response, accessToken, getAccessTtlForSession(session));
     return;
   }
 

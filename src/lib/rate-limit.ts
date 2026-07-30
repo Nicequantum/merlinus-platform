@@ -415,13 +415,39 @@ function apexProductionRequiresKv(): boolean {
 const APEX_KV_REQUIRED_MESSAGE =
   'Distributed rate limiting is not available. Production requires the KV_STORE Workers KV binding. Contact your administrator.';
 
+export type RateLimitIdentity = {
+  /** Prefer technicianId when authenticated — shared NAT rooftops no longer thrash as one IP. */
+  technicianId?: string | null;
+  dealershipId?: string | null;
+};
+
+/**
+ * Build rate-limit dimension key.
+ * Authenticated: user (and rooftop) primary — protects bay volume behind one egress.
+ * Unauthenticated: IP only.
+ */
+export function buildRateLimitDimension(
+  request: Request,
+  identity?: RateLimitIdentity | null
+): string {
+  const tech = identity?.technicianId?.trim();
+  if (tech) {
+    const roof = identity?.dealershipId?.trim() || 'none';
+    return `user:${tech}:roof:${roof}`;
+  }
+  const ip = getClientIp(request);
+  return `ip:${ip === 'unknown' ? 'unknown' : ip}`;
+}
+
 export async function checkRateLimit(
   request: Request,
   routeKey: string,
-  config: RateLimitConfig = RATE_LIMITS.default
+  config: RateLimitConfig = RATE_LIMITS.default,
+  identity?: RateLimitIdentity | null
 ): Promise<Response | null> {
   const ip = getClientIp(request);
-  const key = `ratelimit:${routeKey}:${ip === 'unknown' ? 'unknown' : ip}`;
+  const dimension = buildRateLimitDimension(request, identity);
+  const key = `ratelimit:${routeKey}:${dimension}`;
   const authSensitive = isAuthRateLimitRoute(routeKey);
   const production = isProductionEnv();
   const apexProd = apexProductionRequiresKv();
@@ -437,11 +463,13 @@ export async function checkRateLimit(
       return apiError(APEX_KV_REQUIRED_MESSAGE, 503);
     }
     if (production && authSensitive) {
+      // National posture: never soft-open auth limits on multi-instance deploys.
       logger.error('rate_limit.auth_kv_required', {
         message:
-          'KV_STORE not available for auth rate limits in production — falling back to in-memory (weaker multi-instance protection).',
+          'KV_STORE not available for auth rate limits in production — refusing request (fail-closed).',
         ...getRateLimitRuntimeSnapshot(request, routeKey),
       });
+      return apiError(APEX_KV_REQUIRED_MESSAGE, 503);
     }
     logRateLimitDecision(routeKey, request, 'memory');
     return checkMemoryRateLimit(key, memoryRateLimitConfig(config), { routeKey, request });

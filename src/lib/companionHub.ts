@@ -150,9 +150,40 @@ export async function publishCompanionEvent(
     timestamp: new Date().toISOString(),
   } as CompanionEvent;
 
+  // Same-isolate SSE keeps full payload for live desktop companion typing.
   notifyLocal(technicianId, envelope);
-  await persistToKv(technicianId, envelope);
+  // Cross-isolate KV must not retain full warranty narratives (PII blast on KV dump).
+  await persistToKv(technicianId, redactCompanionEventForKv(envelope));
   return envelope;
+}
+
+/** Strip long PII fields from durable companion queue; peers refetch RO for full story. */
+function redactCompanionEventForKv(event: CompanionEvent): CompanionEvent {
+  if (event.type === 'ro.patch') {
+    const linePatch = event.linePatch
+      ? { ...event.linePatch }
+      : undefined;
+    if (linePatch) {
+      const hadStory =
+        typeof (linePatch as { warrantyStory?: string }).warrantyStory === 'string' &&
+        Boolean((linePatch as { warrantyStory?: string }).warrantyStory?.trim());
+      delete (linePatch as { warrantyStory?: string }).warrantyStory;
+      delete (linePatch as { storyText?: string }).storyText;
+      delete (linePatch as { technicianNotes?: string }).technicianNotes;
+      if (hadStory) {
+        (linePatch as { storyUpdated?: boolean }).storyUpdated = true;
+      }
+    }
+    return { ...event, linePatch };
+  }
+  if (event.type === 'story.certification') {
+    // Keep hash + metadata; force peer to hydrate body from RO API if missing.
+    return {
+      ...event,
+      warrantyStory: event.warrantyStory?.slice(0, 0) ?? '',
+    };
+  }
+  return event;
 }
 
 /** Drain KV-backed events newer than the given ISO timestamp (cross-instance fan-out). */

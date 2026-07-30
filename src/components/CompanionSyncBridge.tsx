@@ -68,6 +68,15 @@ export function CompanionSyncBridge({ enabled, role, ro, ocr, children }: Compan
     },
     onROPatch: async (payload) => {
       await getRoApi().ensureRepairOrderOpen(payload.repairOrderId);
+      const linePatch = payload.linePatch as { warrantyStory?: string; storyUpdated?: boolean } | undefined;
+      // KV-redacted story patches: force snapshot so peer gets full narrative from API.
+      if (linePatch?.storyUpdated && !linePatch.warrantyStory?.trim()) {
+        await getRoApi().syncCompanionRepairOrderSnapshot(payload.repairOrderId, {
+          lineId: payload.lineId ?? getRoApi().currentLineId,
+          force: true,
+        });
+        return;
+      }
       getRoApi().mergeCompanionPatch(payload);
     },
     onStoryQuality: async ({ repairOrderId, lineId, quality }) => {
@@ -83,6 +92,13 @@ export function CompanionSyncBridge({ enabled, role, ro, ocr, children }: Compan
       storyHash,
     }) => {
       await ensureCompanionLineContext(repairOrderId, lineId);
+      if (!warrantyStory?.trim()) {
+        await getRoApi().syncCompanionRepairOrderSnapshot(repairOrderId, {
+          lineId,
+          force: true,
+        });
+        return;
+      }
       getRoApi().applyCompanionCertification(lineId, {
         certifiedByName,
         certifiedAt,

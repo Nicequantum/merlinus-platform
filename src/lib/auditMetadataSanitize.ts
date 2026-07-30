@@ -61,6 +61,7 @@ const ALLOWED_STRING_KEYS = new Set([
   /** Client Idempotency-Key for create RO replay (no PII). */
   'idempotencyKey',
   'expiresAt',
+  'stepUpMethod',
   'videoInspectionId',
 ]);
 
@@ -75,6 +76,7 @@ const ALLOWED_BOOL_KEYS = new Set([
   'patch',
   'idempotent',
   'hasPasscode',
+  'stepUp',
 ]);
 
 const ALLOWED_NUMBER_KEYS = new Set([

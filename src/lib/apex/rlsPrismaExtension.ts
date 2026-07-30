@@ -222,6 +222,81 @@ function injectCreateManyData(
  * Build a Prisma client that auto-injects tenant predicates for the given RLS context.
  * When not enforcing (bypass / soft-open), returns the base client unchanged.
  */
+
+/** Parent FK column on relation-scoped children (create-time ownership checks). */
+const RELATION_PARENT_FK: Record<string, { parentModel: string; fkField: string }> = {
+  RepairLine: { parentModel: 'RepairOrder', fkField: 'repairOrderId' },
+  ServiceAdvisorAlias: { parentModel: 'ServiceAdvisor', fkField: 'serviceAdvisorId' },
+  AdvisorWritingProfile: { parentModel: 'ServiceAdvisor', fkField: 'serviceAdvisorId' },
+  PartsRequestLine: { parentModel: 'DepartmentRequest', fkField: 'departmentRequestId' },
+  MaintenancePhoto: { parentModel: 'MaintenanceTicket', fkField: 'ticketId' },
+  MaintenanceTicketEvent: { parentModel: 'MaintenanceTicket', fkField: 'ticketId' },
+  VideoInspectionFinding: { parentModel: 'VideoInspection', fkField: 'videoInspectionId' },
+  VideoInspectionShare: { parentModel: 'VideoInspection', fkField: 'videoInspectionId' },
+  VideoInspectionSmsLog: { parentModel: 'VideoInspection', fkField: 'videoInspectionId' },
+  VoiceTranscriptSegment: { parentModel: 'VoiceCall', fkField: 'callId' },
+  UserMfa: { parentModel: 'Technician', fkField: 'technicianId' },
+  DepartmentCustomizationVersion: {
+    parentModel: 'DepartmentCustomization',
+    fkField: 'customizationId',
+  },
+};
+
+function parentFkFromCreateData(
+  model: string,
+  data: Record<string, unknown> | undefined
+): string | null {
+  const meta = RELATION_PARENT_FK[model];
+  if (!meta || !data) return null;
+  const direct = data[meta.fkField];
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const relName = (RELATION_SCOPED_MODELS as Record<string, string>)[model];
+  const rel = relName ? data[relName] : undefined;
+  if (rel && typeof rel === 'object') {
+    const r = rel as Record<string, unknown>;
+    if (r.connect && typeof r.connect === 'object') {
+      const id = (r.connect as { id?: string }).id;
+      if (typeof id === 'string' && id.trim()) return id.trim();
+    }
+  }
+  return null;
+}
+
+async function assertRelationParentInTenant(
+  base: PrismaClient,
+  model: string,
+  data: Record<string, unknown> | undefined,
+  dealershipId: string
+): Promise<void> {
+  if (!isRelationTenantModel(model)) return;
+  if (dealershipId === RLS_DENY_DEALERSHIP_ID) {
+    throw new Error(`RLS denied: cannot create ${model} without dealership context`);
+  }
+  const meta = RELATION_PARENT_FK[model];
+  if (!meta) return;
+  const parentId = parentFkFromCreateData(model, data);
+  if (!parentId) {
+    const relName = (RELATION_SCOPED_MODELS as Record<string, string>)[model];
+    const rel = relName && data ? data[relName] : undefined;
+    if (rel && typeof rel === 'object' && 'create' in (rel as object)) return;
+    throw new Error(`RLS denied: ${model} create requires ${meta.fkField}`);
+  }
+  const delegateName = modelToDelegate(meta.parentModel);
+  const delegate = (
+    base as unknown as Record<string, { findFirst?: (a: unknown) => Promise<unknown> }>
+  )[delegateName];
+  if (!delegate?.findFirst) return;
+  const parent = await delegate.findFirst({
+    where: { id: parentId, dealershipId },
+    select: { id: true },
+  });
+  if (!parent) {
+    throw new Error(
+      `RLS denied: ${model} parent not found in active dealership`
+    );
+  }
+}
+
 export function createRlsEnforcedClient(
   base: PrismaClient,
   ctx: RlsContext
@@ -303,8 +378,19 @@ export function createRlsEnforcedClient(
           if (CREATE_OPS.has(operation)) {
             if (operation === 'createMany') {
               nextArgs.data = injectCreateManyData(model, nextArgs.data, dealershipId);
+              if (isRelationTenantModel(model) && Array.isArray(nextArgs.data)) {
+                for (const row of nextArgs.data as Record<string, unknown>[]) {
+                  await assertRelationParentInTenant(base, model, row, dealershipId);
+                }
+              }
             } else {
               nextArgs.data = injectCreateData(
+                model,
+                nextArgs.data as Record<string, unknown> | undefined,
+                dealershipId
+              );
+              await assertRelationParentInTenant(
+                base,
                 model,
                 nextArgs.data as Record<string, unknown> | undefined,
                 dealershipId

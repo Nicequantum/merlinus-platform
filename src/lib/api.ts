@@ -339,14 +339,14 @@ export const api = {
       elevatedTotal: number;
     }>('/api/manager/mfa/roster', { cache: 'no-store' }),
 
-  adminResetMfa: (technicianId: string, reason?: string) =>
+  adminResetMfa: (technicianId: string, reason?: string, actorTotpCode?: string) =>
     apiFetch<{
       ok: boolean;
       message?: string;
       targetRole?: string;
     }>('/api/manager/mfa/reset', {
       method: 'POST',
-      body: JSON.stringify({ technicianId, reason }),
+      body: JSON.stringify({ technicianId, reason, actorTotpCode }),
     }),
 
   listVoiceCustomizations: () =>

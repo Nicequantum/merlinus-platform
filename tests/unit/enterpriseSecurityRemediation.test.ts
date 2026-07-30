@@ -85,3 +85,45 @@ describe('Enterprise security remediation (audit P0/P1)', () => {
     assert.match(src, /requireDealershipContext:\s*true/);
   });
 });
+
+describe('Enterprise security remediation wave 2+', () => {
+  it('rate limit supports identity dimensions (user+roof)', () => {
+    const src = readSrc('src/lib/rate-limit.ts');
+    assert.match(src, /buildRateLimitDimension/);
+    assert.match(src, /user:\$\{tech\}/);
+    const route = readSrc('src/lib/apiRoute.ts');
+    assert.match(route, /technicianId: session\.technicianId/);
+  });
+
+  it('MFA admin reset requires actor step-up TOTP when enrolled', () => {
+    const src = readSrc('src/app/api/manager/mfa/reset/route.ts');
+    assert.match(src, /actorTotpCode/);
+    assert.match(src, /verifyMfaFactor/);
+    assert.match(src, /method !== 'totp'/);
+  });
+
+  it('health KV probe prefers Workers KV_STORE', () => {
+    const src = readSrc('src/lib/healthChecks.ts');
+    assert.match(src, /getRateLimitKv|isWorkersKvConfigured/);
+    assert.match(src, /Workers KV/);
+  });
+
+  it('elevated Apex access TTL is shorter than bay default', () => {
+    const src = readSrc('src/lib/apex/apexSession.ts');
+    assert.match(src, /ACCESS_TOKEN_TTL_ELEVATED_SECONDS|ACCESS_TOKEN_TTL_OWNER_SECONDS/);
+    assert.match(src, /getAccessTtlForSession/);
+    assert.match(src, /4 \* 60 \* 60|12 \* 60 \* 60/);
+  });
+
+  it('RLS relation creates assert parent dealership ownership', () => {
+    const src = readSrc('src/lib/apex/rlsPrismaExtension.ts');
+    assert.match(src, /assertRelationParentInTenant/);
+    assert.match(src, /RELATION_PARENT_FK/);
+  });
+
+  it('companion KV redacts warranty story bodies', () => {
+    const src = readSrc('src/lib/companionHub.ts');
+    assert.match(src, /redactCompanionEventForKv/);
+    assert.match(src, /storyUpdated/);
+  });
+});

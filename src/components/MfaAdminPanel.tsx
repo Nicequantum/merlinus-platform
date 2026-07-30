@@ -55,9 +55,17 @@ export function MfaAdminPanel() {
     ) {
       return;
     }
+    const actorTotpCode =
+      window.prompt(
+        'Enter your authenticator code to authorize this admin MFA reset (required if you have MFA enrolled):'
+      )?.trim() || undefined;
     setBusyId(row.technicianId);
     try {
-      const result = await api.adminResetMfa(row.technicianId, 'manager_reset_locked_out');
+      const result = await api.adminResetMfa(
+        row.technicianId,
+        'manager_reset_locked_out',
+        actorTotpCode
+      );
       toast.success(result.message || `MFA cleared for ${row.name}`);
       await load();
     } catch (e) {

@@ -391,50 +391,78 @@ export async function checkAdvisorIntelligence(): Promise<DependencyCheck> {
 
 export async function checkKvStore(): Promise<DependencyCheck> {
   if (isCiOrTestRuntime()) {
-    if (!isKvConfigured()) {
-      return {
-        status: 'warn',
-        detail: 'KV_REST_API_URL/TOKEN not configured — test/CI uses in-memory rate limit fallback',
-      };
-    }
     return {
       status: 'warn',
-      detail: 'KV live probe skipped in test/CI — credentials are not exercised in health checks',
+      detail: 'KV live probe skipped in test/CI',
     };
+  }
+
+  // Production path: Workers KV_STORE binding (same backend as rate limits + companion).
+  try {
+    const { getRateLimitKv, isWorkersKvConfigured } = await import('@/lib/storage/workersKv');
+    if (isWorkersKvConfigured()) {
+      const { latencyMs } = await timed(async () => {
+        const kv = getRateLimitKv();
+        if (!kv) throw new Error('KV_STORE binding missing');
+        const probeKey = `health:probe:${Date.now()}`;
+        await kv.put(probeKey, '1', { expirationTtl: 30 });
+        const value = await kv.get(probeKey);
+        if (value !== '1') throw new Error('Workers KV read/write probe failed');
+        await kv.delete(probeKey);
+        return true;
+      });
+      return { status: 'ok', latencyMs, detail: 'Workers KV_STORE ok' };
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Workers KV unreachable';
+    if (isProductionEnv()) {
+      return {
+        status: 'error',
+        detail: `Workers KV_STORE probe failed: ${detail}`,
+      };
+    }
+    // fall through to legacy REST
+  }
+
+  // Legacy Vercel/Upstash REST (local dual-stack)
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const { latencyMs } = await timed(async () => {
+        const { kv } = await import('@vercel/kv');
+        const probeKey = `health:probe:${Date.now()}`;
+        await kv.set(probeKey, '1', { ex: 15 });
+        const value = await kv.get(probeKey);
+        if (value !== '1') throw new Error('KV REST probe failed');
+        await kv.del(probeKey);
+        return true;
+      });
+      return { status: 'ok', latencyMs, detail: 'KV REST (legacy) ok' };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'KV REST unreachable';
+      return {
+        status: 'warn',
+        detail: `KV REST unreachable: ${detail}`,
+      };
+    }
   }
 
   if (!isKvConfigured()) {
     return isProductionEnv()
       ? {
-          status: 'warn',
+          status: 'error',
           detail:
-            'KV_REST_API_URL/TOKEN not configured — production uses in-memory rate limit fallback',
+            'KV_STORE Workers binding not available — rate limits and companion fan-out degraded',
         }
       : {
           status: 'warn',
-          detail: 'KV_REST_API_URL/TOKEN not configured — dev uses in-memory rate limit fallback',
+          detail: 'KV not configured — using in-memory rate limit fallback',
         };
   }
-  try {
-    const { latencyMs } = await timed(async () => {
-      const { kv } = await import('@vercel/kv');
-      const probeKey = `health:probe:${Date.now()}`;
-      await kv.set(probeKey, '1', { ex: 15 });
-      const value = await kv.get(probeKey);
-      if (value !== '1') {
-        throw new Error('KV read/write probe failed');
-      }
-      await kv.del(probeKey);
-      return true;
-    });
-    return { status: 'ok', latencyMs };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'KV store unreachable';
-    return {
-      status: 'warn',
-      detail: `KV store unreachable — using in-memory rate limit fallback: ${detail}`,
-    };
-  }
+
+  return {
+    status: 'warn',
+    detail: 'KV configured flag true but no Workers binding and no REST credentials',
+  };
 }
 
 /** M20: validate voice config + Web Speech API browser requirement (client-side API). */

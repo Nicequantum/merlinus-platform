@@ -64,9 +64,39 @@ export function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-export function getAccessTokenTtlSeconds(): number {
+/**
+ * Access JWT lifetime.
+ * Bay technicians keep long default (7d) so overnight idle survives.
+ * Managers/admins/owners get shorter windows (override via env).
+ */
+export function getAccessTokenTtlSeconds(options?: {
+  role?: string | null;
+  isAdmin?: boolean;
+  isOwner?: boolean;
+}): number {
+  const role = (options?.role || '').toLowerCase();
+  const elevated =
+    options?.isOwner === true ||
+    options?.isAdmin === true ||
+    role === 'owner' ||
+    role === 'manager' ||
+    role === 'admin';
+
+  if (elevated) {
+    if (options?.isOwner === true || role === 'owner') {
+      const ownerRaw = Number(process.env.ACCESS_TOKEN_TTL_OWNER_SECONDS);
+      if (Number.isFinite(ownerRaw) && ownerRaw > 0) return Math.floor(ownerRaw);
+      // Default owner: 4 hours
+      return 4 * 60 * 60;
+    }
+    const elevRaw = Number(process.env.ACCESS_TOKEN_TTL_ELEVATED_SECONDS);
+    if (Number.isFinite(elevRaw) && elevRaw > 0) return Math.floor(elevRaw);
+    // Default manager/admin: 12 hours
+    return 12 * 60 * 60;
+  }
+
   const raw = Number(process.env.ACCESS_TOKEN_TTL_SECONDS);
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ACCESS_TTL_SECONDS;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_ACCESS_TTL_SECONDS;
 }
 
 export function getRefreshTokenTtlSeconds(): number {
@@ -111,8 +141,16 @@ function cookieOptions(maxAge: number) {
   };
 }
 
-export function applyApexAccessCookie(response: NextResponse, token: string): void {
-  response.cookies.set(APEX_ACCESS_COOKIE, token, cookieOptions(getAccessTokenTtlSeconds()));
+export function applyApexAccessCookie(
+  response: NextResponse,
+  token: string,
+  ttlSeconds?: number
+): void {
+  response.cookies.set(
+    APEX_ACCESS_COOKIE,
+    token,
+    cookieOptions(ttlSeconds ?? getAccessTokenTtlSeconds())
+  );
 }
 
 export function applyApexRefreshCookie(response: NextResponse, token: string): void {
@@ -174,8 +212,24 @@ export async function createApexAccessToken(
     .setAudience(APEX_JWT_AUDIENCE_ACCESS)
     .setJti(randomUUID())
     .setIssuedAt()
-    .setExpirationTime(`${getAccessTokenTtlSeconds()}s`)
+    .setExpirationTime(
+      `${getAccessTokenTtlSeconds({
+        role: session.role,
+        isAdmin: session.isAdmin,
+        isOwner: Boolean(session.isOwner) || session.role === 'owner',
+      })}s`
+    )
     .sign(getSecret());
+}
+
+export function getAccessTtlForSession(
+  session: Pick<SessionPayload, 'role' | 'isAdmin'> & { isOwner?: boolean }
+): number {
+  return getAccessTokenTtlSeconds({
+    role: session.role,
+    isAdmin: session.isAdmin,
+    isOwner: Boolean(session.isOwner) || session.role === 'owner',
+  });
 }
 
 export async function verifyApexAccessToken(token: string): Promise<ApexAccessClaims | null> {
@@ -332,9 +386,10 @@ export async function revokeAllRefreshTokensForTechnician(technicianId: string):
 
 export async function applyApexSessionCookies(
   response: NextResponse,
-  input: { accessToken: string; refreshToken: string }
+  input: { accessToken: string; refreshToken: string; session?: SessionPayload }
 ): Promise<void> {
-  applyApexAccessCookie(response, input.accessToken);
+  const ttl = input.session ? getAccessTtlForSession(input.session) : undefined;
+  applyApexAccessCookie(response, input.accessToken, ttl);
   applyApexRefreshCookie(response, input.refreshToken);
 }
 
@@ -353,7 +408,7 @@ export async function issueApexSessionCookies(
     technicianId: session.technicianId,
     request,
   });
-  await applyApexSessionCookies(response, { accessToken, refreshToken });
+  await applyApexSessionCookies(response, { accessToken, refreshToken, session });
 }
 
 function technicianForSessionFromDealership(
