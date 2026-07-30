@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * Outbound SMS for video inspection customer links.
  *

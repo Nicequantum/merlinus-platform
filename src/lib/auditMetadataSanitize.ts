@@ -60,6 +60,8 @@ const ALLOWED_STRING_KEYS = new Set([
   'templateId',
   /** Client Idempotency-Key for create RO replay (no PII). */
   'idempotencyKey',
+  'expiresAt',
+  'videoInspectionId',
 ]);
 
 const ALLOWED_BOOL_KEYS = new Set([
@@ -72,6 +74,7 @@ const ALLOWED_BOOL_KEYS = new Set([
   'hasCursor',
   'patch',
   'idempotent',
+  'hasPasscode',
 ]);
 
 const ALLOWED_NUMBER_KEYS = new Set([
@@ -92,6 +95,7 @@ const ALLOWED_NUMBER_KEYS = new Set([
   'aiUsage7d',
   'logins7d',
   'schemaVersion',
+  'size',
 ]);
 
 /** Blind-index style hash for RO numbers (never store plaintext in audit metadata). */

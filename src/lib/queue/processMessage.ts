@@ -34,10 +34,12 @@ export interface ProcessAiQueueResult {
   error?: string;
 }
 
-async function loadJobStatus(jobId: string): Promise<string | null> {
+async function loadJobStatus(jobId: string, dealershipId?: string): Promise<string | null> {
   return withRlsBypass(async () => {
-    const row = await getRlsDb().aiJob.findUnique({
-      where: { id: jobId },
+    const row = await getRlsDb().aiJob.findFirst({
+      where: dealershipId?.trim()
+        ? { id: jobId, dealershipId: dealershipId.trim() }
+        : { id: jobId },
       select: { status: true },
     });
     return row?.status ?? null;
@@ -70,7 +72,7 @@ export async function processAiQueueMessage(
   });
 
   try {
-    const status = await loadJobStatus(jobId);
+    const status = await loadJobStatus(jobId, msg.dealershipId);
     if (status === 'succeeded') {
       logger.info('ai_queue.job_already_succeeded', { jobId });
       return { ok: true, jobId, retryable: false };

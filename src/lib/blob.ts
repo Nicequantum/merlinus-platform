@@ -9,6 +9,7 @@ import 'server-only';
  * /api/upload and /api/images into HTML 500 (bay "Service temporarily unavailable").
  */
 
+import { randomUUID } from 'crypto';
 import { logger } from './logger';
 import { getObject, getObjectBuffer, putObject, type StoredObjectStream } from '@/lib/storage/objectStorage';
 import { buildImageProxyUrl, isAllowedImagePathname } from './imageUrls';
@@ -43,10 +44,14 @@ export interface UploadedBlobImage {
 export async function uploadImageToBlob(
   buffer: Buffer | Uint8Array,
   filename: string,
-  contentType: string
+  contentType: string,
+  options?: { dealershipId?: string }
 ): Promise<UploadedBlobImage> {
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'capture.jpg';
-  const key = `benz-tech/${Date.now()}-${safeName}`;
+  const safeDealer =
+    (options?.dealershipId || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'unknown';
+  // Tenant-prefixed path — isolates objects under R2 list prefixes (legacy benz-tech/* still readable).
+  const key = `benz-tech/images/${safeDealer}/${randomUUID()}-${safeName}`;
   // Always pass a standalone Uint8Array — workerd R2 is more reliable than Node Buffer views.
   // Buffer is a Uint8Array subclass; copy into a plain Uint8Array for R2.
   const view = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);

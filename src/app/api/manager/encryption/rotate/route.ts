@@ -7,6 +7,7 @@
  * Primary path: `rotate-in-app` — generates DEK, stores wrapped keyring, starts re-encrypt.
  * No Worker secret edits. Legacy begin/confirm-env remain for advanced ops.
  */
+import { isPlatformOperator } from '@/lib/apex/platformOperator';
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
 import {
@@ -63,6 +64,15 @@ export async function POST(request: Request) {
     async (session) => {
       const parsed = await parseRequestBody(request, postSchema, AUTH_JSON_BODY_LIMIT_BYTES);
       if ('error' in parsed) return parsed.error;
+
+      // Platform-global DEK: only explicit platform operators may mutate key material.
+      // Managers may still GET status (cadence / progress) without rotating.
+      if (!(await isPlatformOperator(session.technicianId))) {
+        return apiError(
+          'Encryption key rotation is restricted to platform operators (APEX_PLATFORM_OWNER_EMAILS / seed owner).',
+          403
+        );
+      }
 
       try {
         if (parsed.data.action === 'rotate-in-app' || parsed.data.action === 'begin') {

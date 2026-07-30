@@ -1,6 +1,7 @@
 import { getRlsDb, withRlsBypass } from '@/lib/apex/rlsContext';
 import { withPublicRoute } from '@/lib/apiRoute';
 import { decryptSensitiveText } from '@/lib/encryption';
+import { writeAuditLog } from '@/lib/audit';
 import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { mapFindingDto } from '@/lib/videoInspection/findingsServer';
@@ -52,10 +53,8 @@ export async function GET(
       if (share.passcodeHash) {
         const provided = request.headers.get('x-video-passcode')?.trim() || '';
         if (!verifyPasscodeHash(provided, share.passcodeHash)) {
-          return Response.json(
-            { requiresPasscode: true, dealershipName: inspection.dealership?.name ?? null },
-            { status: 401 }
-          );
+          // Do not leak dealership name before passcode unlock.
+          return Response.json({ requiresPasscode: true }, { status: 401 });
         }
       }
 
@@ -65,6 +64,18 @@ export async function GET(
           data: { viewCount: { increment: 1 } },
         })
       ).catch(() => undefined);
+
+      // Compliance: durable public view trail (no customer PII in metadata).
+      await writeAuditLog({
+        action: 'video.public_view',
+        dealershipId: inspection.dealershipId,
+                entityType: 'video_inspection_share',
+        entityId: share.id,
+        metadata: {
+          videoInspectionId: inspection.id,
+          hasPasscode: Boolean(share.passcodeHash),
+        },
+      }).catch(() => undefined);
 
       const host =
         request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||

@@ -207,9 +207,15 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
 }
 
 function sessionCookieOptions(maxAge: number) {
+  // Lazy import avoided — inline production detection matches productionRuntime.
+  const secure =
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.MERLIN_PRODUCTION === '1' ||
+    process.env.MERLIN_PRODUCTION === 'true';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     sameSite: 'lax' as const,
     maxAge,
     path: '/',

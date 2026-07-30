@@ -113,6 +113,14 @@ export function getRlsDb(): RlsDbClient {
   if (store?.client) return store.client;
   // Prefer already-warmed global from getDb() — do not construct a new library client.
   // Callers that require tenant isolation must run under withSessionRls (see hasActiveRlsClient).
+  if (
+    process.env.MERLIN_RLS_STRICT === '1' ||
+    process.env.MERLIN_RLS_STRICT === 'true'
+  ) {
+    throw new Error(
+      'getRlsDb() called outside withSessionRls / withRlsBypass (MERLIN_RLS_STRICT)'
+    );
+  }
   return prisma;
 }
 

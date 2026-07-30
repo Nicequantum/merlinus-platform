@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 const paramsSchema = z.object({ id: z.string().trim().min(1).max(64) });
 const bodySchema = z.object({
-  passcode: z.string().trim().min(4).max(64).optional(),
+  passcode: z.string().trim().min(6).max(64).optional(),
   expiresInHours: z.number().int().min(1).max(24 * 30).optional(),
 });
 
@@ -81,6 +81,64 @@ export async function POST(
     },
     {
       rateLimitKey: 'video.share',
+      requireDealershipContext: true,
+      requireModule: 'video_mpi',
+    }
+  );
+}
+
+
+const revokeBodySchema = z.object({
+  shareId: z.string().trim().min(1).max(64),
+});
+
+/** Revoke a customer share link immediately (schema already supports revokedAt). */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const routeParams = await parseRouteParams(paramsSchema, params);
+  if ('error' in routeParams) return routeParams.error;
+
+  return withAuth(
+    request,
+    async (session) => {
+      const existing = await findInspectionForSession(session, routeParams.data.id);
+      if (!existing) return apiError(NOT_FOUND_ERROR, 404);
+
+      const parsed = await parseRequestBody(request, revokeBodySchema, AUTH_JSON_BODY_LIMIT_BYTES);
+      if ('error' in parsed) return parsed.error;
+
+      const updated = await getRlsDb().videoInspectionShare.updateMany({
+        where: {
+          id: parsed.data.shareId,
+          videoInspectionId: existing.id,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+      if (updated.count === 0) {
+        return apiError('Share link not found or already revoked.', 404);
+      }
+
+      await writeAuditedAccess({
+        action: 'video.share_revoke',
+        dealershipId: session.dealershipId,
+        dealerId: auditDealerIdFromSession(session),
+        technicianId: session.technicianId,
+        entityType: 'video_inspection_share',
+        entityId: parsed.data.shareId,
+        metadata: {
+          videoInspectionId: existing.id,
+          action: 'revoke',
+        },
+        ipAddress: getRequestIp(request),
+      });
+
+      return { ok: true, shareId: parsed.data.shareId, revoked: true };
+    },
+    {
+      rateLimitKey: 'video.share_revoke',
       requireDealershipContext: true,
       requireModule: 'video_mpi',
     }

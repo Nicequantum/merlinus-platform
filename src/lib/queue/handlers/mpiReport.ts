@@ -21,11 +21,12 @@ export async function handleMpiReportJob(
   if (!inspectionId) {
     throw new Error('mpi.report requires payload.inspectionId');
   }
+  if (!msg.dealershipId?.trim()) {
+    throw new Error('mpi.report requires dealershipId');
+  }
 
   await markAiJobProgress(msg.jobId, 15);
 
-  // Delegate to existing generate-report core when available via dynamic import of shared runner.
-  // Until fully extracted, mark progress and call Grok report + DB update through access helpers.
   const { getRlsDb, withRlsBypass } = await import('@/lib/apex/rlsContext');
   const { decryptSensitiveText, encryptSensitiveText } = await import('@/lib/encryption');
   const { generateCustomerVideoReport } = await import('@/lib/grok');
@@ -38,9 +39,11 @@ export async function handleMpiReportJob(
     '@/prompts/customerVideoReport/version'
   );
 
+  const tenantWhere = { id: inspectionId, dealershipId: msg.dealershipId };
+
   const inspection = await withRlsBypass(async () =>
     getRlsDb().videoInspection.findFirst({
-      where: { id: inspectionId, dealershipId: msg.dealershipId },
+      where: tenantWhere,
       include: {
         dealership: { select: { name: true } },
         findings: { orderBy: { sortOrder: 'asc' as const } },
@@ -55,7 +58,7 @@ export async function handleMpiReportJob(
 
   await withRlsBypass(async () => {
     await getRlsDb().videoInspection.updateMany({
-      where: { id: inspectionId },
+      where: tenantWhere,
       data: { status: 'processing', errorMessage: null },
     });
   });
@@ -84,7 +87,7 @@ export async function handleMpiReportJob(
       vehicleLabel: inspection.vehicleLabel,
       dealershipName,
       title: inspection.title,
-      frameDataUrls: [], // frames optional for async path (reduces payload size)
+      frameDataUrls: [],
       findings,
     });
     if (!report?.trim()) throw new Error('empty report');
@@ -108,7 +111,7 @@ export async function handleMpiReportJob(
 
   await withRlsBypass(async () => {
     await getRlsDb().videoInspection.updateMany({
-      where: { id: inspectionId },
+      where: tenantWhere,
       data: {
         status: 'ready',
         reportEncrypted: encryptSensitiveText(report),

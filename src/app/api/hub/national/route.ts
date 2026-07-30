@@ -1,25 +1,25 @@
 import { withAuth } from '@/lib/apiRoute';
 import { getDb } from '@/lib/db';
 import { withRlsBypass } from '@/lib/apex/rlsContext';
+import { listEnterableDealershipsForOwner } from '@/lib/apex/dealerGroupAccess';
 import { isModuleEnabled } from '@/lib/modules/entitlements';
 
 /**
  * High-level national owner overview for the Conversation Hub.
- * Only includes rooftops with calendar_hub enabled (modular product surface).
+ * Only includes rooftops the owner may enter (group / platform operator scope)
+ * that also have calendar_hub enabled.
  */
 export async function GET(request: Request) {
   return withAuth(
     request,
-    async () => {
+    async (session) => {
       const since = new Date(Date.now() - 7 * 24 * 3600_000);
 
       const data = await withRlsBypass(async () => {
         const db = await getDb();
-        const dealerships = await db.dealership.findMany({
-          where: { id: { not: '__apex_national__' } },
-          select: { id: true, name: true },
-          take: 100,
-        });
+        // Isolation: never enumerate all dealerships for group owners.
+        const enterable = await listEnterableDealershipsForOwner(session.technicianId);
+        const dealerships = enterable.map((d) => ({ id: d.id, name: d.name })).slice(0, 100);
 
         const enabledRoofs: Array<{ id: string; name: string }> = [];
         for (const d of dealerships) {
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
             totals: { appointments7d: 0, calls7d: 0, insights7d: 0 },
             windowDays: 7,
             module: 'calendar_hub',
-            note: 'No rooftops have calendar_hub enabled',
+            note: 'No rooftops in your scope have calendar_hub enabled',
           };
         }
 

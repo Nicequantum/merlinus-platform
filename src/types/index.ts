@@ -726,6 +726,7 @@ export const AUDIT_ACTIONS = [
   'video.upload',
   'video.report_generate',
   'video.share_create',
+  'video.share_revoke',
   'video.sms_send',
   'video.public_view',
   'advisor.resolve',

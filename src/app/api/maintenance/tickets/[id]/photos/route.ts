@@ -77,7 +77,8 @@ export async function POST(
           const uploaded = await uploadImageToBlob(
             Buffer.from(await file.arrayBuffer()),
             file.name || 'maintenance.jpg',
-            file.type || 'image/jpeg'
+            file.type || 'image/jpeg',
+            { dealershipId: session.dealershipId }
           );
           await getRlsDb().maintenancePhoto.create({
             data: {

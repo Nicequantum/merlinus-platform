@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 /** Opaque share tokens are 32 random bytes → ~43 base64url chars. */
 export const SHARE_TOKEN_MIN_LEN = 32;
@@ -21,17 +21,48 @@ export function isValidRawShareToken(raw: string | null | undefined): boolean {
   return /^[A-Za-z0-9_-]+$/.test(token);
 }
 
+/** Server pepper for share passcodes (not user-supplied). Prefer SEARCH_HMAC_KEY. */
+function passcodePepper(): string {
+  return (
+    process.env.SEARCH_HMAC_KEY?.trim() ||
+    process.env.DATA_ENCRYPTION_KEY?.trim() ||
+    process.env.SESSION_SECRET?.trim() ||
+    'merlin-share-passcode-dev-pepper'
+  );
+}
+
+/**
+ * Hash customer share passcode with HMAC-SHA256 + pepper (v2: prefix).
+ * Legacy unsalted SHA-256 hashes remain verifiable for existing shares.
+ */
 export function hashPasscode(passcode: string): string {
+  const digest = createHmac('sha256', passcodePepper()).update(passcode, 'utf8').digest('hex');
+  return `v2:${digest}`;
+}
+
+function legacyHashPasscode(passcode: string): string {
   return createHash('sha256').update(passcode).digest('hex');
 }
 
-/** Timing-safe compare of provided passcode against stored SHA-256 hex hash. */
+function timingSafeHexEqual(aHex: string, bHex: string): boolean {
+  try {
+    const a = Buffer.from(aHex, 'utf8');
+    const b = Buffer.from(bHex, 'utf8');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+/** Timing-safe compare of provided passcode against stored hash (v2 HMAC or legacy SHA-256). */
 export function verifyPasscodeHash(provided: string, expectedHash: string): boolean {
   if (!provided || !expectedHash) return false;
-  const a = Buffer.from(hashPasscode(provided), 'utf8');
-  const b = Buffer.from(expectedHash, 'utf8');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  if (expectedHash.startsWith('v2:')) {
+    return timingSafeHexEqual(hashPasscode(provided), expectedHash);
+  }
+  // Legacy unsalted SHA-256 (pre-audit shares)
+  return timingSafeHexEqual(legacyHashPasscode(provided), expectedHash);
 }
 
 function stripTrailingSlash(url: string): string {

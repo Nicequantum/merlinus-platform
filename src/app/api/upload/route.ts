@@ -134,7 +134,8 @@ export async function POST(request: Request) {
         uploaded = await uploadImageToBlob(
           Buffer.from(bytes),
           file.name || 'capture.jpg',
-          contentType
+          contentType,
+          { dealershipId: session.dealershipId }
         );
       } catch (error) {
         const mapped = mapBlobRouteError(error, 'upload');

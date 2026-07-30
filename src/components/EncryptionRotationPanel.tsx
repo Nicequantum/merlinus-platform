@@ -247,7 +247,8 @@ export function EncryptionRotationPanel() {
           </div>
           <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
             One-click in-app rotation · AES-256-GCM · no environment variables · includes MFA
-            secrets · recommended every 90 days
+            secrets · recommended every 90 days · rotate actions restricted to platform operators
+            (global data key)
           </div>
         </div>
       </div>

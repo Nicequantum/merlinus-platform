@@ -96,9 +96,14 @@ export function resolveScopeModeForRole(role: string): AuditScopeMode {
 }
 
 function cookieOptions(maxAge: number) {
+  const secure =
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.MERLIN_PRODUCTION === '1' ||
+    process.env.MERLIN_PRODUCTION === 'true';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     sameSite: 'lax' as const,
     maxAge,
     path: '/',

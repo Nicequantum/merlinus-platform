@@ -46,6 +46,9 @@ export async function GET(request: Request) {
         return apiError('Unable to load image.', 500);
       }
     },
-    { rateLimitKey: 'images.get' }
+    {
+      rateLimitKey: 'images.get',
+      requireDealershipContext: true,
+    }
   );
 }
