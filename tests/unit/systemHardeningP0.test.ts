@@ -113,12 +113,14 @@ describe('P1 system hardening — session / list / xentry / poll', () => {
     assert.match(src, /Promise\.all\(workers\)/);
   });
 
-  it('companion poll backs off when SSE connected and snapshot interval is slower', () => {
+  it('companion poll stays active with dual-speed RO snapshot when peers are live', () => {
     const src = readSrc('src/hooks/useCompanionSync.ts');
     assert.match(src, /POLL_MS_CONNECTED/);
-    // Live bay vs idle desktop snapshot intervals (v4.1 dual-speed mirror)
-    assert.match(src, /RO_SNAPSHOT_MS_IDLE\s*=\s*8_000/);
-    assert.match(src, /RO_SNAPSHOT_MS_LIVE\s*=\s*3_500/);
+    assert.match(src, /POLL_MS_DISCONNECTED/);
+    // Live multi-device mirror: faster when a peer session is active.
+    assert.match(src, /RO_SNAPSHOT_MS_IDLE\s*=\s*5_000/);
+    assert.match(src, /RO_SNAPSHOT_MS_LIVE\s*=\s*2_000/);
+    assert.match(src, /peerDeviceCount/);
   });
 
   it('flushPendingSave defaults to a max wait', () => {
