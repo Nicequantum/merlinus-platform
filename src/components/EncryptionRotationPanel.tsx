@@ -60,9 +60,11 @@ type RotationCadence = {
  * One-click in-app DEK rotation — no Worker env edits.
  */
 export function EncryptionRotationPanel() {
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const rotateLock = useRef(false);
+  const loadInFlight = useRef(false);
   const [keys, setKeys] = useState<{
     primaryFingerprint: string;
     previousFingerprint: string | null;
@@ -79,31 +81,50 @@ export function EncryptionRotationPanel() {
   const [hmacKeyConfigured, setHmacKeyConfigured] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.getEncryptionRotationStatus();
-      setKeys(data.keys);
-      setRotation((data.rotation as RotationDto) || null);
-      setInstructions(data.instructions || []);
-      setCoverage((data.coverage as ReencryptCoverage) || null);
-      setMfaStaleProbe((data.mfaStaleProbe as MfaStaleProbe) || null);
-      setCadence((data.cadence as RotationCadence) || null);
-      setHmacKeyConfigured(Boolean(data.hmacKeyConfigured));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load encryption status');
-    } finally {
-      setLoading(false);
+  const applyBundle = useCallback((data: Awaited<ReturnType<typeof api.getEncryptionRotationStatus>>) => {
+    setKeys(data.keys);
+    setRotation((data.rotation as RotationDto) || null);
+    setInstructions(data.instructions || []);
+    setCoverage((data.coverage as ReencryptCoverage) || null);
+    // Keep last MFA probe if poll skipped it while running
+    if (data.mfaStaleProbe != null) {
+      setMfaStaleProbe(data.mfaStaleProbe as MfaStaleProbe);
     }
+    setCadence((data.cadence as RotationCadence) || null);
+    setHmacKeyConfigured(Boolean(data.hmacKeyConfigured));
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = useCallback(
+    async (mode: 'initial' | 'soft' | 'manual' = 'manual') => {
+      if (loadInFlight.current && mode === 'soft') return;
+      loadInFlight.current = true;
+      if (mode === 'initial') setInitialLoading(true);
+      if (mode === 'soft' || mode === 'manual') setRefreshing(true);
+      try {
+        const data = await api.getEncryptionRotationStatus();
+        applyBundle(data);
+      } catch (e) {
+        // Soft polls must not thrash the whole panel on transient errors
+        if (mode !== 'soft') {
+          toast.error(e instanceof Error ? e.message : 'Failed to load encryption status');
+        }
+      } finally {
+        loadInFlight.current = false;
+        setInitialLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [applyBundle]
+  );
 
   useEffect(() => {
+    void load('initial');
+  }, [load]);
+
+  // Stable poll while running — soft refresh only (no full unmount)
+  useEffect(() => {
     if (rotation?.status !== 'running') return;
-    const t = setInterval(() => void load(), 3_500);
+    const t = setInterval(() => void load('soft'), 2_500);
     return () => clearInterval(t);
   }, [rotation?.status, load]);
 
@@ -113,7 +134,7 @@ export function EncryptionRotationPanel() {
       !confirm(
         'Rotate encryption keys now?\n\n' +
           '• A new data key is created inside the app (no backend env changes)\n' +
-          '• Customer data is re-encrypted in the background\n' +
+          '• Customer data is re-encrypted while this page stays open\n' +
           '• The shop stays online (dual-key window)\n' +
           '• Recommended about every 90 days'
       )
@@ -127,13 +148,12 @@ export function EncryptionRotationPanel() {
       const res = await api.rotateEncryptionKeysInApp();
       setRotation(res.rotation as RotationDto);
       setLastMessage(res.message || null);
-      toast.success(res.message || 'Key rotation started');
-      await load();
+      toast.success(res.message || 'Key rotation started — keep this page open');
+      await load('soft');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Rotation failed');
     } finally {
       setBusy(false);
-      // brief lock so double-tap cannot start two jobs
       setTimeout(() => {
         rotateLock.current = false;
       }, 2000);
@@ -146,8 +166,8 @@ export function EncryptionRotationPanel() {
     try {
       const res = await api.startEncryptionReencrypt(rotation?.id);
       setRotation(res.rotation as RotationDto);
-      toast.success(res.message || 'Re-encryption started');
-      await load();
+      toast.success(res.message || 'Re-encryption started — keep this page open');
+      await load('soft');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Start failed');
     } finally {
@@ -168,7 +188,7 @@ export function EncryptionRotationPanel() {
       const res = await api.finalizeEncryptionRotation();
       toast.success(res.message || 'Previous key retired');
       setLastMessage(res.message || null);
-      await load();
+      await load('soft');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Finalize failed');
     } finally {
@@ -183,7 +203,7 @@ export function EncryptionRotationPanel() {
       const res = await api.cancelEncryptionRotation(rotation?.id);
       setRotation(res.rotation as RotationDto);
       toast.message('Cancellation requested');
-      await load();
+      await load('soft');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Cancel failed');
     } finally {
@@ -196,17 +216,19 @@ export function EncryptionRotationPanel() {
   const mfaClean =
     !mfaStaleProbe || mfaStaleProbe.stillOnPreviousKey === 0 || mfaStaleProbe.sampled === 0;
   const canFinalize =
-    dualOpen &&
-    !running &&
-    (rotation?.status === 'completed' || rotation?.status === 'failed' || !running) &&
-    mfaClean;
+    dualOpen && !running && (rotation?.status === 'completed' || dualOpen) && mfaClean;
 
   return (
     <div className="benz-card p-5 mb-5 border border-benz-blue/20">
       <div className="flex items-start gap-2.5 mb-3">
         <KeyRound size={18} className="text-benz-blue shrink-0 mt-0.5" />
-        <div>
-          <div className="font-semibold text-sm tracking-tight">Encryption key rotation</div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
+            Encryption key rotation
+            {refreshing ? (
+              <Loader2 size={12} className="animate-spin text-benz-muted" aria-label="Refreshing" />
+            ) : null}
+          </div>
           <div className="text-xs text-benz-secondary mt-0.5 leading-relaxed">
             One-click in-app rotation · AES-256-GCM · no environment variables · includes MFA
             secrets · recommended every 90 days
@@ -214,7 +236,7 @@ export function EncryptionRotationPanel() {
         </div>
       </div>
 
-      {loading ? (
+      {initialLoading && !keys ? (
         <p className="text-xs text-benz-secondary flex items-center gap-2">
           <Loader2 size={14} className="animate-spin" /> Loading…
         </p>
@@ -321,8 +343,12 @@ export function EncryptionRotationPanel() {
                 <span className="font-semibold text-benz-secondary">
                   Job · {rotation.status}
                   {rotation.cancelRequested ? ' (cancel requested)' : ''}
+                  {running ? ' · advancing…' : ''}
                 </span>
-                <span className="tabular-nums">{rotation.progressPercent}%</span>
+                <span className="tabular-nums flex items-center gap-1.5">
+                  {running && refreshing ? <Loader2 size={11} className="animate-spin" /> : null}
+                  {rotation.progressPercent}%
+                </span>
               </div>
               <div className="h-2 rounded-full bg-benz-border/40 overflow-hidden">
                 <div
@@ -335,6 +361,12 @@ export function EncryptionRotationPanel() {
                 {rotation.currentTable ? ` · ${rotation.currentTable}` : ''}
                 {rotation.failedRecords > 0 ? ` · ${rotation.failedRecords} failed` : ''}
               </div>
+              {running ? (
+                <div className="text-[11px] text-benz-secondary leading-relaxed">
+                  Keep this page open. Each refresh re-encrypts the next batch (Cloudflare-safe).
+                  Progress should climb until 100%.
+                </div>
+              ) : null}
               {rotation.errorMessage ? (
                 <div className="flex items-start gap-1.5 text-[11px] text-red-600">
                   <AlertTriangle size={12} className="mt-0.5 shrink-0" />
@@ -380,7 +412,7 @@ export function EncryptionRotationPanel() {
               </button>
             ) : null}
 
-            {canFinalize ? (
+            {canFinalize && dualOpen && !running ? (
               <button
                 type="button"
                 className="secondary-btn h-11 px-3 text-xs font-semibold"
@@ -407,10 +439,11 @@ export function EncryptionRotationPanel() {
             <button
               type="button"
               className="secondary-btn h-11 px-3 text-xs"
-              disabled={busy || loading}
-              onClick={() => void load()}
+              disabled={busy || initialLoading}
+              onClick={() => void load('manual')}
+              title="Refresh status"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
             </button>
           </div>
 

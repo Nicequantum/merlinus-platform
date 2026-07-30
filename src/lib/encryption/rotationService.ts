@@ -141,8 +141,22 @@ export async function getRotationStatusBundle(): Promise<{
     // fall through — warm still bootstraps from env
   }
   await warmEncryptionKeyring();
-  const keys = getEncryptionKeyStatus();
-  const rotation = await getActiveOrLatestRotation();
+  let keys = getEncryptionKeyStatus();
+  let rotation = await getActiveOrLatestRotation();
+
+  // Advance re-encrypt on every status poll while running (Workers-safe ticks).
+  // Full background while-loops often die under waitUntil limits; polling drives progress.
+  if (rotation?.status === 'running') {
+    try {
+      rotation = (await tickReencryptRotationJob(rotation.id, { maxBatches: 5 })) || rotation;
+      keys = getEncryptionKeyStatus();
+    } catch (error) {
+      logger.error('encryption.rotation_status_tick_failed', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+  }
+
   const canStartReencrypt =
     keys.dualKeyActive &&
     (!rotation ||
@@ -153,10 +167,11 @@ export async function getRotationStatusBundle(): Promise<{
 
   const coverage = getReencryptCoverageSummary();
 
+  // Skip heavy MFA probe while a job is actively running — keeps UI polls fast/stable.
   let mfaStaleProbe: Awaited<ReturnType<typeof probeStaleMfaCiphertext>> | null = null;
-  if (keys.dualKeyActive || rotation?.status === 'completed' || rotation?.status === 'running') {
+  if (keys.dualKeyActive && rotation?.status !== 'running') {
     try {
-      mfaStaleProbe = await probeStaleMfaCiphertext(30);
+      mfaStaleProbe = await probeStaleMfaCiphertext(25);
     } catch {
       mfaStaleProbe = null;
     }
@@ -167,7 +182,7 @@ export async function getRotationStatusBundle(): Promise<{
 
   const instructions = [
     '1. Click “Rotate keys now” — generates a new data key inside the app (no Worker env edits).',
-    '2. Background re-encryption starts automatically under dual-key decrypt (zero downtime).',
+    '2. Keep this page open: re-encryption advances each time status refreshes (safe on Cloudflare).',
     '3. Watch progress until 100%. MFA secrets are included.',
     '4. When complete and the MFA probe is clean, previous key is retired automatically.',
     '5. Recommended cadence: every 90 days (or sooner after suspected exposure).',
@@ -726,6 +741,186 @@ async function estimateTotalRecords(): Promise<number> {
     }
     return total;
   });
+}
+
+/**
+ * Process a limited number of re-encrypt batches (Cloudflare-safe).
+ * Full while-loop jobs die under waitUntil CPU/time limits; status polling
+ * advances the cursor instead so rotation actually completes.
+ */
+const reencryptTickInFlight = new Set<string>();
+
+export async function tickReencryptRotationJob(
+  rotationId: string,
+  options?: { maxBatches?: number }
+): Promise<EncryptionRotationDto | null> {
+  if (reencryptTickInFlight.has(rotationId)) {
+    return getActiveOrLatestRotation();
+  }
+  reencryptTickInFlight.add(rotationId);
+
+  try {
+    await warmEncryptionKeyring();
+    const maxBatches = Math.max(1, Math.min(20, options?.maxBatches ?? 5));
+
+    let row = await withRlsBypass(async () =>
+      getRlsDb().encryptionRotation.findUnique({ where: { id: rotationId } })
+    );
+    if (!row || row.status !== 'running') {
+      return row ? mapDto(row) : null;
+    }
+    if (row.cancelRequested) {
+      await withRlsBypass(async () => {
+        await getRlsDb().encryptionRotation.update({
+          where: { id: rotationId },
+          data: { status: 'cancelled', finishedAt: new Date() },
+        });
+      });
+      return getActiveOrLatestRotation();
+    }
+
+    if (!row.totalRecords || row.totalRecords <= 0) {
+      const total = await estimateTotalRecords();
+      row = await withRlsBypass(async () =>
+        getRlsDb().encryptionRotation.update({
+          where: { id: rotationId },
+          data: {
+            totalRecords: total,
+            currentTable: row!.currentTable || REENCRYPT_TABLE_PLAN[0]?.table || '',
+          },
+        })
+      );
+    }
+
+    let tableIndex = 0;
+    let cursorId = row.cursorId || '';
+    if (row.currentTable) {
+      const idx = REENCRYPT_TABLE_PLAN.findIndex((t) => t.table === row!.currentTable);
+      if (idx >= 0) tableIndex = idx;
+    }
+
+    let batches = 0;
+    while (batches < maxBatches && tableIndex < REENCRYPT_TABLE_PLAN.length) {
+      const cancelled = await withRlsBypass(async () => {
+        const r = await getRlsDb().encryptionRotation.findUnique({
+          where: { id: rotationId },
+          select: { cancelRequested: true, status: true },
+        });
+        return r?.cancelRequested || r?.status === 'cancelled';
+      });
+      if (cancelled) {
+        await withRlsBypass(async () => {
+          await getRlsDb().encryptionRotation.update({
+            where: { id: rotationId },
+            data: { status: 'cancelled', finishedAt: new Date() },
+          });
+        });
+        return getActiveOrLatestRotation();
+      }
+
+      const plan = REENCRYPT_TABLE_PLAN[tableIndex]!;
+      const batch = await processTableBatch(plan.table, plan.columns, cursorId, BATCH_SIZE);
+      cursorId = batch.nextCursor;
+      batches += 1;
+
+      await withRlsBypass(async () => {
+        await getRlsDb().encryptionRotation.update({
+          where: { id: rotationId },
+          data: {
+            currentTable: plan.table,
+            cursorId: batch.nextCursor,
+            processedRecords: { increment: batch.scanned },
+            updatedRecords: { increment: batch.updated },
+            failedRecords: { increment: batch.failed },
+            updatedAt: new Date(),
+            status: 'running',
+          },
+        });
+      });
+
+      if (batch.done) {
+        tableIndex += 1;
+        cursorId = '';
+        if (tableIndex < REENCRYPT_TABLE_PLAN.length) {
+          await withRlsBypass(async () => {
+            await getRlsDb().encryptionRotation.update({
+              where: { id: rotationId },
+              data: {
+                currentTable: REENCRYPT_TABLE_PLAN[tableIndex]!.table,
+                cursorId: '',
+              },
+            });
+          });
+        }
+      }
+    }
+
+    if (tableIndex >= REENCRYPT_TABLE_PLAN.length) {
+      await withRlsBypass(async () => {
+        await getRlsDb().encryptionRotation.update({
+          where: { id: rotationId },
+          data: {
+            status: 'completed',
+            finishedAt: new Date(),
+            currentTable: '',
+            cursorId: '',
+          },
+        });
+      });
+      logger.info('encryption.rotation_completed', { rotationId, mode: 'tick' });
+
+      try {
+        const probe = await probeStaleMfaCiphertext(40);
+        if (probe.stillOnPreviousKey === 0) {
+          await finalizeInAppDekRotation();
+          logger.info('encryption.keyring_auto_finalized', {
+            rotationId,
+            mfaSampled: probe.sampled,
+          });
+        }
+      } catch (error) {
+        logger.error('encryption.keyring_finalize_failed', {
+          rotationId,
+          error: error instanceof Error ? error.message : 'unknown',
+        });
+      }
+
+      try {
+        await writeAuditedAccess({
+          action: 'encryption.rotation_complete',
+          dealershipId: 'platform',
+          technicianId: row.startedByTechnicianId || 'system',
+          entityType: 'encryptionRotation',
+          entityId: rotationId,
+          metadata: { status: 'completed', mode: 'in_app_dek_tick' },
+        });
+      } catch {
+        // best-effort
+      }
+    }
+
+    return getActiveOrLatestRotation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      await withRlsBypass(async () => {
+        await getRlsDb().encryptionRotation.update({
+          where: { id: rotationId },
+          data: {
+            status: 'failed',
+            errorMessage: message.slice(0, 500),
+            finishedAt: new Date(),
+          },
+        });
+      });
+    } catch {
+      // ignore secondary failure
+    }
+    logger.error('encryption.rotation_tick_failed', { rotationId, error: message });
+    return getActiveOrLatestRotation();
+  } finally {
+    reencryptTickInFlight.delete(rotationId);
+  }
 }
 
 /**
