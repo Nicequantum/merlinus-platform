@@ -6,7 +6,7 @@ import { apiError, NOT_FOUND_ERROR } from '@/lib/errors';
 import { getRequestIp } from '@/lib/rate-limit';
 import { findInspectionForSession } from '@/lib/videoInspection/access';
 import {
-  buildCustomerViewerUrl,
+  buildCustomerViewerUrlDetailed,
   generateShareToken,
   hashPasscode,
   hashShareToken,
@@ -71,12 +71,16 @@ export async function POST(
         ipAddress: getRequestIp(request),
       });
 
+      const minted = buildCustomerViewerUrlDetailed(token, request);
       return {
         shareId: share.id,
         // Pass request so Workers resolve production host (not localhost)
-        url: buildCustomerViewerUrl(token, request),
+        url: minted.url,
         token,
         expiresAt: expiresAt.toISOString(),
+        /** Which config produced the host — `PUBLIC_SHARE_HOST` when set correctly. */
+        hostSource: minted.source,
+        host: minted.origin,
       };
     },
     {

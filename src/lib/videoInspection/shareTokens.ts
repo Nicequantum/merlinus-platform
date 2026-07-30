@@ -1,5 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
+import { readRuntimeEnv } from '@/lib/runtimeEnv';
+
 /** Opaque share tokens are 32 random bytes → ~43 base64url chars. */
 export const SHARE_TOKEN_MIN_LEN = 32;
 export const SHARE_TOKEN_MAX_LEN = 64;
@@ -101,34 +103,46 @@ function originFromEnvCandidate(raw: string | undefined | null): string | null {
  * Resolve the public app origin for customer share links.
  *
  * Priority:
- * 1. PUBLIC_SHARE_HOST / CUSTOMER_SHARE_HOST / NEXT_PUBLIC_APP_URL / MERLIN_BASE_URL / APP_URL
+ * 1. PUBLIC_SHARE_HOST / CUSTOMER_SHARE_HOST / NEXT_PUBLIC_* / MERLIN_BASE_URL / APP_URL
  *    (prefer custom domains over *.workers.dev when multiple are set)
- * 2. Request Host (Workers) — still prefer custom domain env over workers.dev request host
- * 3. CF_PAGES_URL / VERCEL_URL
+ * 2. Request Host (Workers) — last resort when no env is set
+ * 3. VERCEL_URL
  *
+ * Reads Cloudflare Worker env bindings (not only process.env) so dashboard vars work.
  * Never emit http://localhost for production share links.
  */
-export function resolveAppBaseUrl(request?: Request | null): string {
-  const envCandidates = [
-    process.env.PUBLIC_SHARE_HOST,
-    process.env.CUSTOMER_SHARE_HOST,
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.MERLIN_BASE_URL,
-    process.env.APP_URL,
-    process.env.CF_PAGES_URL,
-  ];
+const SHARE_HOST_ENV_KEYS = [
+  'PUBLIC_SHARE_HOST',
+  'CUSTOMER_SHARE_HOST',
+  'NEXT_PUBLIC_SHARE_HOST',
+  'NEXT_PUBLIC_APP_URL',
+  'MERLIN_BASE_URL',
+  'APP_URL',
+  'CF_PAGES_URL',
+] as const;
 
-  const parsed: string[] = [];
-  for (const raw of envCandidates) {
+export type ShareHostSource =
+  | (typeof SHARE_HOST_ENV_KEYS)[number]
+  | 'request-host'
+  | 'vercel-url'
+  | 'localhost-fallback';
+
+export function resolveAppBaseUrlDetailed(request?: Request | null): {
+  origin: string;
+  source: ShareHostSource;
+} {
+  const parsed: Array<{ origin: string; source: ShareHostSource }> = [];
+  for (const key of SHARE_HOST_ENV_KEYS) {
+    // Runtime CF Worker bindings (not only process.env) — fixes "I set the var but links still workers.dev"
+    const raw = readRuntimeEnv(key);
     const origin = originFromEnvCandidate(raw);
-    if (origin) parsed.push(origin);
+    if (origin) parsed.push({ origin, source: key });
   }
 
-  // Prefer first custom (non-workers.dev) origin so bay tablets on workers.dev
-  // still mint clarityautoapex.com customer links when PUBLIC_SHARE_HOST is set.
-  const custom = parsed.find((o) => {
+  // Prefer first custom (non-workers.dev) origin.
+  const custom = parsed.find((entry) => {
     try {
-      return !isWorkersDevHost(new URL(o).host);
+      return !isWorkersDevHost(new URL(entry.origin).host);
     } catch {
       return false;
     }
@@ -144,21 +158,35 @@ export function resolveAppBaseUrl(request?: Request | null): string {
     if (host && !isLocalhostHost(host) && !isWorkersDevHost(host)) {
       const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
       const proto = protoHeader === 'http' ? 'http' : 'https';
-      return stripTrailingSlash(`${proto}://${host}`);
+      return {
+        origin: stripTrailingSlash(`${proto}://${host}`),
+        source: 'request-host',
+      };
     }
-    // Request is workers.dev with no custom env — last resort for internal testing.
+    // Request is workers.dev with no custom env — last resort (internal / misconfigured).
     if (host && !isLocalhostHost(host)) {
       const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
       const proto = protoHeader === 'http' ? 'http' : 'https';
-      return stripTrailingSlash(`${proto}://${host}`);
+      return {
+        origin: stripTrailingSlash(`${proto}://${host}`),
+        source: 'request-host',
+      };
     }
   }
 
-  if (process.env.VERCEL_URL?.trim()) {
-    return stripTrailingSlash(`https://${process.env.VERCEL_URL.trim()}`);
+  const vercel = readRuntimeEnv('VERCEL_URL');
+  if (vercel) {
+    return {
+      origin: stripTrailingSlash(`https://${vercel.replace(/^https?:\/\//i, '')}`),
+      source: 'vercel-url',
+    };
   }
 
-  return 'http://localhost:3000';
+  return { origin: 'http://localhost:3000', source: 'localhost-fallback' };
+}
+
+export function resolveAppBaseUrl(request?: Request | null): string {
+  return resolveAppBaseUrlDetailed(request).origin;
 }
 
 export function buildCustomerViewerUrl(
@@ -167,6 +195,19 @@ export function buildCustomerViewerUrl(
 ): string {
   const base = resolveAppBaseUrl(request);
   return `${base}/v/${encodeURIComponent(token)}`;
+}
+
+/** Same as buildCustomerViewerUrl + which env/host source won (for ops debugging). */
+export function buildCustomerViewerUrlDetailed(
+  token: string,
+  request?: Request | null
+): { url: string; origin: string; source: ShareHostSource } {
+  const { origin, source } = resolveAppBaseUrlDetailed(request);
+  return {
+    url: `${origin}/v/${encodeURIComponent(token)}`,
+    origin,
+    source,
+  };
 }
 
 /**

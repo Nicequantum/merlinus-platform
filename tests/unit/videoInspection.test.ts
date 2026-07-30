@@ -61,6 +61,18 @@ describe('video inspection share tokens', () => {
   });
 
 
+  it('strips quotes around PUBLIC_SHARE_HOST (common CF dashboard paste mistake)', () => {
+    const prevShare = process.env.PUBLIC_SHARE_HOST;
+    process.env.PUBLIC_SHARE_HOST = '"https://clarityautoapex.com"';
+    try {
+      const url = buildCustomerViewerUrl('tok123TOKEN_tok123TOKEN_tok123TOK');
+      assert.equal(url, 'https://clarityautoapex.com/v/tok123TOKEN_tok123TOKEN_tok123TOK');
+    } finally {
+      if (prevShare === undefined) delete process.env.PUBLIC_SHARE_HOST;
+      else process.env.PUBLIC_SHARE_HOST = prevShare;
+    }
+  });
+
   it('PUBLIC_SHARE_HOST prefers custom domain over workers.dev request host', () => {
     const prevShare = process.env.PUBLIC_SHARE_HOST;
     const prevApp = process.env.NEXT_PUBLIC_APP_URL;

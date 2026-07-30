@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 import { isSmsEnabled, normalizeE164, sendSms } from '@/lib/sms/twilio';
 import { findInspectionForSession } from '@/lib/videoInspection/access';
 import {
-  buildCustomerViewerUrl,
+  buildCustomerViewerUrlDetailed,
   generateShareToken,
   hashShareToken,
 } from '@/lib/videoInspection/shareTokens';
@@ -55,7 +55,8 @@ export async function POST(
           createdByTechnicianId: session.technicianId,
         },
       });
-      const shareUrl = buildCustomerViewerUrl(token, request);
+      const minted = buildCustomerViewerUrlDetailed(token, request);
+      const shareUrl = minted.url;
       const report = decryptSensitiveText(existing.reportEncrypted || '');
       const dealershipRaw =
         existing.dealership?.name || session.dealershipName || 'Your service team';
@@ -128,7 +129,7 @@ export async function POST(
           ipAddress: getRequestIp(request),
         });
 
-        return { ok: true, smsSent: true, shareUrl, phoneLast4: phone.slice(-4) };
+        return { ok: true, smsSent: true, shareUrl, phoneLast4: phone.slice(-4), hostSource: minted.source, host: minted.origin };
       } catch (error) {
         // Twilio body already logged in sendSms; surface clear 502 for bay toast.error
         logger.error('video.sms_send_failed', {
