@@ -185,11 +185,20 @@ describe('enterprise health checks', () => {
 
   it('builds monitoring payload without internal detail strings', () => {
     const payload = buildHealthServicesPayload({
-      database: { status: 'ok', latencyMs: 12, detail: 'secret diagnostics' },
-      grok: { status: 'warn', detail: 'skipped' },
+      database: {
+        status: 'ok',
+        latencyMs: 12,
+        detail: 'secret diagnostics',
+        operatorMessage: 'Database connectivity OK.',
+      },
+      grok: { status: 'warn', detail: 'skipped', operatorMessage: 'Grok probe skipped.' },
     });
-    assert.deepEqual(payload.database, { status: 'ok', latencyMs: 12 });
-    assert.deepEqual(payload.grok, { status: 'warn' });
+    assert.deepEqual(payload.database, {
+      status: 'ok',
+      latencyMs: 12,
+      operatorMessage: 'Database connectivity OK.',
+    });
+    assert.deepEqual(payload.grok, { status: 'warn', operatorMessage: 'Grok probe skipped.' });
     assert.equal(JSON.stringify(payload).includes('secret diagnostics'), false);
   });
 

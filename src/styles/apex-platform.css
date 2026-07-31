@@ -1531,3 +1531,108 @@
 [data-platform='apex'] .apex-view-as-role-desc {
   margin: 0;
 }
+
+/* —— National owner pilot readiness (onboard gate) —— */
+[data-platform='apex'] .apex-readiness {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem 1.25rem;
+}
+[data-platform='apex'] .apex-readiness-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+[data-platform='apex'] .apex-readiness-overall {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.92rem;
+}
+[data-platform='apex'] .apex-readiness-overall--ready {
+  background: color-mix(in srgb, #0d9488 14%, transparent);
+  border: 1px solid color-mix(in srgb, #0d9488 40%, transparent);
+}
+[data-platform='apex'] .apex-readiness-overall--warn {
+  background: color-mix(in srgb, #d97706 14%, transparent);
+  border: 1px solid color-mix(in srgb, #d97706 40%, transparent);
+}
+[data-platform='apex'] .apex-readiness-overall--blocked {
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+  border: 1px solid color-mix(in srgb, #dc2626 40%, transparent);
+}
+[data-platform='apex'] .apex-readiness-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+[data-platform='apex'] .apex-readiness-item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+[data-platform='apex'] .apex-readiness-badge {
+  flex-shrink: 0;
+  min-width: 3.2rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.35rem;
+  margin-top: 0.15rem;
+}
+[data-platform='apex'] .apex-readiness-badge--pass {
+  background: #0d9488;
+  color: #fff;
+}
+[data-platform='apex'] .apex-readiness-badge--warn {
+  background: #d97706;
+  color: #fff;
+}
+[data-platform='apex'] .apex-readiness-badge--fail {
+  background: #dc2626;
+  color: #fff;
+}
+[data-platform='apex'] .apex-readiness-badge--info {
+  background: #64748b;
+  color: #fff;
+}
+[data-platform='apex'] .apex-readiness-item-body {
+  min-width: 0;
+  flex: 1;
+}
+[data-platform='apex'] .apex-readiness-item-body strong {
+  font-size: 0.92rem;
+}
+[data-platform='apex'] .apex-readiness-action {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--apex-muted, #64748b);
+}
+[data-platform='apex'] .apex-readiness-after {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+[data-platform='apex'] .apex-readiness-ci-note {
+  margin-top: 0.85rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+[data-platform='apex'] .apex-onboard-form--locked {
+  opacity: 0.72;
+  pointer-events: none;
+}
+[data-platform='apex'] .apex-onboard-form-lock-note {
+  margin-bottom: 0.75rem;
+}

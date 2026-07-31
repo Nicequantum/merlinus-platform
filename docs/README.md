@@ -10,7 +10,10 @@
 
 | Role | Read first | Then use |
 |------|------------|----------|
-| **Ops / multi-rooftop rollout** | **[Rollout Runbook](./Rollout-Runbook.md)** (canonical sequence) | [Production-Readiness-Checklist](./Production-Readiness-Checklist.md) |
+| **Ops / multi-rooftop rollout** | **[Rollout Runbook](./Rollout-Runbook.md)** (canonical sequence) | [Production-Readiness-Checklist](./Production-Readiness-Checklist.md) · **[Production Attack Plan](./PRODUCTION-ATTACK-PLAN.md)** |
+| **Platform owner / eng lead** | **[Production Attack Plan](./PRODUCTION-ATTACK-PLAN.md)** (phased repair → pilot → scale) | [Production-Readiness-Checklist](./Production-Readiness-Checklist.md) · [Buyer-Risk-Acceptance-Summary](./Buyer-Risk-Acceptance-Summary.md) · **[Capability Matrix](./generated/CAPABILITY-MATRIX.md)** |
+
+
 | **General Manager / Fixed Ops Director** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Go-Live Summary](./Go-Live-Summary.md) |
 | **Service Manager** | [Modular OS Overview](./Modular-OS-Overview.md) · [Master Rollout Document](./Master-Rollout-Document.md) | [Rollout Checklist](./Rollout-Checklist.md) · [Go-Live Email](./Go-Live-Email-Template.md) |
 | **Dealership IT** | [Admin Setup Guide](./Admin-Setup-Guide.md) · [Rollout Runbook](./Rollout-Runbook.md) | [Go-Live Checklist](./Go-Live-Checklist.md) · [Support Playbook](./Support-Playbook.md) |
@@ -24,7 +27,13 @@
 ### Leadership & strategy
 | Document | Purpose |
 |----------|---------|
+| [**PRODUCTION-ATTACK-PLAN.md**](./PRODUCTION-ATTACK-PLAN.md) | **Phased execution roadmap: health → pilot → soak → multi-rooftop → auditor-grade** |
+| [**generated/CAPABILITY-MATRIX.md**](./generated/CAPABILITY-MATRIX.md) | **Living API matrix** (route → module → pilot status) — `npm run matrix:generate` |
+| [**generated/p0-deploy-verify-latest.md**](./generated/p0-deploy-verify-latest.md) | **Latest P0 verify report** — `npm run verify:p0` |
+| [**Self-Heal-and-Nightly-Maintenance.md**](./Self-Heal-and-Nightly-Maintenance.md) | **Nightly Grok self-heal + morning warmup** (ops cron, env, Control Center) |
+
 | [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
+
 | [**Rollout-Runbook.md**](./Rollout-Runbook.md) | **Canonical multi-store rollout sequence** (prefer over older overlapping checklists) |
 | [Multi-Tenant-Isolation.md](./Multi-Tenant-Isolation.md) | **Application-layer RLS on D1 (not true DB RLS)** + risk acceptance |
 | [CDK-Sync-Deferred.md](./CDK-Sync-Deferred.md) | Why live CDK API is deferred; clipboard paste remains (P3-3) |

@@ -1249,7 +1249,8 @@ export const api = {
       health: {
         overall: 'ok' | 'degraded' | 'error';
         maintenanceMode: boolean;
-        services: Record<string, { status: string; latencyMs?: number }>;
+        services: Record<string, { status: string; latencyMs?: number; operatorMessage?: string }>;
+
         critical: Array<{
           id: string;
           label: string;

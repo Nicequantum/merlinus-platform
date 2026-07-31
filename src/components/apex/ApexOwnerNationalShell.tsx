@@ -25,6 +25,12 @@ import type {
   OwnerRooftopScorecard,
 } from '@/lib/ownerSummaryClient';
 import { fetchOwnerNationalSummary } from '@/lib/ownerSummaryClient';
+import {
+  fetchOwnerBillingSummary,
+  formatUsdFromCents,
+  type OwnerBillingPeriod,
+  type OwnerBillingSummary,
+} from '@/lib/ownerBillingClient';
 import { formatTrendPct, OwnerSparkline } from '@/components/apex/OwnerSparkline';
 import { OwnerOnboardDealershipForm } from '@/components/apex/OwnerOnboardDealershipForm';
 import { keepAlivePublicStatus, warmOwnerIsolate } from '@/lib/clientFetchRetry';
@@ -35,7 +41,7 @@ import { toast } from 'sonner';
 /** Soft keep-alive while national console is open — prevents Workers isolate sleep. */
 const OWNER_ISOLATE_KEEPALIVE_MS = 3 * 60 * 1000;
 
-type NationalView = 'dashboard' | 'enter-dealership' | 'onboard';
+type NationalView = 'dashboard' | 'enter-dealership' | 'onboard' | 'billing';
 
 interface ApexOwnerNationalShellProps {
   session: TechnicianSession;
@@ -240,6 +246,10 @@ export function ApexOwnerNationalShell({
   onSessionApplied,
 }: ApexOwnerNationalShellProps) {
   const [view, setView] = useState<NationalView>('dashboard');
+  const [billing, setBilling] = useState<OwnerBillingSummary | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<OwnerBillingPeriod>('30d');
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [summary, setSummary] = useState<OwnerNationalSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -522,6 +532,28 @@ export function ApexOwnerNationalShell({
     </div>
   );
 
+
+  const loadBilling = useCallback(async (period: OwnerBillingPeriod = billingPeriod) => {
+    setBillingLoading(true);
+    setBillingError(null);
+    try {
+      const next = await fetchOwnerBillingSummary(period);
+      setBilling(next);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to load billing';
+      setBillingError(msg);
+      clientLog.error('owner.billing_load_failed', { error: msg });
+    } finally {
+      setBillingLoading(false);
+    }
+  }, [billingPeriod]);
+
+  useEffect(() => {
+    if (view === 'billing') {
+      void loadBilling(billingPeriod);
+    }
+  }, [view, billingPeriod, loadBilling]);
+
   return (
     <div className="apex-app-root apex-national-dashboard" data-platform="apex">
       <div className="apex-ambient apex-ambient--dashboard" aria-hidden="true">
@@ -594,6 +626,13 @@ export function ApexOwnerNationalShell({
             </button>
             <button
               type="button"
+              className={`apex-national-tab touch-target${view === 'billing' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('billing')}
+            >
+              Billing
+            </button>
+            <button
+              type="button"
               className={`apex-national-tab touch-target${view === 'enter-dealership' ? ' apex-national-tab--active' : ''}`}
               disabled={loadingDealerships || actionLoading}
               onClick={() => void openEnterDealership()}
@@ -603,7 +642,167 @@ export function ApexOwnerNationalShell({
           </nav>
         ) : null}
 
-        {view === 'enter-dealership' ? (
+        {view === 'billing' && !isGroupHome ? (
+          <section className="apex-national-panel apex-national-panel--wide apex-card">
+            <div className="apex-national-panel-head">
+              <div>
+                <h2 className="apex-national-panel-title">National billing meters</h2>
+                <p className="apex-hint">
+                  First AI stories per rooftop (billable units), regenerations, audits, SMS —
+                  estimates only.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="apex-hint flex items-center gap-2">
+                  Period
+                  <select
+                    className="apex-group-switcher-select touch-target"
+                    value={billingPeriod}
+                    onChange={(e) => setBillingPeriod(e.target.value as OwnerBillingPeriod)}
+                    aria-label="Billing period"
+                  >
+                    <option value="7d">Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="month">Month to date</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="apex-btn-secondary touch-target"
+                  disabled={billingLoading}
+                  onClick={() => void loadBilling(billingPeriod)}
+                >
+                  {billingLoading ? 'Refreshing…' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {billingError ? <p className="text-sm text-red-600 mb-3">{billingError}</p> : null}
+
+            {billingLoading && !billing ? (
+              <p className="apex-hint">Loading billing meters…</p>
+            ) : billing ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="apex-stat-card">
+                    <p className="apex-stat-value">
+                      {billing.totals.storiesFirst.toLocaleString()}
+                    </p>
+                    <p className="apex-stat-label">Billable stories</p>
+                    <p className="apex-stat-hint">First AI story per line</p>
+                  </div>
+                  <div className="apex-stat-card">
+                    <p className="apex-stat-value">
+                      {billing.totals.storiesRegen.toLocaleString()}
+                    </p>
+                    <p className="apex-stat-label">Regenerations</p>
+                    <p className="apex-stat-hint">Extra generate calls</p>
+                  </div>
+                  <div className="apex-stat-card">
+                    <p className="apex-stat-value">
+                      {billing.totals.storyCertifications.toLocaleString()}
+                    </p>
+                    <p className="apex-stat-label">Certifications</p>
+                  </div>
+                  <div className="apex-stat-card">
+                    <p className="apex-stat-value">
+                      {formatUsdFromCents(
+                        billing.totals.estimatedTotalCents,
+                        billing.rates.currency
+                      )}
+                    </p>
+                    <p className="apex-stat-label">Est. portfolio total</p>
+                    <p className="apex-stat-hint">Platform + stories + regen + SMS</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-4">
+                  <div>
+                    Reviews: <strong>{billing.totals.storyReviews}</strong>
+                  </div>
+                  <div>
+                    Scores: <strong>{billing.totals.storyScores}</strong>
+                  </div>
+                  <div>
+                    Edits: <strong>{billing.totals.storyEdits}</strong>
+                  </div>
+                  <div>
+                    PDF exports: <strong>{billing.totals.storyPdfExports}</strong>
+                  </div>
+                  <div>
+                    Vision extracts: <strong>{billing.totals.visionExtracts}</strong>
+                  </div>
+                  <div>
+                    SMS sends: <strong>{billing.totals.smsSends}</strong>
+                  </div>
+                  <div>
+                    AI route hits: <strong>{billing.totals.aiRouteHits}</strong>
+                  </div>
+                  <div>
+                    Story rate:{' '}
+                    <strong>
+                      {formatUsdFromCents(billing.rates.storyFirstCents, billing.rates.currency)}
+                    </strong>
+                    {' · HV '}
+                    <strong>
+                      {formatUsdFromCents(
+                        billing.rates.storyHighVolumeCents,
+                        billing.rates.currency
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="text-left border-b border-benz-border/40">
+                        <th className="py-2 pr-2">Rooftop</th>
+                        <th className="py-2 pr-2 tabular-nums">Stories</th>
+                        <th className="py-2 pr-2 tabular-nums">Regen</th>
+                        <th className="py-2 pr-2 tabular-nums">Cert</th>
+                        <th className="py-2 pr-2 tabular-nums">SMS</th>
+                        <th className="py-2 pr-2 tabular-nums">Est. total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billing.rooftops.map((row) => (
+                        <tr key={row.dealershipId} className="border-b border-benz-border/20">
+                          <td className="py-2 pr-2">
+                            <div className="font-medium">{row.name}</div>
+                            <div className="apex-hint">{row.dealerCode ?? '—'}</div>
+                          </td>
+                          <td className="py-2 pr-2 tabular-nums">{row.storiesFirst}</td>
+                          <td className="py-2 pr-2 tabular-nums">{row.storiesRegen}</td>
+                          <td className="py-2 pr-2 tabular-nums">{row.storyCertifications}</td>
+                          <td className="py-2 pr-2 tabular-nums">{row.smsSends}</td>
+                          <td className="py-2 pr-2 tabular-nums font-medium">
+                            {formatUsdFromCents(row.estimatedTotalCents, billing.rates.currency)}
+                          </td>
+                        </tr>
+                      ))}
+                      {billing.rooftops.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-4 apex-hint">
+                            No rooftops in scope yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+
+                <ul className="mt-4 space-y-1">
+                  {billing.notes.map((n) => (
+                    <li key={n} className="apex-hint text-[11px]">
+                      {n}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </section>
+        ) : view === 'enter-dealership' ? (
           <section className="apex-national-panel apex-card apex-card-accent apex-national-panel--wide">
             <div className="apex-national-panel-head">
               <div>
@@ -649,6 +848,7 @@ export function ApexOwnerNationalShell({
             )}
           </section>
         ) : view === 'onboard' && !isGroupHome ? (
+
           <section className="apex-national-panel apex-national-panel--wide">
             <OwnerOnboardDealershipForm
               onCompleted={() => {

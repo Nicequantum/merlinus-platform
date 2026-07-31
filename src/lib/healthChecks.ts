@@ -31,19 +31,27 @@ export type DependencyStatus = 'ok' | 'warn' | 'error';
 export interface DependencyCheck {
   status: DependencyStatus;
   latencyMs?: number;
-  /** Internal diagnostics — never returned from /api/health (logged server-side only). */
+  /** Internal diagnostics — logged server-side. */
   detail?: string;
+  /**
+   * Safe operator-facing guidance for Control Center Health.
+   * Never include secrets, tokens, or raw PII.
+   */
+  operatorMessage?: string;
 }
 
 export interface HealthServiceStatus {
   status: DependencyStatus;
   latencyMs?: number;
+  /** Safe operator guidance only (no internal secret diagnostics). */
+  operatorMessage?: string;
 }
 
 export function toHealthServiceStatus(check: DependencyCheck): HealthServiceStatus {
-  return check.latencyMs !== undefined
-    ? { status: check.status, latencyMs: check.latencyMs }
-    : { status: check.status };
+  const base: HealthServiceStatus = { status: check.status };
+  if (check.latencyMs !== undefined) base.latencyMs = check.latencyMs;
+  if (check.operatorMessage?.trim()) base.operatorMessage = check.operatorMessage.trim();
+  return base;
 }
 
 export function buildHealthServicesPayload(
@@ -62,6 +70,7 @@ export function logUnhealthyServices(checks: Record<string, DependencyCheck>): v
         status: check.status,
         latencyMs: check.latencyMs,
         detail: check.detail,
+        operatorMessage: check.operatorMessage,
       });
     }
   }
@@ -394,13 +403,17 @@ export async function checkKvStore(): Promise<DependencyCheck> {
     return {
       status: 'warn',
       detail: 'KV live probe skipped in test/CI',
+      operatorMessage: 'KV probe skipped in test/CI.',
     };
   }
 
   // Production path: Workers KV_STORE binding (same backend as rate limits + companion).
   try {
-    const { getRateLimitKv, isWorkersKvConfigured } = await import('@/lib/storage/workersKv');
+    const { getRateLimitKv, isWorkersKvConfigured, describeKvBindingSource } = await import(
+      '@/lib/storage/workersKv'
+    );
     if (isWorkersKvConfigured()) {
+      const source = describeKvBindingSource() ?? 'unknown';
       const { latencyMs } = await timed(async () => {
         const kv = getRateLimitKv();
         if (!kv) throw new Error('KV_STORE binding missing');
@@ -411,7 +424,12 @@ export async function checkKvStore(): Promise<DependencyCheck> {
         await kv.delete(probeKey);
         return true;
       });
-      return { status: 'ok', latencyMs, detail: 'Workers KV_STORE ok' };
+      return {
+        status: 'ok',
+        latencyMs,
+        detail: `Workers KV_STORE ok (source=${source})`,
+        operatorMessage: 'Workers KV (KV_STORE) read/write probe OK.',
+      };
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Workers KV unreachable';
@@ -419,6 +437,8 @@ export async function checkKvStore(): Promise<DependencyCheck> {
       return {
         status: 'error',
         detail: `Workers KV_STORE probe failed: ${detail}`,
+        operatorMessage:
+          'KV_STORE probe failed. Confirm wrangler.toml [[kv_namespaces]] binding = "KV_STORE", namespace id is correct, and redeploy the Worker.',
       };
     }
     // fall through to legacy REST
@@ -436,12 +456,18 @@ export async function checkKvStore(): Promise<DependencyCheck> {
         await kv.del(probeKey);
         return true;
       });
-      return { status: 'ok', latencyMs, detail: 'KV REST (legacy) ok' };
+      return {
+        status: 'ok',
+        latencyMs,
+        detail: 'KV REST (legacy) ok',
+        operatorMessage: 'Legacy KV REST probe OK.',
+      };
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'KV REST unreachable';
       return {
         status: 'warn',
         detail: `KV REST unreachable: ${detail}`,
+        operatorMessage: 'Legacy KV REST unreachable. Prefer Workers KV_STORE binding for production.',
       };
     }
   }
@@ -452,16 +478,20 @@ export async function checkKvStore(): Promise<DependencyCheck> {
           status: 'error',
           detail:
             'KV_STORE Workers binding not available — rate limits and companion fan-out degraded',
+          operatorMessage:
+            'KV_STORE binding not visible to this Worker. Add [[kv_namespaces]] binding = "KV_STORE" in wrangler.toml, verify namespace id, redeploy. Auth rate limits fail closed without it.',
         }
       : {
           status: 'warn',
           detail: 'KV not configured — using in-memory rate limit fallback',
+          operatorMessage: 'KV not configured — using in-memory rate limits (OK for local single-process).',
         };
   }
 
   return {
     status: 'warn',
     detail: 'KV configured flag true but no Workers binding and no REST credentials',
+    operatorMessage: 'KV appears misconfigured. Ensure KV_STORE binding resolves on every request.',
   };
 }
 
@@ -732,7 +762,7 @@ export async function runAuthenticatedHealthChecks(
   const cdk = getCdkLiveSyncStatus();
   const voiceRealtime = getVoiceRealtimeStatus();
   const aiJobsQueue = await checkAiJobsQueueHealth(dealershipId || null);
-  const mfaPolicy = checkMfaPolicyHealth(dealershipId || null);
+  const mfaPolicy = await checkMfaPolicyHealth(dealershipId || null);
   const bayMobile = checkBayMobileHealth();
   const voiceDepartments = checkVoiceDepartmentHealth();
 
@@ -829,30 +859,104 @@ export function checkBayMobileHealth(): DependencyCheck {
 }
 
 /**
- * MFA fortress status — enforcement flag + elevated-role enrollment (when rooftop known).
+ * MFA fortress status.
+ *
+ * Green when enforcement is on, or when production pilot has elevated staff enrolled
+ * (or no elevated staff yet), or non-production. Yellow when production + enforce off
+ * and elevated staff still need enrollment (or rooftop unknown).
  */
-export function checkMfaPolicyHealth(dealershipId?: string | null): DependencyCheck {
+export async function checkMfaPolicyHealth(dealershipId?: string | null): Promise<DependencyCheck> {
   const enforce =
     process.env.MERLIN_MFA_ENFORCE?.trim().toLowerCase() === 'true' ||
     process.env.MERLIN_MFA_ENFORCE?.trim() === '1';
   const roles = process.env.MERLIN_MFA_REQUIRED_ROLES?.trim() || 'manager,owner,admin';
+  const roleList = roles
+    .split(/[,;\s]+/)
+    .map((r) => r.trim().toLowerCase())
+    .filter(Boolean);
 
-  if (!enforce) {
+  if (enforce) {
     return {
-      status: isProductionEnv() ? 'warn' : 'ok',
-      detail: isProductionEnv()
-        ? `MFA optional (pilot) — set MERLIN_MFA_ENFORCE=true for managers/owners; roles=${roles}`
-        : `MFA optional (dev) — roles when enforced: ${roles}`,
+      status: 'ok',
+      detail: `MFA enforced for roles: ${roles}${
+        dealershipId ? `; rooftop=${dealershipId.slice(0, 8)}…` : ''
+      }`,
+      operatorMessage: `MFA is enforced for: ${roles}.`,
     };
   }
 
+  if (!isProductionEnv()) {
+    return {
+      status: 'ok',
+      detail: `MFA optional (dev) — roles when enforced: ${roles}`,
+      operatorMessage: 'MFA optional in non-production. Feature is available in Settings.',
+    };
+  }
+
+  // Production, enforce off — enrollment-aware status for the active rooftop.
+  if (dealershipId?.trim()) {
+    try {
+      const { getRlsDb } = await import('@/lib/apex/rlsContext');
+      const { Prisma } = await import('@prisma/client');
+      const db = getRlsDb();
+      const knownRoles = new Set(['manager', 'owner', 'service_advisor'] as const);
+      const roleCandidates = roleList.filter((r): r is 'manager' | 'owner' | 'service_advisor' =>
+        r === 'manager' || r === 'owner' || r === 'service_advisor'
+      );
+      const rolesForQuery: Array<'manager' | 'owner' | 'service_advisor'> =
+        roleCandidates.length > 0 ? roleCandidates : ['manager', 'owner'];
+      const includeAdmin = roleList.includes('admin');
+      const elevatedWhere: import('@prisma/client').Prisma.TechnicianWhereInput = {
+        dealershipId: dealershipId.trim(),
+        isActive: true,
+        deletedAt: null,
+        OR: [
+          { role: { in: rolesForQuery } },
+          ...(includeAdmin ? [{ isAdmin: true as const }] : []),
+        ],
+      };
+      const [elevated, enrolled] = await Promise.all([
+        db.technician.count({ where: elevatedWhere }),
+        db.technician.count({ where: { AND: [elevatedWhere, { mfaEnabled: true }] } }),
+      ]);
+
+      if (elevated === 0) {
+        return {
+          status: 'ok',
+          detail: `MFA optional (pilot) — no elevated staff on rooftop; roles=${roles}`,
+          operatorMessage:
+            'MFA feature ready. No elevated staff on this rooftop yet. Before multi-store go-live, enroll managers then set MERLIN_MFA_ENFORCE=true.',
+        };
+      }
+
+      if (enrolled >= elevated) {
+        return {
+          status: 'ok',
+          detail: `MFA optional (pilot) — all elevated enrolled ${enrolled}/${elevated}; set MERLIN_MFA_ENFORCE=true for login require`,
+          operatorMessage: `All elevated staff enrolled (${enrolled}/${elevated}). MFA works. For national go-live set Worker secret MERLIN_MFA_ENFORCE=true so login requires MFA.`,
+        };
+      }
+
+      return {
+        status: 'warn',
+        detail: `MFA optional (pilot) — enrolled ${enrolled}/${elevated} elevated; roles=${roles}`,
+        operatorMessage: `${elevated - enrolled} of ${elevated} managers/owners still need MFA enrollment in Settings. After 100% enrolled, set MERLIN_MFA_ENFORCE=true on the Worker.`,
+      };
+    } catch (error) {
+      logger.warn('health.mfa_enrollment_probe_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   return {
-    status: 'ok',
-    detail: `MFA enforced for roles: ${roles}${
-      dealershipId ? `; rooftop=${dealershipId.slice(0, 8)}…` : ''
-    }`,
+    status: 'warn',
+    detail: `MFA optional (pilot) — set MERLIN_MFA_ENFORCE=true for managers/owners; roles=${roles}`,
+    operatorMessage:
+      'MFA feature works but is not enforced at login. Enroll managers in Settings, then set Worker secret MERLIN_MFA_ENFORCE=true (recommended for multi-rooftop).',
   };
 }
+
 
 /**
  * P0-4 — AI queue health thresholds (first-class production signal).

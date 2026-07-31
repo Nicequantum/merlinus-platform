@@ -28,6 +28,7 @@ import {
   type LiveConnectionState,
 } from '@/hooks/useControlCenterLive';
 import type { TechnicianSession } from '@/types';
+import { SelfHealStatusCard } from '@/components/manager/SelfHealStatusCard';
 
 export type ManagerCenterTab =
   | 'overview'
@@ -734,6 +735,7 @@ export function ManagerControlCenter({
 
       {summary && tab === 'health' ? (
         <div className="space-y-4">
+          <SelfHealStatusCard />
           <div className="benz-card p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="text-sm font-semibold">System health</div>
@@ -742,19 +744,34 @@ export function ManagerControlCenter({
                 {summary.health.maintenanceMode ? ' · maintenance' : ''}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {Object.entries(summary.health.services).map(([name, svc]) => (
                 <div
                   key={name}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-benz-border/40 px-3 py-2 text-xs"
+                  className="rounded-lg border border-benz-border/40 px-3 py-2 text-xs space-y-1"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot(svc.status)}`} />
-                    <span className="font-mono truncate">{name}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot(svc.status)}`} />
+                      <span className="font-mono truncate">{name}</span>
+                    </div>
+                    <span className="text-benz-muted tabular-nums shrink-0">
+                      {svc.latencyMs != null ? `${svc.latencyMs}ms` : '—'}
+                    </span>
                   </div>
-                  <span className="text-benz-muted tabular-nums">
-                    {svc.latencyMs != null ? `${svc.latencyMs}ms` : '—'}
-                  </span>
+                  {svc.operatorMessage ? (
+                    <p
+                      className={
+                        svc.status === 'error'
+                          ? 'text-[11px] text-red-600/90 leading-snug pl-4'
+                          : svc.status === 'warn'
+                            ? 'text-[11px] text-amber-700/90 leading-snug pl-4'
+                            : 'text-[11px] text-benz-muted leading-snug pl-4'
+                      }
+                    >
+                      {svc.operatorMessage}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>

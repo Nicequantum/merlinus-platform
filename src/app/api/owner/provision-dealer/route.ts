@@ -7,6 +7,10 @@ import {
   ProvisionDealerError,
   toSafeProvisionHttpResponse,
 } from '@/lib/apex/provisionDealer';
+import {
+  evaluatePlatformReadiness,
+  isProvisionReadinessGateEnabled,
+} from '@/lib/pilotReadiness/evaluatePlatformReadiness';
 import { withAuth } from '@/lib/apiRoute';
 import { apiError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -30,6 +34,9 @@ function provisionHttpError(code: string, message: string, status?: number): Nex
  * Opt-in national owner endpoint (APEX_ALLOW_HTTP_PROVISION=true).
  * Reuses the same provisionDealer core as the CLI: RLS bypass tx, fail-closed
  * dealer.provision audit, password never logged or returned.
+ *
+ * Blocks create when platform pilot-readiness fails (KV/DB/secrets/etc.) unless
+ * dryRun or APEX_PROVISION_SKIP_READINESS=true.
  */
 export async function POST(request: Request) {
   if (!isApexPlatformMode()) {
@@ -57,6 +64,37 @@ export async function POST(request: Request) {
 
       try {
         assertNotProductionWithoutProvisionUrl();
+
+        // In-app P0 gate — same checks as Onboard "Run readiness checks"
+        if (!body.dryRun && isProvisionReadinessGateEnabled()) {
+          const readiness = await evaluatePlatformReadiness();
+          if (!readiness.canProvision) {
+            const blockers = readiness.checks
+              .filter((c) => c.blocksProvision && c.status === 'fail')
+              .map((c) => c.title);
+            logger.warn('apex.http_dealer_provision_readiness_blocked', {
+              actorTechnicianId: session.technicianId,
+              blockers,
+              overall: readiness.overall,
+            });
+            return NextResponse.json(
+              {
+                error:
+                  readiness.summary ||
+                  'Platform is not ready to onboard a pilot rooftop. Run readiness checks first.',
+                code: 'PLATFORM_NOT_READY',
+                readiness: {
+                  overall: readiness.overall,
+                  canProvision: readiness.canProvision,
+                  summary: readiness.summary,
+                  blockers,
+                  checks: readiness.checks.filter((c) => c.status === 'fail' || c.status === 'warn'),
+                },
+              },
+              { status: 412 }
+            );
+          }
+        }
 
         const result = await provisionDealer({
           dealerCode: body.dealerCode,
@@ -121,7 +159,6 @@ export async function POST(request: Request) {
       requireOwnerNational: true,
       rateLimitKey: 'owner.provision-dealer',
       rateLimit: PROVISION_HTTP_RATE_LIMIT,
-      // Provision engine uses withRlsBypass; do not bind dealership-scoped RLS.
       useRls: false,
     }
   );

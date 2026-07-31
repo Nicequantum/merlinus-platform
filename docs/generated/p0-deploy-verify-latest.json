@@ -1,0 +1,118 @@
+{
+  "generatedAt": "2026-07-31T04:38:21.513Z",
+  "summary": {
+    "pass": 10,
+    "warn": 4,
+    "fail": 0,
+    "skip": 1,
+    "criticalFails": 0
+  },
+  "results": [
+    {
+      "id": "P0-1",
+      "name": "KV binding resolution code",
+      "status": "pass",
+      "detail": "workersKv resolves KV_STORE via getCloudflareContext",
+      "critical": true
+    },
+    {
+      "id": "P0-2a",
+      "name": "wrangler.toml bindings",
+      "status": "pass",
+      "detail": "KV_STORE=true DB=true APEX_R2=true AI_JOBS_QUEUE=true",
+      "critical": true
+    },
+    {
+      "id": "P0-5a",
+      "name": "AI queue producer binding",
+      "status": "pass",
+      "detail": "AI_JOBS_QUEUE present in wrangler.toml",
+      "critical": false
+    },
+    {
+      "id": "P0-3",
+      "name": "MFA health probe code",
+      "status": "pass",
+      "detail": "Enrollment-aware MFA health + operatorMessage present",
+      "critical": true
+    },
+    {
+      "id": "P0-6a",
+      "name": "No seed secrets in repo",
+      "status": "pass",
+      "detail": "check:seed-secrets clean",
+      "critical": true
+    },
+    {
+      "id": "P0-T",
+      "name": "RLS tenant registry",
+      "status": "pass",
+      "detail": "check:rls-registry clean",
+      "critical": true
+    },
+    {
+      "id": "P0-API",
+      "name": "API default-deny wrappers",
+      "status": "pass",
+      "detail": "check:api-routes clean",
+      "critical": true
+    },
+    {
+      "id": "P0-6-SESSION_SECRET",
+      "name": "SESSION_SECRET",
+      "status": "warn",
+      "detail": "not set in this environment (ok for code-only P0; required on Worker)",
+      "critical": false
+    },
+    {
+      "id": "P0-6-DATA_ENCRYPTION_KEY",
+      "name": "DATA_ENCRYPTION_KEY",
+      "status": "warn",
+      "detail": "not set in this environment (ok for code-only P0; required on Worker)",
+      "critical": false
+    },
+    {
+      "id": "P0-6-SEARCH_HMAC_KEY",
+      "name": "SEARCH_HMAC_KEY",
+      "status": "warn",
+      "detail": "not set in this environment (ok for code-only P0; required on Worker)",
+      "critical": false
+    },
+    {
+      "id": "P0-6-GROK_API_KEY",
+      "name": "GROK_API_KEY",
+      "status": "warn",
+      "detail": "not set in this environment (ok for code-only P0; required on Worker)",
+      "critical": false
+    },
+    {
+      "id": "P0-6b",
+      "name": "OWNER_SEED_PASSWORD* absent",
+      "status": "pass",
+      "detail": "not set in this environment",
+      "critical": false
+    },
+    {
+      "id": "P0-DOC",
+      "name": "Production Attack Plan",
+      "status": "pass",
+      "detail": "docs/PRODUCTION-ATTACK-PLAN.md present",
+      "critical": false
+    },
+    {
+      "id": "P0-MATRIX",
+      "name": "Capability matrix generate",
+      "status": "pass",
+      "detail": "docs/generated/capability-matrix.json",
+      "critical": false
+    },
+    {
+      "id": "P0-LIVE",
+      "name": "Live probes",
+      "status": "skip",
+      "detail": "Pass --live with MERLIN_BASE_URL to probe deployment",
+      "critical": false
+    }
+  ],
+  "verdict": "P0_CODE_GATES_PASS"
+}

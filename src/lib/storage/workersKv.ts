@@ -1,9 +1,12 @@
 import 'server-only';
 
 /**
- * Cloudflare Workers KV for distributed rate limits.
+ * Cloudflare Workers KV for distributed rate limits + companion fan-out.
  * Binding name must match wrangler.toml: KV_STORE
  * Namespace: merlinus-rate-limit (id 95aae52266f74a31bf715071664b24b9)
+ *
+ * Resolution order mirrors R2 / AI queue bindings so OpenNext request context
+ * always finds the namespace (ALS symbol → getCloudflareContext → cloudflare:workers → global).
  */
 
 export const KV_STORE_BINDING = 'KV_STORE' as const;
@@ -40,6 +43,25 @@ function readOpenNextAlsKv(): WorkersKvLike | null {
   return null;
 }
 
+/** Primary OpenNext path — same helper used for D1 / R2. */
+function readOpenNextPackageKv(): WorkersKvLike | null {
+  try {
+    // eslint-disable-next-line no-new-func
+    const req = Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null;
+    if (!req) return null;
+    const mod = req('@opennextjs/cloudflare') as {
+      getCloudflareContext?: (opts?: { async?: boolean }) => { env?: Record<string, unknown> };
+    };
+    if (typeof mod.getCloudflareContext !== 'function') return null;
+    const ctx = mod.getCloudflareContext({ async: false });
+    const ns = ctx?.env?.[KV_STORE_BINDING];
+    if (isWorkersKv(ns)) return ns;
+  } catch {
+    // package graph missing or outside request
+  }
+  return null;
+}
+
 function readWorkersModuleKv(): WorkersKvLike | null {
   try {
     // eslint-disable-next-line no-new-func
@@ -58,6 +80,8 @@ function readWorkersModuleKv(): WorkersKvLike | null {
 export function getRateLimitKv(): WorkersKvLike | null {
   const fromAls = readOpenNextAlsKv();
   if (fromAls) return fromAls;
+  const fromOpenNext = readOpenNextPackageKv();
+  if (fromOpenNext) return fromOpenNext;
   const fromWorkers = readWorkersModuleKv();
   if (fromWorkers) return fromWorkers;
   const g = globalThis as typeof globalThis & { KV_STORE?: WorkersKvLike };
@@ -67,4 +91,17 @@ export function getRateLimitKv(): WorkersKvLike | null {
 
 export function isWorkersKvConfigured(): boolean {
   return getRateLimitKv() !== null;
+}
+
+/**
+ * Which resolution path found KV (for health diagnostics — no secrets).
+ * Returns null when unbound in this isolate/request.
+ */
+export function describeKvBindingSource(): string | null {
+  if (readOpenNextAlsKv()) return 'openNextAls';
+  if (readOpenNextPackageKv()) return 'getCloudflareContext';
+  if (readWorkersModuleKv()) return 'cloudflare:workers';
+  const g = globalThis as typeof globalThis & { KV_STORE?: WorkersKvLike };
+  if (isWorkersKv(g.KV_STORE)) return 'globalThis';
+  return null;
 }

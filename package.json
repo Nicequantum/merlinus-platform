@@ -12,7 +12,7 @@
     "check:api-routes": "node scripts/check-api-route-wrappers.mjs",
     "validate:pre-deploy": "node scripts/validate-pre-deploy.mjs",
     "validate:pre-rollout": "tsx --import ./tests/setup/preload.mjs scripts/pre-rollout-validation.ts",
-    "ready-to-deploy": "npm run check:seed-secrets && npm run check:rls-registry && npm run check:api-routes && npm run validate:pre-deploy && npm run validate:pre-rollout && node scripts/validate-pre-rollout.mjs && echo Merlinus is ready for Mercedes-Benz dealership deployment && echo \"Run: npm run db:migrate-pii-safe (dry-run first)\"",
+    "ready-to-deploy": "npm run check:seed-secrets && npm run check:rls-registry && npm run check:api-routes && npm run verify:p0 && npm run matrix:generate && npm run validate:pre-deploy && npm run validate:pre-rollout && node scripts/validate-pre-rollout.mjs && echo Merlinus is ready for Mercedes-Benz dealership deployment && echo \"Run: npm run db:migrate-pii-safe (dry-run first)\"",
     "deploy:check": "node -e \"process.stdout.write(require('fs').readFileSync('docs/DEPLOYMENT-CHECKLIST.md','utf8'))\"",
     "build:next": "node scripts/validate-env.mjs && node scripts/prisma-with-sqlite-url.mjs generate && node scripts/migrate-deploy.mjs && next build",
     "build:opennextjs-cloudflare": "opennextjs-cloudflare build --skipNextBuild",
@@ -48,7 +48,12 @@
     "test:e2e": "tsx --import ./tests/setup/preload.mjs --test tests/integration/technician-journey.test.ts",
     "setup:tesseract": "node scripts/copy-tesseract-assets.mjs",
     "generate:icons": "node scripts/generate-app-icons.mjs",
-    "postinstall": "node scripts/prisma-with-sqlite-url.mjs generate && npm run setup:tesseract"
+    "postinstall": "node scripts/prisma-with-sqlite-url.mjs generate && npm run setup:tesseract",
+    "verify:p0": "node scripts/p0-deploy-verify.mjs",
+    "verify:p0:live": "node scripts/p0-deploy-verify.mjs --live",
+    "matrix:generate": "node scripts/generate-capability-matrix.mjs",
+    "matrix:check": "node scripts/generate-capability-matrix.mjs --check",
+    "test:isolation": "tsx --import ./tests/setup/preload.mjs --test --test-concurrency=1 tests/integration/tenant-isolation.test.ts tests/integration/tenant-isolation-matrix.test.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.15",

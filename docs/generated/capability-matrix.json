@@ -1,0 +1,2725 @@
+{
+  "generatedAt": "2026-07-31T04:38:22.139Z",
+  "routeCount": 137,
+  "byStatus": {
+    "pilot-optional": 54,
+    "ops-gated": 9,
+    "pilot-core": 62,
+    "deferred": 1,
+    "national-owner": 8,
+    "internal": 1,
+    "public": 1,
+    "unknown": 1
+  },
+  "legend": {
+    "pilot-core": "Required for first MB pilot (core warranty story)",
+    "pilot-optional": "Enable only if contracted / journey-proven",
+    "ops-gated": "Needs Worker secrets / queue / external service healthy",
+    "deferred": "Not shipping — do not sell as live",
+    "national-owner": "National / group owner only",
+    "internal": "Bootstrap / internal — not bay-facing",
+    "public": "Unauthenticated or public token surface",
+    "unknown": "Not classified — review before pilot"
+  },
+  "rows": [
+    {
+      "routeFile": "src/app/api/admin/usage/route.ts",
+      "apiPath": "/api/admin/usage",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "admin"
+      ],
+      "rateLimitKeys": [
+        "admin.usage"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Dealership admin usage analytics"
+    },
+    {
+      "routeFile": "src/app/api/advisors/[id]/route.ts",
+      "apiPath": "/api/advisors/[id]",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "advisors.get",
+        "advisors.update",
+        "advisors.delete"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Service advisor metrics — some require DMS feed"
+    },
+    {
+      "routeFile": "src/app/api/advisors/resolve/route.ts",
+      "apiPath": "/api/advisors/resolve",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "advisors.resolve"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Service advisor metrics — some require DMS feed"
+    },
+    {
+      "routeFile": "src/app/api/advisors/route.ts",
+      "apiPath": "/api/advisors",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "advisors.list",
+        "advisors.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Service advisor metrics — some require DMS feed"
+    },
+    {
+      "routeFile": "src/app/api/advisors/summary/route.ts",
+      "apiPath": "/api/advisors/summary",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "advisors.summary"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Service advisor metrics — some require DMS feed"
+    },
+    {
+      "routeFile": "src/app/api/ai-jobs/[id]/route.ts",
+      "apiPath": "/api/ai-jobs/[id]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ai-jobs.get"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Job status — requires durable AI path"
+    },
+    {
+      "routeFile": "src/app/api/audit-logs/latest/route.ts",
+      "apiPath": "/api/audit-logs/latest",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "audit-logs.latest"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager audit trail"
+    },
+    {
+      "routeFile": "src/app/api/audit-logs/pdf-export/route.ts",
+      "apiPath": "/api/audit-logs/pdf-export",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "audit-logs.pdf-export"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager audit trail"
+    },
+    {
+      "routeFile": "src/app/api/audit-logs/route.ts",
+      "apiPath": "/api/audit-logs",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "audit-logs.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager audit trail"
+    },
+    {
+      "routeFile": "src/app/api/audit-logs/summary/route.ts",
+      "apiPath": "/api/audit-logs/summary",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "audit-logs.summary"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager audit trail"
+    },
+    {
+      "routeFile": "src/app/api/auth/change-password/route.ts",
+      "apiPath": "/api/auth/change-password",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.change-password"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/clerk/link/route.ts",
+      "apiPath": "/api/auth/clerk/link",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.clerk.link"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/enter-dealership/route.ts",
+      "apiPath": "/api/auth/enter-dealership",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "auth.enter_dealership"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/exit-dealership/route.ts",
+      "apiPath": "/api/auth/exit-dealership",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "auth.exit_dealership"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/login/route.ts",
+      "apiPath": "/api/auth/login",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/logout/route.ts",
+      "apiPath": "/api/auth/logout",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/me/route.ts",
+      "apiPath": "/api/auth/me",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/backup-codes/route.ts",
+      "apiPath": "/api/auth/mfa/backup-codes",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.backup"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/disable/route.ts",
+      "apiPath": "/api/auth/mfa/disable",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.disable"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/enroll/route.ts",
+      "apiPath": "/api/auth/mfa/enroll",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.enroll"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/login-verify/route.ts",
+      "apiPath": "/api/auth/mfa/login-verify",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/self-recovery/route.ts",
+      "apiPath": "/api/auth/mfa/self-recovery",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.self-recovery"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/setup/route.ts",
+      "apiPath": "/api/auth/mfa/setup",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.setup"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/status/route.ts",
+      "apiPath": "/api/auth/mfa/status",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.status"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/mfa/verify/route.ts",
+      "apiPath": "/api/auth/mfa/verify",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.mfa.verify"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/password-recovery/confirm/route.ts",
+      "apiPath": "/api/auth/password-recovery/confirm",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "auth.password_recovery.confirm"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/password-recovery/request/route.ts",
+      "apiPath": "/api/auth/password-recovery/request",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "auth.password_recovery.request"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/preferences/route.ts",
+      "apiPath": "/api/auth/preferences",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "auth.preferences"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/refresh/route.ts",
+      "apiPath": "/api/auth/refresh",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/security-status/route.ts",
+      "apiPath": "/api/auth/security-status",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "auth.security-status"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/auth/select-dealership/route.ts",
+      "apiPath": "/api/auth/select-dealership",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Auth, MFA, session"
+    },
+    {
+      "routeFile": "src/app/api/companion/poll/route.ts",
+      "apiPath": "/api/companion/poll",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "companion.poll"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Desktop companion sync (LWW)"
+    },
+    {
+      "routeFile": "src/app/api/companion/publish/route.ts",
+      "apiPath": "/api/companion/publish",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "companion.publish"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Desktop companion sync (LWW)"
+    },
+    {
+      "routeFile": "src/app/api/companion/stream/route.ts",
+      "apiPath": "/api/companion/stream",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "companion.stream"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Desktop companion sync (LWW)"
+    },
+    {
+      "routeFile": "src/app/api/consent/route.ts",
+      "apiPath": "/api/consent",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "consent"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/dashboard/summary/route.ts",
+      "apiPath": "/api/dashboard/summary",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "dashboard.summary"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/department-requests/[id]/lookups/route.ts",
+      "apiPath": "/api/department-requests/[id]/lookups",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "department.lookups.post"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Parts/sales/service inboxes"
+    },
+    {
+      "routeFile": "src/app/api/department-requests/[id]/parts-lines/route.ts",
+      "apiPath": "/api/department-requests/[id]/parts-lines",
+      "methods": [
+        "PUT"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "department.parts_lines.put"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Parts/sales/service inboxes"
+    },
+    {
+      "routeFile": "src/app/api/department-requests/[id]/route.ts",
+      "apiPath": "/api/department-requests/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "department.get",
+        "department.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Parts/sales/service inboxes"
+    },
+    {
+      "routeFile": "src/app/api/department-requests/route.ts",
+      "apiPath": "/api/department-requests",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "department.list",
+        "department.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Parts/sales/service inboxes"
+    },
+    {
+      "routeFile": "src/app/api/diagnostics/extract/route.ts",
+      "apiPath": "/api/diagnostics/extract",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "diagnostics.extract"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Diagnostic evidence extraction"
+    },
+    {
+      "routeFile": "src/app/api/grok/proxy/route.ts",
+      "apiPath": "/api/grok/proxy",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "grok.proxy"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Grok proxy — server key required"
+    },
+    {
+      "routeFile": "src/app/api/health/route.ts",
+      "apiPath": "/api/health",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "health"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager health matrix"
+    },
+    {
+      "routeFile": "src/app/api/hub/analytics/route.ts",
+      "apiPath": "/api/hub/analytics",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.analytics"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/appointments/[id]/route.ts",
+      "apiPath": "/api/hub/appointments/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.appointments.get",
+        "hub.appointments.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/appointments/route.ts",
+      "apiPath": "/api/hub/appointments",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.appointments.list",
+        "hub.appointments.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/audit/route.ts",
+      "apiPath": "/api/hub/audit",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.audit"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/conversations/[callId]/create-appointment/route.ts",
+      "apiPath": "/api/hub/conversations/[callId]/create-appointment",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.conversation.create_appointment"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/conversations/[callId]/summarize/route.ts",
+      "apiPath": "/api/hub/conversations/[callId]/summarize",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.conversation.summarize"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/national/route.ts",
+      "apiPath": "/api/hub/national",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "hub.national"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/hub/timeline/route.ts",
+      "apiPath": "/api/hub/timeline",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "calendar_hub",
+      "modules": [
+        "calendar_hub"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "hub.timeline"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires calendar_hub"
+    },
+    {
+      "routeFile": "src/app/api/images/route.ts",
+      "apiPath": "/api/images",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "images.get"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Private evidence blobs"
+    },
+    {
+      "routeFile": "src/app/api/knowledge-base/route.ts",
+      "apiPath": "/api/knowledge-base",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "knowledge.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/legal-disclaimer/route.ts",
+      "apiPath": "/api/legal-disclaimer",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "legal_disclaimer"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/loaner/assignments/[id]/route.ts",
+      "apiPath": "/api/loaner/assignments/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "loaner",
+      "modules": [
+        "loaner"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "loaner.assignments.get",
+        "loaner.assignments.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires loaner module"
+    },
+    {
+      "routeFile": "src/app/api/loaner/assignments/route.ts",
+      "apiPath": "/api/loaner/assignments",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "loaner",
+      "modules": [
+        "loaner"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "loaner.assignments.list",
+        "loaner.assignments.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires loaner module"
+    },
+    {
+      "routeFile": "src/app/api/loaner/vehicles/[id]/route.ts",
+      "apiPath": "/api/loaner/vehicles/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "loaner",
+      "modules": [
+        "loaner"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "loaner.vehicles.get",
+        "loaner.vehicles.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires loaner module"
+    },
+    {
+      "routeFile": "src/app/api/loaner/vehicles/route.ts",
+      "apiPath": "/api/loaner/vehicles",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "loaner",
+      "modules": [
+        "loaner"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "loaner.vehicles.list",
+        "loaner.vehicles.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires loaner module"
+    },
+    {
+      "routeFile": "src/app/api/maintenance/tickets/[id]/photos/route.ts",
+      "apiPath": "/api/maintenance/tickets/[id]/photos",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "maintenance",
+      "modules": [
+        "maintenance"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "maintenance.photos"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires maintenance module"
+    },
+    {
+      "routeFile": "src/app/api/maintenance/tickets/[id]/route.ts",
+      "apiPath": "/api/maintenance/tickets/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "maintenance",
+      "modules": [
+        "maintenance"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "maintenance.get",
+        "maintenance.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires maintenance module"
+    },
+    {
+      "routeFile": "src/app/api/maintenance/tickets/route.ts",
+      "apiPath": "/api/maintenance/tickets",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "maintenance",
+      "modules": [
+        "maintenance"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "maintenance.list",
+        "maintenance.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires maintenance module"
+    },
+    {
+      "routeFile": "src/app/api/manager/center/live/route.ts",
+      "apiPath": "/api/manager/center/live",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "manager.center.live"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager control center / MFA admin / encryption"
+    },
+    {
+      "routeFile": "src/app/api/manager/center/summary/route.ts",
+      "apiPath": "/api/manager/center/summary",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "manager.center.summary"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager control center / MFA admin / encryption"
+    },
+    {
+      "routeFile": "src/app/api/manager/encryption/rotate/route.ts",
+      "apiPath": "/api/manager/encryption/rotate",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "manager.encryption.status",
+        "manager.encryption.rotate"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager control center / MFA admin / encryption"
+    },
+    {
+      "routeFile": "src/app/api/manager/mfa/reset/route.ts",
+      "apiPath": "/api/manager/mfa/reset",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "manager.mfa.reset"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager control center / MFA admin / encryption"
+    },
+    {
+      "routeFile": "src/app/api/manager/mfa/roster/route.ts",
+      "apiPath": "/api/manager/mfa/roster",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "manager.mfa.roster"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Manager control center / MFA admin / encryption"
+    },
+    {
+      "routeFile": "src/app/api/modules/cdk-status/route.ts",
+      "apiPath": "/api/modules/cdk-status",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "modules.cdk_status"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "deferred",
+      "note": "Live CDK API deferred — clipboard paste only"
+    },
+    {
+      "routeFile": "src/app/api/modules/route.ts",
+      "apiPath": "/api/modules",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "modules.list",
+        "modules.set"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Entitlement toggles — keep non-core off in pilot"
+    },
+    {
+      "routeFile": "src/app/api/owner/billing/route.ts",
+      "apiPath": "/api/owner/billing",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.billing"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/dealer-groups/route.ts",
+      "apiPath": "/api/owner/dealer-groups",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.dealer_groups"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/dealership-advisors/route.ts",
+      "apiPath": "/api/owner/dealership-advisors",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.dealership_advisors"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/dealerships/route.ts",
+      "apiPath": "/api/owner/dealerships",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.dealerships"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/provision-dealer/route.ts",
+      "apiPath": "/api/owner/provision-dealer",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.provision-dealer"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/select-dealer-group/route.ts",
+      "apiPath": "/api/owner/select-dealer-group",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.select_dealer_group"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/summary/route.ts",
+      "apiPath": "/api/owner/summary",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.summary"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/warmup/route.ts",
+      "apiPath": "/api/owner/warmup",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.warmup"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/public/hub/appointment/[token]/route.ts",
+      "apiPath": "/api/public/hub/appointment/[token]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "hub.public_appointment"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/public/video/[token]/media/route.ts",
+      "apiPath": "/api/public/video/[token]/media",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "video.public_media"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Customer video share links"
+    },
+    {
+      "routeFile": "src/app/api/public/video/[token]/route.ts",
+      "apiPath": "/api/public/video/[token]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "video.public_get"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Customer video share links"
+    },
+    {
+      "routeFile": "src/app/api/queue/ai-consumer/route.ts",
+      "apiPath": "/api/queue/ai-consumer",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/queue/job-events/[jobId]/route.ts",
+      "apiPath": "/api/queue/job-events/[jobId]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "queue.job_events"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/queue/job-status/[jobId]/route.ts",
+      "apiPath": "/api/queue/job-status/[jobId]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "queue.job_status"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/queue/jobs/[jobId]/cancel/route.ts",
+      "apiPath": "/api/queue/jobs/[jobId]/cancel",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "queue.jobs.cancel"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/queue/jobs/[jobId]/retry/route.ts",
+      "apiPath": "/api/queue/jobs/[jobId]/retry",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "queue.jobs.retry"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/queue/jobs/route.ts",
+      "apiPath": "/api/queue/jobs",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "queue.jobs.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "ops-gated",
+      "note": "Async AI jobs — requires queue consumer healthy"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/apply-customer-pay-template/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/apply-customer-pay-template",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "repair-orders.apply-customer-pay-template"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/certify-story/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/certify-story",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withStoryAiRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "story.certify"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/clear-customer-pay/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/clear-customer-pay",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ros.update"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/generate-story/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/generate-story",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withStoryAiRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "story.generate"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/review-story/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/review-story",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withStoryAiRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "story.review"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]",
+      "methods": [
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ros.line.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/score-story/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/score-story",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withStoryAiRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "story.score"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/lines/[lineId]/sold-metrics/route.ts",
+      "apiPath": "/api/repair-orders/[id]/lines/[lineId]/sold-metrics",
+      "methods": [
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ros.sold-metrics"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/[id]/route.ts",
+      "apiPath": "/api/repair-orders/[id]",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ros.get",
+        "ros.update",
+        "ros.delete"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/extract/route.ts",
+      "apiPath": "/api/repair-orders/extract",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ro.extract"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/repair-orders/route.ts",
+      "apiPath": "/api/repair-orders",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "ros.list",
+        "ros.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Core RO + story pipeline — pilot required"
+    },
+    {
+      "routeFile": "src/app/api/session/warmup/route.ts",
+      "apiPath": "/api/session/warmup",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "session.warmup"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Bay session warmup"
+    },
+    {
+      "routeFile": "src/app/api/setup/seed/route.ts",
+      "apiPath": "/api/setup/seed",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "internal",
+      "note": "Bootstrap only — blocked in production without SETUP_SECRET"
+    },
+    {
+      "routeFile": "src/app/api/status/route.ts",
+      "apiPath": "/api/status",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withPublicRoute",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [
+        "status.public"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "public",
+      "note": "Public liveness"
+    },
+    {
+      "routeFile": "src/app/api/technician-logs/route.ts",
+      "apiPath": "/api/technician-logs",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "technician_logs.ingest"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "unknown",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/technicians/[id]/logs/route.ts",
+      "apiPath": "/api/technicians/[id]/logs",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "technicians.logs"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Staff management"
+    },
+    {
+      "routeFile": "src/app/api/technicians/[id]/route.ts",
+      "apiPath": "/api/technicians/[id]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "technicians.get"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Staff management"
+    },
+    {
+      "routeFile": "src/app/api/technicians/[id]/stories/route.ts",
+      "apiPath": "/api/technicians/[id]/stories",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "technicians.stories"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Staff management"
+    },
+    {
+      "routeFile": "src/app/api/technicians/route.ts",
+      "apiPath": "/api/technicians",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "technicians.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Staff management"
+    },
+    {
+      "routeFile": "src/app/api/templates/[id]/use/route.ts",
+      "apiPath": "/api/templates/[id]/use",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "templates.use"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Story / customer-pay templates"
+    },
+    {
+      "routeFile": "src/app/api/templates/route.ts",
+      "apiPath": "/api/templates",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "templates.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Story / customer-pay templates"
+    },
+    {
+      "routeFile": "src/app/api/templates/save-from-story/route.ts",
+      "apiPath": "/api/templates/save-from-story",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "templates.save"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Story / customer-pay templates"
+    },
+    {
+      "routeFile": "src/app/api/upload/route.ts",
+      "apiPath": "/api/upload",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "upload"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "Bay photo upload"
+    },
+    {
+      "routeFile": "src/app/api/users/[id]/password/route.ts",
+      "apiPath": "/api/users/[id]/password",
+      "methods": [
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "users.reset-password"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "User admin"
+    },
+    {
+      "routeFile": "src/app/api/users/[id]/route.ts",
+      "apiPath": "/api/users/[id]",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "users.update",
+        "users.delete"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "User admin"
+    },
+    {
+      "routeFile": "src/app/api/users/route.ts",
+      "apiPath": "/api/users",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "users.list",
+        "users.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-core",
+      "note": "User admin"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/findings/route.ts",
+      "apiPath": "/api/video-inspections/[id]/findings",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.findings.put",
+        "video.findings.get"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/generate-report/route.ts",
+      "apiPath": "/api/video-inspections/[id]/generate-report",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.generate_report"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/media/route.ts",
+      "apiPath": "/api/video-inspections/[id]/media",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.media"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/route.ts",
+      "apiPath": "/api/video-inspections/[id]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.get",
+        "video.patch"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/send-sms/route.ts",
+      "apiPath": "/api/video-inspections/[id]/send-sms",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.sms"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/[id]/share/route.ts",
+      "apiPath": "/api/video-inspections/[id]/share",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.share",
+        "video.share_revoke"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/route.ts",
+      "apiPath": "/api/video-inspections",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.list",
+        "video.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/upload/chunk/route.ts",
+      "apiPath": "/api/video-inspections/upload/chunk",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.upload.chunk"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/upload/complete/route.ts",
+      "apiPath": "/api/video-inspections/upload/complete",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.upload.complete"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/upload/init/route.ts",
+      "apiPath": "/api/video-inspections/upload/init",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.upload.init"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/video-inspections/upload/route.ts",
+      "apiPath": "/api/video-inspections/upload",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "video_mpi",
+      "modules": [
+        "video_mpi"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "video.upload"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Gated by module video_mpi"
+    },
+    {
+      "routeFile": "src/app/api/vin/decode/route.ts",
+      "apiPath": "/api/vin/decode",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "vin.decode"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/voice/[department]/query/route.ts",
+      "apiPath": "/api/voice/[department]/query",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "voice.dept.${department}"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/calls/[id]/recording/media/route.ts",
+      "apiPath": "/api/voice/calls/[id]/recording/media",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.recording.media"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/calls/[id]/route.ts",
+      "apiPath": "/api/voice/calls/[id]",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.calls.get"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/calls/route.ts",
+      "apiPath": "/api/voice/calls",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.calls.list"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/customizations/[department]/route.ts",
+      "apiPath": "/api/voice/customizations/[department]",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.customizations.history",
+        "voice.customizations.action"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/customizations/route.ts",
+      "apiPath": "/api/voice/customizations",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.customizations.list",
+        "voice.customizations.save"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/gather/route.ts",
+      "apiPath": "/api/voice/gather",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/inbound/route.ts",
+      "apiPath": "/api/voice/inbound",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/lines/route.ts",
+      "apiPath": "/api/voice/lines",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.lines.list",
+        "voice.lines.create"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/metrics/route.ts",
+      "apiPath": "/api/voice/metrics",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "voice.metrics"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/realtime/session/route.ts",
+      "apiPath": "/api/voice/realtime/session",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": "voice_agent",
+      "modules": [
+        "voice_agent"
+      ],
+      "roles": [
+        "authenticated"
+      ],
+      "rateLimitKeys": [
+        "voice.realtime.session",
+        "voice.realtime.status"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/recording/route.ts",
+      "apiPath": "/api/voice/recording",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/voice/status/route.ts",
+      "apiPath": "/api/voice/status",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "pilot-optional",
+      "note": "Requires voice_agent + Twilio ops"
+    },
+    {
+      "routeFile": "src/app/api/webhooks/clerk/route.ts",
+      "apiPath": "/api/webhooks/clerk",
+      "methods": [
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "ops-gated",
+      "note": "External webhooks — signature verified"
+    }
+  ]
+}

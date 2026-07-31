@@ -1,0 +1,18 @@
+# Companion cron for Merlinus nightly self-heal + morning warmup.
+# Deploy: npx wrangler deploy -c workers/ops-cron/wrangler.toml
+#
+# Secrets:
+#   echo https://your-host | npx wrangler secret put APP_BASE_URL -c workers/ops-cron/wrangler.toml
+#   echo "$OPS_MAINTENANCE_SECRET" | npx wrangler secret put OPS_MAINTENANCE_SECRET -c workers/ops-cron/wrangler.toml
+#
+# Crons (UTC) for America/New_York pilot:
+#   00:20 UTC ≈ 8:20pm EDT  → nightly maintenance + Grok analysis
+#   10:05 UTC ≈ 6:05am EDT  → morning warmup
+
+name = "merlinus-ops-cron"
+main = "src/index.ts"
+compatibility_date = "2025-08-05"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["20 0 * * *", "5 10 * * *"]

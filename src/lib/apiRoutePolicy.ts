@@ -55,8 +55,9 @@ export const INTENTIONAL_BARE_API_ROUTES: Readonly<Record<string, string>> = {
   // P3-4 recovery uses withPublicRoute (approved wrapper) — not bare.
   'src/app/api/queue/ai-consumer/route.ts':
     'CF Queue consumer bridge — Bearer AI_QUEUE_CONSUMER_SECRET + rate limit; not browser session auth',
+  'src/app/api/ops/nightly-maintenance/route.ts':
+    'Ops cron bridge — Bearer OPS_MAINTENANCE_SECRET (or AI_QUEUE_CONSUMER_SECRET); nightly self-heal + morning warmup',
 };
-
 export function isIntentionalBareApiRoute(posixPath: string): boolean {
   const normalized = posixPath.replace(/\\/g, '/');
   return Object.prototype.hasOwnProperty.call(INTENTIONAL_BARE_API_ROUTES, normalized);
