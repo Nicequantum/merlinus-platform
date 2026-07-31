@@ -45,3 +45,8 @@ tsconfig.tsbuildinfo
 # Accidental nested local sqlite
 prisma/prisma/
 
+
+# Local secret packs (never push)
+docs/generated/pilot-new-env-vars.LOCAL.env
+docs/generated/OPS_MAINTENANCE_SECRET.txt
+
