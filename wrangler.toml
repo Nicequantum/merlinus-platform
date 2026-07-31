@@ -81,3 +81,31 @@ queue = "merlinus-ai-jobs"
 
 # Consumer is a companion Worker (workers/ai-jobs-consumer) — see that folder's wrangler.toml.
 # Main OpenNext worker is producer-only so OpenNext fetch export is unchanged.
+
+# ---------------------------------------------------------------------------
+# Non-secret pilot / self-heal / billing flags (plain [vars] — ship on deploy)
+# Secrets stay in the dashboard only: OPS_MAINTENANCE_SECRET, GROK_API_KEY,
+# SESSION_SECRET, DATA_ENCRYPTION_KEY, SEARCH_HMAC_KEY, Sentry DSN if treated
+# as secret, etc. Never put secrets in this file.
+#
+# You may already have set GROK_SELF_HEAL_* + MERLIN_MAINTENANCE_TZ in the
+# dashboard — values here are the source of truth on the next wrangler deploy.
+# ---------------------------------------------------------------------------
+[vars]
+# Self-heal + nightly window (America/New_York 8pm–6am; shrink later)
+GROK_SELF_HEAL_ENABLED = "true"
+GROK_SELF_HEAL_MODEL = "grok-3-mini"
+MERLIN_MAINTENANCE_TZ = "America/New_York"
+MERLIN_NIGHTLY_WINDOW_START = "20"
+MERLIN_NIGHTLY_WINDOW_END = "6"
+MERLIN_NIGHTLY_SOFT_MAINTENANCE = "true"
+# National owner onboard HTTP provision (readiness gate still applies)
+APEX_ALLOW_HTTP_PROVISION = "true"
+# National owner billing estimate rates (cents; UI/ops only — not invoices)
+BILLING_PLATFORM_MONTHLY_CENTS = "29900"
+BILLING_STORY_FIRST_CENTS = "95"
+BILLING_STORY_HIGH_VOLUME_CENTS = "65"
+BILLING_HIGH_VOLUME_THRESHOLD = "400"
+BILLING_STORY_REGEN_CENTS = "25"
+BILLING_SMS_CENTS = "4"
+BILLING_CURRENCY = "USD"
