@@ -6,12 +6,21 @@
  * Secrets:
  *   OPS_MAINTENANCE_SECRET or AI_QUEUE_CONSUMER_SECRET
  *   APP_BASE_URL=https://your-production-host
+ *
+ * Types are local (same pattern as workers/ai-jobs-consumer) so the main
+ * Next.js `tsc` / `next build` does not require @cloudflare/workers-types.
  */
 
 export interface Env {
   APP_BASE_URL?: string;
   OPS_MAINTENANCE_SECRET?: string;
   AI_QUEUE_CONSUMER_SECRET?: string;
+}
+
+/** Minimal scheduled event shape — avoid CF global types in Next typecheck. */
+interface ScheduledControllerLike {
+  scheduledTime: number;
+  cron: string;
 }
 
 async function run(env: Env, mode: 'nightly' | 'morning'): Promise<void> {
@@ -44,11 +53,7 @@ async function run(env: Env, mode: 'nightly' | 'morning'): Promise<void> {
 }
 
 export default {
-  async scheduled(
-    controller: ScheduledController,
-    env: Env,
-    _ctx: ExecutionContext
-  ): Promise<void> {
+  async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
     const hour = new Date(controller.scheduledTime).getUTCHours();
     const mode: 'nightly' | 'morning' =
       controller.cron.includes('10 ') || hour === 10 ? 'morning' : 'nightly';

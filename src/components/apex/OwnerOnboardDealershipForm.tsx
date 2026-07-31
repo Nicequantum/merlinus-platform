@@ -381,7 +381,6 @@ export function OwnerOnboardDealershipForm({ onCompleted }: { onCompleted?: () =
               readinessChecked && !canProvision ? ' apex-onboard-form--locked' : ''
             }`}
             onSubmit={(e) => void onSubmit(e)}
-            aria-disabled={readinessChecked && !canProvision}
           >
             <h3 className="apex-national-panel-title">Step 2 · Onboard New Dealership</h3>
             {readinessChecked && !canProvision ? (
