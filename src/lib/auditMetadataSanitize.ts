@@ -63,6 +63,8 @@ const ALLOWED_STRING_KEYS = new Set([
   'expiresAt',
   'stepUpMethod',
   'videoInspectionId',
+  'dataset',
+  'authMode',
 ]);
 
 const ALLOWED_BOOL_KEYS = new Set([

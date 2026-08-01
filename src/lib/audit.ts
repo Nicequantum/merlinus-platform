@@ -24,6 +24,7 @@ export type AuditAction =
   | 'owner.dealership_enter'
   | 'owner.dealership_exit'
   | 'owner.national_access'
+  | 'pilot.export'
   | 'auth.password_change'
   | 'auth.mfa_enroll_start'
   | 'auth.mfa_enroll_complete'
@@ -114,6 +115,7 @@ export const CRITICAL_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
   'owner.dealership_enter',
   'owner.dealership_exit',
   'owner.national_access',
+  'pilot.export',
   'auth.password_change',
   'auth.mfa_enroll_complete',
   'auth.mfa_success',

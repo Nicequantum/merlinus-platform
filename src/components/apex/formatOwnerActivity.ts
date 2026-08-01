@@ -5,6 +5,7 @@ const ACTION_LABELS: Record<string, string> = {
   'owner.dealership_enter': 'Owner entered rooftop',
   'owner.dealership_exit': 'Owner exited rooftop',
   'owner.national_access': 'National console viewed',
+  'pilot.export': 'Pilot data exported',
   'preferences.update': 'Language preference updated',
   'ro.create': 'Repair order created',
   'ro.update': 'Repair order updated',

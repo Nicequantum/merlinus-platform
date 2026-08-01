@@ -689,6 +689,7 @@ export const AUDIT_ACTIONS = [
   'owner.dealership_enter',
   'owner.dealership_exit',
   'owner.national_access',
+  'pilot.export',
   'auth.password_change',
   'auth.mfa_enroll_start',
   'auth.mfa_enroll_complete',

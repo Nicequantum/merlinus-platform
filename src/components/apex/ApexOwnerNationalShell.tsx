@@ -33,6 +33,7 @@ import {
 } from '@/lib/ownerBillingClient';
 import { formatTrendPct, OwnerSparkline } from '@/components/apex/OwnerSparkline';
 import { OwnerOnboardDealershipForm } from '@/components/apex/OwnerOnboardDealershipForm';
+import { OwnerPilotExportPanel } from '@/components/apex/OwnerPilotExportPanel';
 import { keepAlivePublicStatus, warmOwnerIsolate } from '@/lib/clientFetchRetry';
 import { clientLog } from '@/lib/clientLog';
 import type { TechnicianSession } from '@/types';
@@ -41,7 +42,7 @@ import { toast } from 'sonner';
 /** Soft keep-alive while national console is open — prevents Workers isolate sleep. */
 const OWNER_ISOLATE_KEEPALIVE_MS = 3 * 60 * 1000;
 
-type NationalView = 'dashboard' | 'enter-dealership' | 'onboard' | 'billing';
+type NationalView = 'dashboard' | 'enter-dealership' | 'onboard' | 'billing' | 'export';
 
 interface ApexOwnerNationalShellProps {
   session: TechnicianSession;
@@ -633,6 +634,13 @@ export function ApexOwnerNationalShell({
             </button>
             <button
               type="button"
+              className={`apex-national-tab touch-target${view === 'export' ? ' apex-national-tab--active' : ''}`}
+              onClick={() => setView('export')}
+            >
+              Data export
+            </button>
+            <button
+              type="button"
               className={`apex-national-tab touch-target${view === 'enter-dealership' ? ' apex-national-tab--active' : ''}`}
               disabled={loadingDealerships || actionLoading}
               onClick={() => void openEnterDealership()}
@@ -801,6 +809,18 @@ export function ApexOwnerNationalShell({
                 </ul>
               </>
             ) : null}
+          </section>
+        ) : view === 'export' && !isGroupHome ? (
+          <section className="apex-national-panel apex-national-panel--wide">
+            <div className="apex-national-panel-head mb-3">
+              <div>
+                <h2 className="apex-national-panel-title">Pilot data export</h2>
+                <p className="apex-hint">
+                  For your Google Cloud migration team — topology, meters, audit, health, provision.
+                </p>
+              </div>
+            </div>
+            <OwnerPilotExportPanel />
           </section>
         ) : view === 'enter-dealership' ? (
           <section className="apex-national-panel apex-card apex-card-accent apex-national-panel--wide">

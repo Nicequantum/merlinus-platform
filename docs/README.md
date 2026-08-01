@@ -33,6 +33,8 @@
 | [**Self-Heal-and-Nightly-Maintenance.md**](./Self-Heal-and-Nightly-Maintenance.md) | **Nightly Grok self-heal + morning warmup** (ops cron, env, Control Center) |
 | [**PILOT-SAFETY-AUDIT-2026-08-01.md**](./PILOT-SAFETY-AUDIT-2026-08-01.md) | **Pilot safety audit + grade (2026-08-01)** |
 | [**SECOND-FACILITY-PILOT.md**](./SECOND-FACILITY-PILOT.md) | **Same-owner second rooftop** provision + isolation checklist |
+| [**PILOT-DATA-EXPORT.md**](./PILOT-DATA-EXPORT.md) | **GCP migration pilot export API** — token access + datasets |
+
 
 | [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
 
