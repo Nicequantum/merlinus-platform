@@ -13,7 +13,11 @@ export async function GET(request: Request) {
     async (session) => {
       // Group owners: rooftops under DealerGroup memberships only.
       // Platform operators: APEX_PLATFORM_OWNER_EMAILS / OWNER_SEED_EMAIL* allowlist (explicit).
-      const dealerships = await listEnterableDealershipsForOwner(session.technicianId);
+      // Group home: filter to active portfolio. National / platform ops: all enterable.
+      const dealerships = await listEnterableDealershipsForOwner(session.technicianId, {
+        dealerGroupId:
+          session.scopeMode === 'group' ? session.activeDealerGroupId ?? null : null,
+      });
 
       return {
         dealerships: dealerships.map((dealership) => ({

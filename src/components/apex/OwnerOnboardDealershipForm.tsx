@@ -53,7 +53,7 @@ type ProvisionSuccess = {
  * POST /api/owner/provision-dealer (requires APEX_ALLOW_HTTP_PROVISION=true).
  *
  * Step 1: in-app platform readiness (live P0 health / provision gates).
- * Step 2: form + create.
+ * Step 2: form + create. Second facility: use the same owner email as facility 1 — attaches under their dealer group.
  * Step 3: credentials + rooftop pilot checklist.
  */
 export function OwnerOnboardDealershipForm({ onCompleted }: { onCompleted?: () => void }) {
@@ -175,6 +175,8 @@ export function OwnerOnboardDealershipForm({ onCompleted }: { onCompleted?: () =
                     email: ownerEmailRaw,
                     password: ownerTemporaryPassword,
                   },
+                  // Second facility: link under existing owner's primary dealer group
+                  attachLinkedOwnerToPrimaryGroup: true,
                 }
               : {}),
             ifExists: 'fail',

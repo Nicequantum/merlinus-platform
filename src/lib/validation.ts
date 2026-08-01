@@ -78,6 +78,17 @@ export const enterDealershipSchema = z.object({
   viewAsServiceAdvisorId: safeIdOptional(64),
 }) as z.ZodSchema<EnterDealershipBody>;
 
+/** Authenticated multi-membership staff rooftop switch (second facility). */
+export type SwitchDealershipBody = {
+  dealershipId: string;
+  rememberAsDefault?: boolean;
+};
+
+export const switchDealershipSchema = z.object({
+  dealershipId: safeId(64),
+  rememberAsDefault: z.boolean().optional(),
+}) as z.ZodSchema<SwitchDealershipBody>;
+
 export const viewAsRoleSchema = z.object({
   viewAsRole: z.enum([
     'technician',
@@ -417,6 +428,13 @@ export const provisionDealerHttpSchema = z
       })
       .optional()
       .nullable(),
+    /**
+     * Second facility: attach under an existing DealerGroup (same owner portfolio).
+     * When omitted and owner email already exists, provision attaches to their primary group.
+     */
+    existingDealerGroupId: z.string().trim().min(1).max(64).optional().nullable(),
+    /** Default true — see provisionDealer attachLinkedOwnerToPrimaryGroup. */
+    attachLinkedOwnerToPrimaryGroup: z.boolean().optional(),
     ifExists: z.enum(['fail', 'skip', 'update-metadata']).optional().default('fail'),
     dryRun: z.boolean().optional().default(false),
   })

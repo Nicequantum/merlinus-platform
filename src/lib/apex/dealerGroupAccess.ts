@@ -58,15 +58,26 @@ export async function resolvePrimaryDealerGroupForOwner(
  * Dealership ids an owner may enter.
  * - Explicit platform operator (env allowlist): all non-sentinel rooftops
  * - Group member: rooftops under dealers in their active group memberships
+ * - Optional dealerGroupId: narrow to one group (active portfolio filter)
  * - Otherwise: none (no implicit "empty membership = superuser")
  */
-export async function listEnterableDealershipsForOwner(technicianId: string): Promise<
+export async function listEnterableDealershipsForOwner(
+  technicianId: string,
+  options?: { dealerGroupId?: string | null }
+): Promise<
   Array<{ id: string; name: string; dealerCode: string | null; dealerGroupId: string | null }>
 > {
   return withRlsBypass(async () => {
+    const filterGroupId = options?.dealerGroupId?.trim() || '';
+
     if (await isPlatformOperator(technicianId)) {
       const dealerships = await getRlsDb().dealership.findMany({
-        where: { id: { not: APEX_NATIONAL_DEALERSHIP_ID } },
+        where: {
+          id: { not: APEX_NATIONAL_DEALERSHIP_ID },
+          ...(filterGroupId
+            ? { dealer: { dealerGroupId: filterGroupId } }
+            : {}),
+        },
         select: {
           id: true,
           name: true,
@@ -84,7 +95,13 @@ export async function listEnterableDealershipsForOwner(technicianId: string): Pr
     }
 
     const memberships = await listOwnerDealerGroupMemberships(technicianId);
-    const groupIds = memberships.map((m) => m.dealerGroupId);
+    let groupIds = memberships.map((m) => m.dealerGroupId);
+    if (filterGroupId) {
+      if (!groupIds.includes(filterGroupId)) {
+        return [];
+      }
+      groupIds = [filterGroupId];
+    }
     if (groupIds.length === 0) {
       return [];
     }
@@ -150,9 +167,13 @@ export async function ownerMayEnterDealership(
  * Dealer ids for owner national summary filters.
  * - Platform operator → null (unscoped / all active dealers)
  * - Group member → dealer ids in those groups
+ * - Optional dealerGroupId narrows to one group (session active portfolio)
  * - Otherwise → empty array (no dealers)
  */
-export async function listDealerIdsForOwnerGroups(technicianId: string): Promise<string[] | null> {
+export async function listDealerIdsForOwnerGroups(
+  technicianId: string,
+  options?: { dealerGroupId?: string | null }
+): Promise<string[] | null> {
   return withRlsBypass(async () => {
     if (await isPlatformOperator(technicianId)) {
       return null;
@@ -161,9 +182,16 @@ export async function listDealerIdsForOwnerGroups(technicianId: string): Promise
     const memberships = await listOwnerDealerGroupMemberships(technicianId);
     if (memberships.length === 0) return [];
 
+    let groupIds = memberships.map((m) => m.dealerGroupId);
+    const filterGroupId = options?.dealerGroupId?.trim() || '';
+    if (filterGroupId) {
+      if (!groupIds.includes(filterGroupId)) return [];
+      groupIds = [filterGroupId];
+    }
+
     const dealers = await getRlsDb().dealer.findMany({
       where: {
-        dealerGroupId: { in: memberships.map((m) => m.dealerGroupId) },
+        dealerGroupId: { in: groupIds },
         status: 'active',
       },
       select: { id: true },

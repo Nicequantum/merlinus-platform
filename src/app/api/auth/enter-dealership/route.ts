@@ -130,8 +130,9 @@ export async function POST(request: Request) {
       },
       {
         requireOwner: true,
-        // Phase 6.4 / G2 — must be platform national or group home before entering a rooftop
-        requireOwnerNational: true,
+        // Allow national/group home OR rooftop→rooftop switch (second facility).
+        // National console routes still require requireOwnerNational.
+        requireOwnerNational: false,
         rateLimitKey: 'auth.enter_dealership',
         skipRateLimit: true,
       }

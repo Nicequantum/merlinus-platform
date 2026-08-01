@@ -180,6 +180,36 @@ type OwnerDealershipsResponse = {
   message?: string;
 };
 
+
+/**
+ * Authenticated multi-membership staff: switch rooftops without re-login
+ * (second facility / floater techs). Owners use enterOwnerDealership.
+ */
+export async function switchStaffDealership(
+  dealershipId: string,
+  options?: { rememberAsDefault?: boolean }
+): Promise<TechnicianSession> {
+  const data = await fetchJsonWithClientRetry<{
+    session?: TechnicianSession;
+    error?: string;
+    message?: string;
+  }>('/api/auth/switch-dealership', {
+    method: 'POST',
+    body: JSON.stringify({
+      dealershipId,
+      rememberAsDefault: options?.rememberAsDefault,
+    }),
+    timeoutMs: 20_000,
+    retryPostServerError: true,
+  });
+
+  if (!data.session) {
+    throw new Error(data.error || data.message || 'Dealership switch failed');
+  }
+  return data.session;
+}
+
+
 export async function fetchOwnerDealerships(): Promise<ApexDealershipOption[]> {
   const data = await fetchJsonWithClientRetry<OwnerDealershipsResponse>('/api/owner/dealerships', {
     method: 'GET',

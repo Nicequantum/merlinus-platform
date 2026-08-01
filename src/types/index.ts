@@ -685,6 +685,7 @@ export const AUDIT_ACTIONS = [
   'auth.logout',
   'auth.refresh',
   'auth.select_dealership',
+  'auth.switch_dealership',
   'owner.dealership_enter',
   'owner.dealership_exit',
   'owner.national_access',

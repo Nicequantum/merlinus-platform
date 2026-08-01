@@ -115,6 +115,8 @@ export async function POST(request: Request) {
                 password: ownerPassword,
               }
             : null,
+          existingDealerGroupId: body.existingDealerGroupId ?? null,
+          attachLinkedOwnerToPrimaryGroup: body.attachLinkedOwnerToPrimaryGroup,
           ifExists: body.ifExists,
           dryRun: body.dryRun,
           actor: {

@@ -170,3 +170,18 @@ Do these on Cloudflare after this push lands:
 ---
 
 *Related:* [PRODUCTION-ATTACK-PLAN.md](./PRODUCTION-ATTACK-PLAN.md) · [Self-Heal-and-Nightly-Maintenance.md](./Self-Heal-and-Nightly-Maintenance.md) · [generated/p0-deploy-verify-latest.md](./generated/p0-deploy-verify-latest.md) · [generated/CAPABILITY-MATRIX.md](./generated/CAPABILITY-MATRIX.md)
+
+
+---
+
+## Addendum 2026-08-01 — Second-facility pass
+
+Hardened for same-owner **two rooftops** before second store go-live:
+
+- Provision attaches facility 2 to existing owner primary **DealerGroup**
+- Owner can **switch A→B** without national exit
+- Staff multi-membership **switch-dealership** API
+- Group portfolio filter honors `activeDealerGroupId`
+- Playbook: [SECOND-FACILITY-PILOT.md](./SECOND-FACILITY-PILOT.md)
+
+**Revised multi-rooftop (same group) grade:** **A−** for controlled 2-facility pilot (was B+ for unbounded multi-group scale).

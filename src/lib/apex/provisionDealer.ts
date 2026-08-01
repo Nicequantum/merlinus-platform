@@ -87,6 +87,16 @@ export interface ProvisionDealerInput {
    * for the manager to grant access later. Manager remains the primary D7 login.
    */
   owner?: ProvisionOwnerInput | null;
+  /**
+   * Second-facility / multi-rooftop: attach the new Dealer under this existing
+   * DealerGroup instead of creating a new group.
+   */
+  existingDealerGroupId?: string | null;
+  /**
+   * When linking an existing owner and existingDealerGroupId is unset, attach the
+   * new franchise to their primary (or sole) dealer group. Default true.
+   */
+  attachLinkedOwnerToPrimaryGroup?: boolean;
   ifExists?: ProvisionIfExists;
   dryRun?: boolean;
   actor: ProvisionDealerActor;
@@ -622,9 +632,44 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       }
     }
 
-    // DealerGroup for owner portfolio (only when owner path is active).
+    // DealerGroup: explicit id → linked owner's primary group → create new.
+    // Second-facility pilot: reuse group so both rooftops appear under one owner portfolio.
     let dealerGroupId: string | null = null;
-    if (ownerNorm) {
+    let reusedExistingGroup = false;
+    const explicitGroupId = input.existingDealerGroupId?.trim() || '';
+    const attachToPrimary = input.attachLinkedOwnerToPrimaryGroup !== false;
+
+    if (explicitGroupId) {
+      const group = await tx.dealerGroup.findFirst({
+        where: { id: explicitGroupId, status: 'active' },
+        select: { id: true },
+      });
+      if (!group) {
+        throw new ProvisionDealerError(
+          'DEALER_GROUP_NOT_FOUND',
+          'existingDealerGroupId does not match an active dealer group.'
+        );
+      }
+      dealerGroupId = group.id;
+      reusedExistingGroup = true;
+    } else if (ownerNorm && ownerLinked && existingOwnerForLink && attachToPrimary) {
+      const memberships = await tx.dealerGroupMembership.findMany({
+        where: {
+          technicianId: existingOwnerForLink.id,
+          isActive: true,
+          dealerGroup: { status: 'active' },
+        },
+        select: { dealerGroupId: true, isPrimary: true },
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      });
+      if (memberships.length > 0) {
+        const primary = memberships.find((m) => m.isPrimary) ?? memberships[0]!;
+        dealerGroupId = primary.dealerGroupId;
+        reusedExistingGroup = true;
+      }
+    }
+
+    if (ownerNorm && !dealerGroupId) {
       const groupCodeTaken = await tx.dealerGroup.findUnique({
         where: { code: dealerCode },
         select: { id: true },
@@ -632,7 +677,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       if (groupCodeTaken) {
         throw new ProvisionDealerError(
           'DEALER_GROUP_EXISTS',
-          `A dealer group with code "${dealerCode}" already exists.`
+          `A dealer group with code "${dealerCode}" already exists. Pass existingDealerGroupId to add a second facility under that group.`
         );
       }
     }
@@ -649,7 +694,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       (input.owner as { password: string }).password = '';
     }
 
-    if (ownerNorm) {
+    if (ownerNorm && !dealerGroupId) {
       const dealerGroup = await tx.dealerGroup.create({
         data: {
           code: dealerCode,
@@ -659,6 +704,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
         },
       });
       dealerGroupId = dealerGroup.id;
+      reusedExistingGroup = false;
     }
 
     const dealer = await tx.dealer.create({
@@ -767,15 +813,33 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
         ownerCreated = true;
       }
 
-      await tx.dealerGroupMembership.create({
-        data: {
-          dealerGroupId,
-          technicianId: ownerId,
-          role: 'owner',
-          isPrimary: true,
-          isActive: true,
-        },
+      const alreadyMember = await tx.dealerGroupMembership.findFirst({
+        where: { dealerGroupId, technicianId: ownerId },
+        select: { id: true, isActive: true },
       });
+      if (alreadyMember) {
+        if (!alreadyMember.isActive) {
+          await tx.dealerGroupMembership.update({
+            where: { id: alreadyMember.id },
+            data: { isActive: true, role: 'owner' },
+          });
+        }
+      } else {
+        const hasPrimary = await tx.dealerGroupMembership.findFirst({
+          where: { technicianId: ownerId, isActive: true, isPrimary: true },
+          select: { id: true },
+        });
+        await tx.dealerGroupMembership.create({
+          data: {
+            dealerGroupId,
+            technicianId: ownerId,
+            role: 'owner',
+            // Second group membership is never primary by default
+            isPrimary: !hasPrimary,
+            isActive: true,
+          },
+        });
+      }
     }
 
     // P1-4: commercial provision — all product modules OFF by default (contract enable later).
@@ -825,6 +889,7 @@ export async function provisionDealer(input: ProvisionDealerInput): Promise<Prov
       dealerCodeHash: meta.dealerCodeHash,
       ownerOutcome,
       hasDealerGroup: Boolean(dealerGroupId),
+      reusedExistingGroup,
     });
 
     const logins: ProvisionDealerLoginHint[] = [
@@ -899,6 +964,8 @@ export function httpStatusForProvisionError(code: string): number {
     case 'DEALER_EXISTS':
     case 'DEALER_GROUP_EXISTS':
       return 409;
+    case 'DEALER_GROUP_NOT_FOUND':
+      return 404;
     case 'UNKNOWN_TEMPLATE':
     case 'INVALID_DEALER_CODE':
     case 'RESERVED_DEALER_CODE':

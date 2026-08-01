@@ -146,7 +146,7 @@ describe('Security fortress (Phase 6.3â€“6.4)', () => {
     assert.equal(summary.status, 403, 'dealership-scope owner must not use national summary');
     assert.equal(summary.body.code, 'DEALERSHIP_CONTEXT_REQUIRED');
 
-    // Phase 6.4 â€” cannot re-enter from dealership scope (must exit first)
+        // Second-facility: rooftop→rooftop switch allowed without exit (same store refresh OK)
     const reEnter = await runWithNextRouteContext(
       buildApexAuthenticatedRequest('http://localhost/api/auth/enter-dealership', dealershipToken, {
         method: 'POST',
@@ -155,9 +155,9 @@ describe('Security fortress (Phase 6.3â€“6.4)', () => {
       '/api/auth/enter-dealership/route',
       (req) => postEnterDealership(req)
     );
-    const reEnterBody = await readJsonResponse<{ code?: string }>(reEnter);
-    assert.equal(reEnter.status, 403, 'must be national to enter dealership');
-    assert.equal(reEnterBody.body.code, 'DEALERSHIP_CONTEXT_REQUIRED');
+    const reEnterBody = await readJsonResponse<{ scopeMode?: string; error?: string }>(reEnter);
+    assert.equal(reEnter.status, 200, 'owner may re-enter/switch rooftop without national exit');
+    assert.equal(reEnterBody.body.scopeMode, 'dealership');
 
     // Exit restores national console
     const exitResponse = await runWithNextRouteContext(

@@ -20,6 +20,7 @@ export type AuditAction =
   | 'auth.logout'
   | 'auth.refresh'
   | 'auth.select_dealership'
+  | 'auth.switch_dealership'
   | 'owner.dealership_enter'
   | 'owner.dealership_exit'
   | 'owner.national_access'
@@ -109,6 +110,7 @@ export const CRITICAL_AUDIT_ACTIONS: ReadonlySet<AuditAction> = new Set([
   'auth.logout',
   'auth.refresh',
   'auth.select_dealership',
+  'auth.switch_dealership',
   'owner.dealership_enter',
   'owner.dealership_exit',
   'owner.national_access',

@@ -185,7 +185,11 @@ async function resolveOwnerSummaryDealerScope(
     return { isGroupScoped: false, dealerIdList: null, scopeMode: 'national' };
   }
 
-  const scopedDealerIds = await listDealerIdsForOwnerGroups(context.technicianId);
+  const scopedDealerIds = await listDealerIdsForOwnerGroups(context.technicianId, {
+    // When owner is in group home scope, honor active portfolio (second-facility groups)
+    dealerGroupId:
+      context.scopeMode === 'group' ? context.activeDealerGroupId ?? null : null,
+  });
   // null = platform operator (national); array = group-scoped (possibly empty)
   const isNationalOperator = scopedDealerIds === null;
 
