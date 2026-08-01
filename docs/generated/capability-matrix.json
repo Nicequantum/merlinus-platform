@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-07-31T04:38:22.139Z",
-  "routeCount": 137,
+  "generatedAt": "2026-08-01T12:37:10.312Z",
+  "routeCount": 140,
   "byStatus": {
     "pilot-optional": 54,
     "ops-gated": 9,
     "pilot-core": 62,
     "deferred": 1,
-    "national-owner": 8,
+    "unknown": 3,
+    "national-owner": 9,
     "internal": 1,
-    "public": 1,
-    "unknown": 1
+    "public": 1
   },
   "legend": {
     "pilot-core": "Required for first MB pilot (core warranty story)",
@@ -1365,6 +1365,45 @@
       "note": "Entitlement toggles — keep non-core off in pilot"
     },
     {
+      "routeFile": "src/app/api/ops/nightly-maintenance/route.ts",
+      "apiPath": "/api/ops/nightly-maintenance",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "bare-or-other",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "public-or-special"
+      ],
+      "rateLimitKeys": [],
+      "requireDealershipContext": false,
+      "pilotStatus": "unknown",
+      "note": null
+    },
+    {
+      "routeFile": "src/app/api/ops/self-heal/route.ts",
+      "apiPath": "/api/ops/self-heal",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "manager"
+      ],
+      "rateLimitKeys": [
+        "ops.self_heal_status",
+        "ops.self_heal_run"
+      ],
+      "requireDealershipContext": true,
+      "pilotStatus": "unknown",
+      "note": null
+    },
+    {
       "routeFile": "src/app/api/owner/billing/route.ts",
       "apiPath": "/api/owner/billing",
       "methods": [
@@ -1435,6 +1474,25 @@
       ],
       "rateLimitKeys": [
         "owner.dealerships"
+      ],
+      "requireDealershipContext": false,
+      "pilotStatus": "national-owner",
+      "note": "Platform / group owner console only"
+    },
+    {
+      "routeFile": "src/app/api/owner/pilot-readiness/route.ts",
+      "apiPath": "/api/owner/pilot-readiness",
+      "methods": [
+        "GET"
+      ],
+      "wrapper": "withAuth",
+      "moduleId": null,
+      "modules": [],
+      "roles": [
+        "owner"
+      ],
+      "rateLimitKeys": [
+        "owner.pilot-readiness"
       ],
       "requireDealershipContext": false,
       "pilotStatus": "national-owner",

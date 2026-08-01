@@ -36,6 +36,12 @@ if (!process.env.SEARCH_HMAC_KEY?.trim()) {
   process.env.SEARCH_HMAC_KEY =
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 }
+// Session signing for integration isolation suites (createSessionToken / auth).
+// Only applied when unset — never overrides real .env.local secrets.
+if (!process.env.SESSION_SECRET?.trim() || process.env.SESSION_SECRET.trim().length < 32) {
+  process.env.SESSION_SECRET =
+    'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+}
 
 // Prisma engineType=client needs a driver adapter. On plain Node/CI use file SQLite
 // (see tests/setup/prismaNode.mjs + src/lib/db.ts). Workers inject D1 binding DB.

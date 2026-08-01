@@ -31,6 +31,7 @@
 | [**generated/CAPABILITY-MATRIX.md**](./generated/CAPABILITY-MATRIX.md) | **Living API matrix** (route → module → pilot status) — `npm run matrix:generate` |
 | [**generated/p0-deploy-verify-latest.md**](./generated/p0-deploy-verify-latest.md) | **Latest P0 verify report** — `npm run verify:p0` |
 | [**Self-Heal-and-Nightly-Maintenance.md**](./Self-Heal-and-Nightly-Maintenance.md) | **Nightly Grok self-heal + morning warmup** (ops cron, env, Control Center) |
+| [**PILOT-SAFETY-AUDIT-2026-08-01.md**](./PILOT-SAFETY-AUDIT-2026-08-01.md) | **Pilot safety audit + grade (2026-08-01)** |
 
 | [Modular-OS-Overview.md](./Modular-OS-Overview.md) | Feature-complete modular OS summary, architecture, pilot scenarios |
 

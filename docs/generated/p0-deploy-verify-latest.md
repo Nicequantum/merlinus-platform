@@ -1,6 +1,6 @@
 # P0 Deploy Verify — latest run
 
-**Generated:** 2026-07-31T04:38:21.513Z
+**Generated:** 2026-08-01T12:37:10.165Z
 **Verdict:** `P0_CODE_GATES_PASS`
 
 | Pass | Warn | Fail | Skip | Critical fails |

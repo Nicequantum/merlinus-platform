@@ -1,7 +1,7 @@
 # Merlinus Capability Matrix (generated)
 
-**Generated:** 2026-07-31T04:38:22.139Z  
-**Routes:** 137  
+**Generated:** 2026-08-01T12:37:10.312Z  
+**Routes:** 140  
 
 > Living matrix: re-run `npm run matrix:generate` after adding API routes.
 > Pilot status overrides: `src/lib/capabilityMatrix/overrides.ts`.
@@ -26,11 +26,11 @@
 | `pilot-core` | 62 |
 | `pilot-optional` | 54 |
 | `ops-gated` | 9 |
-| `national-owner` | 8 |
+| `national-owner` | 9 |
+| `unknown` | 3 |
 | `deferred` | 1 |
 | `internal` | 1 |
 | `public` | 1 |
-| `unknown` | 1 |
 
 ## Pilot-core surfaces (first MB store)
 
@@ -177,10 +177,13 @@
 | `/api/manager/mfa/roster` | GET | withAuth | — | manager | `pilot-core` | Manager control center / MFA admin / encryption |
 | `/api/modules/cdk-status` | GET | withAuth | — | manager | `deferred` | Live CDK API deferred — clipboard paste only |
 | `/api/modules` | GET PATCH | withAuth | — | manager | `pilot-core` | Entitlement toggles — keep non-core off in pilot |
+| `/api/ops/nightly-maintenance` | GET POST | bare-or-other | — | public-or-special | `unknown` |  |
+| `/api/ops/self-heal` | GET POST | withAuth | — | manager | `unknown` |  |
 | `/api/owner/billing` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/dealer-groups` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/dealership-advisors` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/dealerships` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |
+| `/api/owner/pilot-readiness` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/provision-dealer` | POST | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/select-dealer-group` | POST | withAuth | — | owner | `national-owner` | Platform / group owner console only |
 | `/api/owner/summary` | GET | withAuth | — | owner | `national-owner` | Platform / group owner console only |

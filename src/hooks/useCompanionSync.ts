@@ -476,7 +476,8 @@ export function useCompanionSync({
       cancelled = true;
       if (timer) clearInterval(timer);
     };
-  }, [enabled, connectionState]);
+  }, [enabled, connectionState, deviceId]);
+
 
   useEffect(() => {
     if (!enabled) {
