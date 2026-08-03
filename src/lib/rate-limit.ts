@@ -7,7 +7,7 @@
  * Apex production without KV_STORE: fail closed (503).
  */
 import { isApexPlatformMode } from '@/lib/platformMode';
-import { getRateLimitKv, isWorkersKvConfigured } from '@/lib/storage/workersKv';
+import { getRateLimitKv, isWorkersKvConfigured, clampKvExpirationTtl } from '@/lib/storage/workersKv';
 import { apiError, RATE_LIMIT_ERROR } from './errors';
 import { logger } from './logger';
 
@@ -192,7 +192,8 @@ export async function atomicKvIncrement(
   options?: { maxAttempts?: number }
 ): Promise<number> {
   const maxAttempts = options?.maxAttempts ?? 16;
-  const ttlSec = Math.max(1, Math.ceil(config.windowMs / 1000));
+  // Workers KV rejects expirationTtl < 60s — clamp so short windows still write.
+  const ttlSec = clampKvExpirationTtl(Math.ceil(config.windowMs / 1000));
 
   return withKvKeyGate(key, async () => {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {

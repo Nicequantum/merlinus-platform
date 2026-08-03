@@ -417,9 +417,10 @@ export async function checkKvStore(): Promise<DependencyCheck> {
       const { latencyMs } = await timed(async () => {
         const kv = getRateLimitKv();
         if (!kv) throw new Error('KV_STORE binding missing');
+        // Workers KV requires expirationTtl >= 60s — values below throw and red the health check.
         const probeKey = `health:probe:${Date.now()}`;
-        await kv.put(probeKey, '1', { expirationTtl: 30 });
-        const value = await kv.get(probeKey);
+        await kv.put(probeKey, '1', { expirationTtl: 60 });
+        const value = await kv.get(probeKey, 'text');
         if (value !== '1') throw new Error('Workers KV read/write probe failed');
         await kv.delete(probeKey);
         return true;
@@ -438,7 +439,7 @@ export async function checkKvStore(): Promise<DependencyCheck> {
         status: 'error',
         detail: `Workers KV_STORE probe failed: ${detail}`,
         operatorMessage:
-          'KV_STORE probe failed. Confirm wrangler.toml [[kv_namespaces]] binding = "KV_STORE", namespace id is correct, and redeploy the Worker.',
+          'KV_STORE probe failed. Confirm wrangler.toml [[kv_namespaces]] binding = "KV_STORE", namespace id is correct, and redeploy the Worker. Note: expirationTtl must be ≥60s on Workers KV.',
       };
     }
     // fall through to legacy REST

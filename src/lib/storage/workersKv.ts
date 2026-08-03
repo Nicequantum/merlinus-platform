@@ -7,9 +7,15 @@ import 'server-only';
  *
  * Resolution order mirrors R2 / AI queue bindings so OpenNext request context
  * always finds the namespace (ALS symbol → getCloudflareContext → cloudflare:workers → global).
+ *
+ * Note: Workers KV `expirationTtl` minimum is **60 seconds**. Callers must not
+ * put with a shorter TTL or the write fails (this previously red'd Health).
  */
 
 export const KV_STORE_BINDING = 'KV_STORE' as const;
+
+/** Cloudflare Workers KV minimum for `expirationTtl` (seconds). */
+export const KV_MIN_EXPIRATION_TTL_SEC = 60 as const;
 
 export type WorkersKvLike = {
   get: (key: string, type?: 'text') => Promise<string | null>;
@@ -28,6 +34,12 @@ function isWorkersKv(value: unknown): value is WorkersKvLike {
     typeof (value as WorkersKvLike).get === 'function' &&
     typeof (value as WorkersKvLike).put === 'function'
   );
+}
+
+/** Clamp TTL so put() never violates Workers KV minimum. */
+export function clampKvExpirationTtl(ttlSec: number): number {
+  if (!Number.isFinite(ttlSec) || ttlSec <= 0) return KV_MIN_EXPIRATION_TTL_SEC;
+  return Math.max(KV_MIN_EXPIRATION_TTL_SEC, Math.ceil(ttlSec));
 }
 
 function readOpenNextAlsKv(): WorkersKvLike | null {
@@ -76,6 +88,18 @@ function readWorkersModuleKv(): WorkersKvLike | null {
   return null;
 }
 
+function readGlobalEnvKv(): WorkersKvLike | null {
+  const g = globalThis as typeof globalThis & {
+    KV_STORE?: WorkersKvLike;
+    __CLOUDFLARE_ENV__?: Record<string, unknown>;
+  };
+  if (isWorkersKv(g.KV_STORE)) return g.KV_STORE;
+  if (g.__CLOUDFLARE_ENV__ && isWorkersKv(g.__CLOUDFLARE_ENV__[KV_STORE_BINDING])) {
+    return g.__CLOUDFLARE_ENV__[KV_STORE_BINDING] as WorkersKvLike;
+  }
+  return null;
+}
+
 /** Returns env.KV_STORE when running on Cloudflare Workers / OpenNext. */
 export function getRateLimitKv(): WorkersKvLike | null {
   const fromAls = readOpenNextAlsKv();
@@ -84,9 +108,7 @@ export function getRateLimitKv(): WorkersKvLike | null {
   if (fromOpenNext) return fromOpenNext;
   const fromWorkers = readWorkersModuleKv();
   if (fromWorkers) return fromWorkers;
-  const g = globalThis as typeof globalThis & { KV_STORE?: WorkersKvLike };
-  if (isWorkersKv(g.KV_STORE)) return g.KV_STORE;
-  return null;
+  return readGlobalEnvKv();
 }
 
 export function isWorkersKvConfigured(): boolean {
@@ -101,7 +123,6 @@ export function describeKvBindingSource(): string | null {
   if (readOpenNextAlsKv()) return 'openNextAls';
   if (readOpenNextPackageKv()) return 'getCloudflareContext';
   if (readWorkersModuleKv()) return 'cloudflare:workers';
-  const g = globalThis as typeof globalThis & { KV_STORE?: WorkersKvLike };
-  if (isWorkersKv(g.KV_STORE)) return 'globalThis';
+  if (readGlobalEnvKv()) return 'globalThis';
   return null;
 }

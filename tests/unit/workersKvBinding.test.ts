@@ -11,12 +11,22 @@ describe('Workers KV binding resolution', () => {
     assert.match(src, /cloudflare:workers/);
     assert.match(src, /describeKvBindingSource/);
     assert.match(src, /KV_STORE/);
+    assert.match(src, /__CLOUDFLARE_ENV__/);
+    assert.match(src, /clampKvExpirationTtl/);
+    assert.match(src, /KV_MIN_EXPIRATION_TTL_SEC\s*=\s*60/);
   });
 
-  it('health KV probe surfaces operator guidance when unbound', () => {
+  it('health KV probe uses valid TTL and surfaces operator guidance', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/lib/healthChecks.ts'), 'utf8');
     assert.match(src, /describeKvBindingSource/);
     assert.match(src, /operatorMessage/);
     assert.match(src, /export async function checkMfaPolicyHealth/);
+    assert.match(src, /expirationTtl:\s*60/);
+    assert.doesNotMatch(src, /expirationTtl:\s*30/);
+  });
+
+  it('rate-limit CAS clamps TTL via clampKvExpirationTtl', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/lib/rate-limit.ts'), 'utf8');
+    assert.match(src, /clampKvExpirationTtl/);
   });
 });
