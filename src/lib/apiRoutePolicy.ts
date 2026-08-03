@@ -59,6 +59,8 @@ export const INTENTIONAL_BARE_API_ROUTES: Readonly<Record<string, string>> = {
     'Ops cron bridge — Bearer OPS_MAINTENANCE_SECRET (or AI_QUEUE_CONSUMER_SECRET); nightly self-heal + morning warmup',
   'src/app/api/export/pilot/route.ts':
     'Pilot data export manifest — Bearer PILOT_EXPORT_TOKEN or national owner session; rate limited + pilot.export audit',
+    'src/app/api/auth/csrf/route.ts':
+    'CSRF seed — rate limited; sets non-httpOnly merlin_csrf cookie + returns token for double-submit header',
   'src/app/api/export/pilot/[dataset]/route.ts':
     'Pilot data export dataset — Bearer PILOT_EXPORT_TOKEN or national owner session; paginated; PII-minimized slices',
 };

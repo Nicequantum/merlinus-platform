@@ -17,48 +17,122 @@ export function isMutatingHttpMethodClient(method: string | undefined): boolean 
   return MUTATING.has((method || 'GET').toUpperCase());
 }
 
-/** Read CSRF token from document.cookie (browser only). */
+function normalizeClientToken(raw: string | undefined | null): string | undefined {
+  if (raw == null) return undefined;
+  let s = String(raw).trim();
+  if (!s) return undefined;
+  try {
+    if (s.includes('%')) s = decodeURIComponent(s);
+  } catch {
+    // keep
+  }
+  return s.trim() || undefined;
+}
+
+/** Read CSRF token from document.cookie (browser only). Prefer last matching cookie. */
 export function readCsrfTokenFromDocument(): string | undefined {
   if (typeof document === 'undefined') return undefined;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`)
-  );
-  if (!match?.[1]) return undefined;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
+  const parts = document.cookie.split(';');
+  let found: string | undefined;
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(`${CSRF_COOKIE}=`)) continue;
+    const value = trimmed.slice(CSRF_COOKIE.length + 1);
+    try {
+      found = normalizeClientToken(decodeURIComponent(value)) ?? normalizeClientToken(value);
+    } catch {
+      found = normalizeClientToken(value);
+    }
   }
+  return found && found.length >= 16 ? found : undefined;
+}
+
+/** Write readable CSRF cookie so document.cookie and next requests stay aligned. */
+export function writeCsrfCookieClient(token: string): void {
+  if (typeof document === 'undefined') return;
+  const secure =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+  // Match middleware: 8h, path=/, SameSite=Lax, not HttpOnly
+  document.cookie = `${CSRF_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${
+    60 * 60 * 8
+  }; SameSite=Lax${secure}`;
+}
+
+function generateClientToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 /**
- * Merge CSRF double-submit header into request headers when the cookie is present.
- * Safe for GET (harmless) and required for POST/PUT/PATCH/DELETE under enforcement.
+ * Ensure a CSRF token exists (cookie + return value for header).
+ * Seeds via GET /api/auth/csrf when missing; falls back to client-generated token.
  */
-export function withCsrfHeaders(headers?: HeadersInit): HeadersInit {
-  const csrf = readCsrfTokenFromDocument();
+export async function ensureCsrfToken(): Promise<string> {
+  let token = readCsrfTokenFromDocument();
+  if (token && token.length >= 16) {
+    writeCsrfCookieClient(token); // re-assert attributes
+    return token;
+  }
+
+  try {
+    const res = await fetch('/api/auth/csrf', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { token?: string };
+      const fromApi = normalizeClientToken(body.token);
+      if (fromApi && fromApi.length >= 16) {
+        writeCsrfCookieClient(fromApi);
+        return fromApi;
+      }
+    }
+  } catch {
+    // fall through to client seed
+  }
+
+  // Final fallback: client-minted token written as cookie (double-submit still holds).
+  token = generateClientToken();
+  writeCsrfCookieClient(token);
+  return token;
+}
+
+/**
+ * Merge CSRF double-submit header into request headers.
+ * Pass `tokenOverride` when you already called ensureCsrfToken() (preferred).
+ */
+export function withCsrfHeaders(
+  headers?: HeadersInit,
+  tokenOverride?: string | null
+): HeadersInit {
+  const csrf = normalizeClientToken(tokenOverride) || readCsrfTokenFromDocument();
   if (!csrf) return headers || {};
   if (headers instanceof Headers) {
     const next = new Headers(headers);
-    if (!next.has(CSRF_HEADER)) next.set(CSRF_HEADER, csrf);
+    next.set(CSRF_HEADER, csrf);
     return next;
   }
   if (Array.isArray(headers)) {
-    const has = headers.some(([k]) => k.toLowerCase() === CSRF_HEADER);
-    return has ? headers : [...headers, [CSRF_HEADER, csrf]];
+    const filtered = headers.filter(([k]) => k.toLowerCase() !== CSRF_HEADER);
+    return [...filtered, [CSRF_HEADER, csrf]];
   }
   const record = { ...(headers || {}) } as Record<string, string>;
-  const existingKey = Object.keys(record).find((k) => k.toLowerCase() === CSRF_HEADER);
-  if (!existingKey) {
-    record[CSRF_HEADER] = csrf;
+  for (const key of Object.keys(record)) {
+    if (key.toLowerCase() === CSRF_HEADER) delete record[key];
   }
+  record[CSRF_HEADER] = csrf;
   return record;
 }
 
 /** Apply CSRF onto a Headers instance (mutates). */
-export function applyCsrfHeaderToHeaders(headers: Headers): void {
-  const csrf = readCsrfTokenFromDocument();
-  if (csrf && !headers.has(CSRF_HEADER)) {
+export function applyCsrfHeaderToHeaders(headers: Headers, tokenOverride?: string): void {
+  const csrf = normalizeClientToken(tokenOverride) || readCsrfTokenFromDocument();
+  if (csrf) {
     headers.set(CSRF_HEADER, csrf);
   }
 }
@@ -75,11 +149,6 @@ export function browserFetchHeaders(
     const extraHeaders = new Headers(extra);
     extraHeaders.forEach((v, k) => headers.set(k, v));
   }
-  if (isMutatingHttpMethodClient(init?.method)) {
-    applyCsrfHeaderToHeaders(headers);
-  } else {
-    // Still attach when cookie exists — cheap and helps half-open clients.
-    applyCsrfHeaderToHeaders(headers);
-  }
+  applyCsrfHeaderToHeaders(headers);
   return headers;
 }

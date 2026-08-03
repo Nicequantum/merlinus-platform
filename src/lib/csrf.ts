@@ -90,10 +90,29 @@ export function readCsrfTokenFromRequest(request: Request): {
   return { cookie, header };
 }
 
-function tokensMatch(a: string, b: string): boolean {
+/** Decode once if percent-encoded; trim; never throw. */
+export function normalizeCsrfToken(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  let s = String(raw).trim();
+  if (!s) return null;
   try {
-    const ba = Buffer.from(a, 'utf8');
-    const bb = Buffer.from(b, 'utf8');
+    // Cookie jars often store encodeURIComponent values; header may be raw.
+    if (s.includes('%')) {
+      s = decodeURIComponent(s);
+    }
+  } catch {
+    // keep raw
+  }
+  return s.trim() || null;
+}
+
+function tokensMatch(a: string, b: string): boolean {
+  const na = normalizeCsrfToken(a);
+  const nb = normalizeCsrfToken(b);
+  if (!na || !nb) return false;
+  try {
+    const ba = Buffer.from(na, 'utf8');
+    const bb = Buffer.from(nb, 'utf8');
     if (ba.length !== bb.length) return false;
     return timingSafeEqual(ba, bb);
   } catch {
@@ -115,10 +134,12 @@ export function validateCsrfRequest(
   if (!enforce) return null;
 
   const { cookie, header } = readCsrfTokenFromRequest(request);
-  if (!cookie || !header) {
+  const c = normalizeCsrfToken(cookie);
+  const h = normalizeCsrfToken(header);
+  if (!c || !h) {
     return CSRF_ERROR;
   }
-  if (!tokensMatch(cookie, header)) {
+  if (!tokensMatch(c, h)) {
     return CSRF_ERROR;
   }
   return null;

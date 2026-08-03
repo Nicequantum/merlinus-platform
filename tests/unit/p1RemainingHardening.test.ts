@@ -9,6 +9,7 @@ import {
   generateCsrfToken,
   isMutatingHttpMethod,
   validateCsrfRequest,
+  normalizeCsrfToken,
 } from '@/lib/csrf';
 import {
   CSRF_COOKIE as CSRF_COOKIE_CLIENT,
@@ -136,6 +137,20 @@ describe('P1-6 CSRF double-submit', () => {
       headers: { cookie: `${CSRF_COOKIE}=${token}` },
     });
     assert.equal(validateCsrfRequest(skipOk, { forceEnforce: true, skipCsrf: true }), null);
+  });
+
+  it('normalizeCsrfToken matches encoded cookie to raw header', () => {
+    const token = generateCsrfToken();
+    const encoded = encodeURIComponent(token);
+    assert.equal(normalizeCsrfToken(encoded), token);
+    const good = new Request('https://example.com/api/x', {
+      method: 'POST',
+      headers: {
+        cookie: `${CSRF_COOKIE}=${encoded}`,
+        [CSRF_HEADER]: token,
+      },
+    });
+    assert.equal(validateCsrfRequest(good, { forceEnforce: true }), null);
   });
 
   it('withAuth, bare auth routes, middleware, and clients wire CSRF', () => {

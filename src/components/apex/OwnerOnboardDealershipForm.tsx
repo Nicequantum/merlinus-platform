@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { generateTemporaryPassword } from '@/lib/passwordGenerator';
-import { withCsrfHeaders, readCsrfTokenFromDocument } from '@/lib/csrfClient';
+import { withCsrfHeaders, ensureCsrfToken } from '@/lib/csrfClient';
 import { clientLog } from '@/lib/clientLog';
 import { toast } from 'sonner';
 import { OwnerPilotReadinessPanel } from '@/components/apex/OwnerPilotReadinessPanel';
@@ -152,16 +152,13 @@ export function OwnerOnboardDealershipForm({ onCompleted }: { onCompleted?: () =
       const ownerTemporaryPassword = includeOwner ? generateTemporaryPassword(14) : null;
 
       try {
-        // Double-submit CSRF: merlin_csrf cookie + X-Merlin-CSRF header (required by withAuth).
-        if (!readCsrfTokenFromDocument()) {
-          throw new Error(
-            'Security check failed (CSRF). Refresh the page and try again — the security cookie was missing.'
-          );
-        }
+        // Seed/refresh double-submit CSRF (cookie + header). Mobile Safari often lacks
+        // a readable merlin_csrf until we hit /api/auth/csrf first.
+        const csrfToken = await ensureCsrfToken();
         const res = await fetch('/api/owner/provision-dealer', {
           method: 'POST',
           credentials: 'include',
-          headers: withCsrfHeaders({ 'Content-Type': 'application/json' }),
+          headers: withCsrfHeaders({ 'Content-Type': 'application/json' }, csrfToken),
           body: JSON.stringify({
             dealerCode,
             confirmDealerCode: form.confirmDealerCode.trim().toUpperCase(),
