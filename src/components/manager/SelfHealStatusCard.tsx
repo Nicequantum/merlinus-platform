@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { withCsrfHeaders } from '@/lib/csrfClient';
 
 type Report = {
   kind: string;
@@ -63,7 +64,7 @@ export function SelfHealStatusCard() {
       const res = await fetch('/api/ops/self-heal', {
         method: 'POST',
         credentials: 'include',
-        headers: { Accept: 'application/json' },
+        headers: withCsrfHeaders({ Accept: 'application/json' }),
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok) throw new Error(body.error || `Run failed (${res.status})`);
