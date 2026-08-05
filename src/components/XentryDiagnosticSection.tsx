@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, FolderOpen, Loader2, Sparkles, Trash2 } from 'lucide-react';
+import { Camera, FolderOpen, Loader2, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DiagnosticPhotoGrid } from '@/components/DiagnosticPhotoGrid';
 import { ExtractedDataPreview } from '@/components/ExtractedDataPreview';
@@ -22,6 +22,7 @@ interface XentryDiagnosticSectionProps {
   onProcessImages: () => void;
   onClearPending: () => void;
   onCancelProcessing: () => void;
+  onResetPhotoSave?: () => void;
   onDeletePendingImage?: (imageId: string) => void;
   onDeleteSavedImage?: (imageId: string) => void;
 }
@@ -41,6 +42,7 @@ export function XentryDiagnosticSection({
   onProcessImages,
   onClearPending,
   onCancelProcessing,
+  onResetPhotoSave,
   onDeletePendingImage,
   onDeleteSavedImage,
 }: XentryDiagnosticSectionProps) {
@@ -79,6 +81,18 @@ export function XentryDiagnosticSection({
           {t('addFromGallery')}
         </button>
       </div>
+
+      {onResetPhotoSave && (
+        <button
+          type="button"
+          onClick={onResetPhotoSave}
+          className="w-full h-11 mb-3 flex items-center justify-center gap-2 text-sm font-medium rounded-benz border border-benz-amber/40 text-benz-amber hover:bg-benz-amber/10 touch-target"
+          aria-label={t('resetPhotoSave')}
+        >
+          <RotateCcw size={16} />
+          {t('resetPhotoSave')}
+        </button>
+      )}
 
       {canProcess && !isProcessing && (
         <div className="flex gap-2 mb-3">

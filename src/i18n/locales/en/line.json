@@ -76,5 +76,6 @@
   "savingPhotos": "Saving — {{count}} photo in queue",
   "savingPhotos_other": "Saving — {{count}} photos in queue",
   "savedPhotos": "Saved diagnostic photos",
+  "resetPhotoSave": "Reset Photo Save",
   "extractedTitle": "Extracted from photos"
 }

@@ -704,6 +704,7 @@ export function useRepairOrders({
         onAddFromGallery: () => xentryScan.addFromGallery(target),
         onProcessImages: () => void xentryScan.processPending(target),
         onClearPending: () => xentryScan.clearPending(target),
+        onResetPhotoSave: () => xentryScan.resetPhotoSave(target),
         onCancelProcessing: () => xentryScan.cancelProcessing(),
         onDeletePendingImage: (imageId: string) => xentryScan.removePendingImage(target, imageId),
         onDeleteSavedImage:

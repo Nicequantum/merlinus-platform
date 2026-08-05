@@ -773,6 +773,7 @@ export function BenzTechAuthenticatedApp({
             onAddRoXentryFromGallery={roXentry.onAddFromGallery}
             onProcessRoXentryImages={roXentry.onProcessImages}
             onClearPendingRoXentry={roXentry.onClearPending}
+            onResetRoPhotoSave={roXentry.onResetPhotoSave}
             onCancelRoXentryProcessing={roXentry.onCancelProcessing}
             onDeletePendingRoXentryImage={roXentry.onDeletePendingImage}
             onDeleteROXentryImage={(imageId) =>
@@ -842,6 +843,7 @@ export function BenzTechAuthenticatedApp({
             onAddXentryFromGallery={lineXentry.onAddFromGallery}
             onProcessXentryImages={lineXentry.onProcessImages}
             onClearPendingXentry={lineXentry.onClearPending}
+            onResetPhotoSave={lineXentry.onResetPhotoSave}
             onCancelXentryProcessing={lineXentry.onCancelProcessing}
             onDeletePendingXentryImage={lineXentry.onDeletePendingImage}
             onDeleteXentryImage={(imageId) =>

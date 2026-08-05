@@ -353,6 +353,43 @@ export function useROXentryScan({
     [clearPendingPreviews, pendingByKey]
   );
 
+  /**
+   * Bay recovery: unstick "Saving…" without logout or app restart.
+   * Discards in-flight uploads for this target, breaks persist chains,
+   * unlocks capture, and warms the upload path for the next photo.
+   * Does not delete already-saved diagnostic images or touch auth.
+   */
+  const resetPhotoSave = useCallback(
+    (target: XentryTarget) => {
+      const key = targetKey(target);
+      const pending = pendingByKey[key] ?? [];
+      pending.forEach((img) => {
+        discardedPendingIdsRef.current.add(img.id);
+      });
+      clearPendingPreviews(pending);
+      setPendingByKey((prev) => {
+        if (!(key in prev)) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      persistChainByKeyRef.current.delete(key);
+      sessionRef.current += 1;
+      cancelledRef.current = true;
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      xentryInFlightRef.current = false;
+      xentryPipeline.finish();
+      void import('@/lib/bayUploadReady')
+        .then(({ ensureUploadPathReady }) =>
+          ensureUploadPathReady({ force: true, maxWaitMs: 8_000 })
+        )
+        .catch(() => undefined);
+      toast.success('Photo save reset — take the diagnostic photo again.');
+    },
+    [clearPendingPreviews, pendingByKey, xentryInFlightRef, xentryPipeline]
+  );
+
   const cancelProcessing = useCallback(() => {
     sessionRef.current += 1;
     cancelledRef.current = true;
@@ -602,6 +639,7 @@ export function useROXentryScan({
     addFromGallery,
     processPending,
     clearPending,
+    resetPhotoSave,
     cancelProcessing,
     removePendingImage,
   };

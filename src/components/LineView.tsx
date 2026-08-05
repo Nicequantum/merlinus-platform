@@ -87,6 +87,7 @@ interface LineViewProps {
   onAddXentryFromGallery: () => void;
   onProcessXentryImages: () => void;
   onClearPendingXentry: () => void;
+  onResetPhotoSave?: () => void;
   onCancelXentryProcessing: () => void;
   onDeletePendingXentryImage?: (imageId: string) => void;
   onDeleteXentryImage: (imageId: string) => void;
@@ -126,6 +127,7 @@ export function LineView({
   onAddXentryFromGallery,
   onProcessXentryImages,
   onClearPendingXentry,
+  onResetPhotoSave,
   onCancelXentryProcessing,
   onDeletePendingXentryImage,
   onDeleteXentryImage,
@@ -348,6 +350,7 @@ export function LineView({
           onAddFromGallery={onAddXentryFromGallery}
           onProcessImages={onProcessXentryImages}
           onClearPending={onClearPendingXentry}
+          onResetPhotoSave={onResetPhotoSave}
           onCancelProcessing={onCancelXentryProcessing}
           onDeletePendingImage={onDeletePendingXentryImage}
           onDeleteSavedImage={onDeleteXentryImage}

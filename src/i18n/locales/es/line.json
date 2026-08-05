@@ -75,6 +75,7 @@
   "processingPhotos": "Procesando fotos de diagnóstico",
   "savingPhotos": "Guardando — {{count}} foto en cola",
   "savingPhotos_other": "Guardando — {{count}} fotos en cola",
+  "resetPhotoSave": "Reiniciar guardado de foto",
   "savedPhotos": "Fotos de diagnóstico guardadas",
   "extractedTitle": "Extraído de las fotos"
 }

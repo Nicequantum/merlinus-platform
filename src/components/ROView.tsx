@@ -41,6 +41,7 @@ interface ROViewProps {
   onAddRoXentryFromGallery: () => void;
   onProcessRoXentryImages: () => void;
   onClearPendingRoXentry: () => void;
+  onResetRoPhotoSave?: () => void;
   onCancelRoXentryProcessing: () => void;
   onDeletePendingRoXentryImage?: (imageId: string) => void;
   onDeleteROXentryImage: (imageId: string) => void;
@@ -76,6 +77,7 @@ export function ROView({
   onAddRoXentryFromGallery,
   onProcessRoXentryImages,
   onClearPendingRoXentry,
+  onResetRoPhotoSave,
   onCancelRoXentryProcessing,
   onDeletePendingRoXentryImage,
   onDeleteROXentryImage,
@@ -362,6 +364,7 @@ export function ROView({
           onAddFromGallery={onAddRoXentryFromGallery}
           onProcessImages={onProcessRoXentryImages}
           onClearPending={onClearPendingRoXentry}
+          onResetPhotoSave={onResetRoPhotoSave}
           onCancelProcessing={onCancelRoXentryProcessing}
           onDeletePendingImage={onDeletePendingRoXentryImage}
           onDeleteSavedImage={onDeleteROXentryImage}
